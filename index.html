@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ChessRPG</title>
+<title>Chezz</title>
 <style>
   body {
     display: flex;
@@ -55,7 +55,7 @@
 </head>
 <body>
 
-<h1>ChessRPG</h1>
+<h1>Chezz</h1>
 <div id="board"></div>
 <div id="promotion"></div>
 <br><a href="/index.html">Reset</a><div id="captured-black"></div>
@@ -101,13 +101,30 @@
     }).join("-");
   }
 
-  function updateUrl() {
-    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", seed: state.seed });
+  function updateUrl(push = false) {
+    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0" });
     if (state.captured) params.set("captured", state.captured);
-    history.replaceState(null, "", "?" + params.toString());
+    const url = "?" + params.toString();
+    if (push) history.pushState(null, "", url); //push is for back button history QOL
+    else history.replaceState(null, "", url);
+  }
+
+  // Hash a string to a uint32 (djb2)
+  function hashStr(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = (Math.imul(h, 33) ^ str.charCodeAt(i)) >>> 0;
+    return h;
   }
 
   function spawnBlackArmy() {
+    // Each call site gets a deterministic value derived from the FEN + a counter
+    let h = hashStr(boardToFen() + state.floor);
+    let callCount = 0;
+    function rng() {
+      h = (Math.imul(h, 1664525) + 1013904223) >>> 0; // LCG step
+      return h / 4294967296;
+    }
+
     let budget = state.floor + Math.floor(rng() * 3) - 1;
     if (budget < 1) budget = 1;
 
@@ -147,23 +164,30 @@
     newFloor(boardToFen().split("-")[0]);
     state.turn = "w";
   }
-
+ 
   function newFloor(survivorsFen) {
-    let pawnRow = "";
+    // rank1 = new floor's back rank (row 8), rank2 = one step ahead (row 7)
+    // White pawns advance to rank2, leaving rank1 empty in that column.
+    // Other white survivors stay on rank1; a captured pawn spawns at rank2 if available.
+    let rank1 = "", rank2 = "";
     for (const c of survivorsFen) {
-      if ("12345678".includes(c)) { pawnRow += c; continue; }
-      if (c !== c.toUpperCase()) { pawnRow += c; continue; }
-
-      const pawnIndex = state.captured.indexOf("p");
-      if (pawnIndex !== -1) {
-        pawnRow += "P";
-        state.captured = state.captured.slice(0, pawnIndex) + state.captured.slice(pawnIndex + 1);
+      if ("12345678".includes(c)) { rank1 += c; rank2 += c; continue; }
+      if (c === "P") {
+        rank1 += "1";
+        rank2 += "P";
       } else {
-        pawnRow += "1";
+        rank1 += c;
+        const pawnIndex = state.captured.indexOf("p");
+        if (pawnIndex !== -1) {
+          rank2 += "P";
+          state.captured = state.captured.slice(0, pawnIndex) + state.captured.slice(pawnIndex + 1);
+        } else {
+          rank2 += "1";
+        }
       }
     }
-
-    loadFen("8-8-8-8-8-8-8-" + pawnRow + "-" + survivorsFen + "_" + state.turn);
+ 
+    loadFen("8-8-8-8-8-8-8-" + rank2 + "-" + rank1 + "_" + state.turn);
     state.floor++;
     state.spawned = false;
     spawnBlackArmy();
@@ -216,7 +240,11 @@
       }
       state.turn = "w";
     }
-    checkFloorProgression(); updateUrl(); renderBoard();
+
+    // change at end of clickSquare:
+    checkFloorProgression(); updateUrl(true); renderBoard();
+
+    // add after renderBoard():
   }
 
   function renderBoard() {
@@ -235,17 +263,24 @@
     boardElement.innerHTML = html;
   }
 
+  function loadFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    state.floor = parseInt(params.get("floor") || "1");
+    state.spawned = params.get("spawned") === "1";
+    state.captured = params.get("captured") || "";
+    loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
+    selected = null; promotion = null;
+    promotionElement.style.display = "none";
+    renderBoard();
+  }
+
+  window.addEventListener("popstate", loadFromUrl);
+
   function start() {
     const params = new URLSearchParams(window.location.search);
     state.floor = parseInt(params.get("floor") || "1");
     state.spawned = params.get("spawned") === "1";
     state.captured = params.get("captured") || "";
-
-    // Seed: persist from URL if present, otherwise generate a fresh one
-    const rawSeed = params.get("seed");
-    state.seed = rawSeed ? (parseInt(rawSeed) >>> 0) : ((Math.random() * 0xFFFFFFFF) >>> 0);
-    rng = makePrng(state.seed);
-
     loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
     if (!state.spawned) spawnBlackArmy();
     updateUrl(); renderBoard();
