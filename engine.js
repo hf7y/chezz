@@ -116,7 +116,55 @@ function legalMovesForPiece(board, piece, fromX, fromY) {
     }
   }
 
-  return moves;
+  // Row 0 (rank 9) is the exit row that carries pieces to the next floor — enemy
+  // pieces may never move onto it.
+  // TODO: once a player's own piece reaches row 0, it should probably be locked
+  // there (unable to move again) until the floor transition happens — not
+  // implemented yet, it can still move freely for now.
+  return isWhite ? moves : moves.filter(m => m.y !== 0);
+}
+
+const SLIDE_DIRS = {
+  r: [[1,0],[-1,0],[0,1],[0,-1]],
+  b: [[1,1],[-1,1],[1,-1],[-1,-1]],
+  q: [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]],
+};
+
+// Fork bonus: does the piece now at (x, y) attack 2+ enemy pieces at once?
+// The opponent can only save the most valuable one, so the second-best target
+// is what we should expect to actually net — plus a little extra if the King
+// is one of the forked pieces. `valueOf(piece)` must return a comparable
+// magnitude for any piece character, including "K"/"k".
+function findForkBonus(board, piece, x, y, valueOf) {
+  const attacked = legalMovesForPiece(board, piece, x, y).map(m => board[m.y][m.x]).filter(Boolean);
+  if (attacked.length < 2) return 0;
+  const values = attacked.map(valueOf).sort((a, b) => b - a);
+  const kingChar = piece === piece.toUpperCase() ? "k" : "K";
+  return values[1] + (attacked.includes(kingChar) ? valueOf(kingChar) * 0.5 : 0);
+}
+
+// Skewer bonus: sliding toward a valuable piece with a less-valuable one lined
+// up directly behind it on the same line — once the front piece moves, the
+// back one falls.
+function findSkewerBonus(board, piece, x, y, valueOf) {
+  const dirs = SLIDE_DIRS[piece.toLowerCase()];
+  if (!dirs) return 0;
+  let bonus = 0;
+  for (const [dx, dy] of dirs) {
+    let cx = x + dx, cy = y + dy;
+    const hits = [];
+    while (cx >= 0 && cx < 8 && cy >= 0 && cy < 9) {
+      const p2 = board[cy][cx];
+      if (p2) {
+        if ((p2 === p2.toUpperCase()) === (piece === piece.toUpperCase())) break; // a friendly piece fully blocks the ray
+        hits.push(p2);
+        if (hits.length === 2) break;
+      }
+      cx += dx; cy += dy;
+    }
+    if (hits.length === 2 && valueOf(hits[0]) >= valueOf(hits[1])) bonus += valueOf(hits[1]);
+  }
+  return bonus;
 }
 
 function findWhiteKing(board) {
@@ -137,6 +185,29 @@ const Engine = {
     return legalMovesForPiece(board, piece, fromX, fromY)
       .some(m => m.x === toX && m.y === toY);
   },
+
+  // All legal destination squares for the piece on (fromX, fromY)
+  legalMovesFrom(board, fromX, fromY) {
+    const piece = board[fromY][fromX];
+    return piece ? legalMovesForPiece(board, piece, fromX, fromY) : [];
+  },
+
+  // Squares of every byWhite-colored piece that can legally move onto (x, y)
+  attackersOf(board, x, y, byWhite) {
+    const attackers = [];
+    for (let ay = 0; ay < 9; ay++) {
+      for (let ax = 0; ax < 8; ax++) {
+        const piece = board[ay][ax];
+        if (!piece || (piece === piece.toUpperCase()) !== byWhite) continue;
+        if (legalMovesForPiece(board, piece, ax, ay).some(m => m.x === x && m.y === y)) {
+          attackers.push({ x: ax, y: ay });
+        }
+      }
+    }
+    return attackers;
+  },
+
+  findWhiteKing,
 
   getBlackMove(board) {
     const moves = [];
@@ -298,6 +369,11 @@ const Engine = {
           if (move.y === 1) score += 150;
           if (move.y === 2) score += 100;
 
+          // --- TACTICAL AWARENESS: forks & skewers ---
+          const valueOf = p => (p === "K" ? 1000 : (pieceValues[p.toLowerCase()] || 100));
+          score += findForkBonus(nextBoard, piece, move.x, move.y, valueOf) * 5;
+          score += findSkewerBonus(nextBoard, piece, move.x, move.y, valueOf) * 3;
+
           // --- LOOKAHEAD DEFENSE MATRIX ---
           let hangingPenalty = 0;
           for (let wy = 0; wy < 9; wy++) {
@@ -318,7 +394,11 @@ const Engine = {
               }
             }
           }
-          score -= hangingPenalty; 
+          // Scaled to match the material-evaluation bonus above (also *10), so a
+          // capture that gets recaptured nets out to its true material loss instead
+          // of still looking profitable — this is what stops e.g. a knight (300)
+          // diving in to take a defended pawn (100) for a net loss.
+          score -= hangingPenalty * 10;
 
           moves.push({ fromX: x, fromY: y, toX: move.x, toY: move.y, score });
         }
@@ -342,10 +422,13 @@ const Engine = {
       'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100
     };
 
+    const valueOfAbs = p => Math.abs(pieceValues[p]);
+
     // Static evaluation of any given board state
     function evaluateBoard(b) {
       let total = 0;
       let wKing = null;
+      const blackPieces = [];
 
       for (let y = 0; y < 9; y++) {
         for (let x = 0; x < 8; x++) {
@@ -356,20 +439,39 @@ const Engine = {
           total += pieceValues[piece];
 
           if (piece === "K") wKing = { x, y };
-          
+
           // Positional weights
           if (piece === piece.toLowerCase()) {
             if (y === 1) total += 50;
             if (y === 2) total += 30;
+            blackPieces.push({ x, y, piece });
           }
         }
       }
 
-      // Main objective weight
+      // Main objective weight. Kept well below material values (100-900) so a
+      // single King step never outweighs an actual capture — at 2000 it did,
+      // which meant getWhiteBestResponse effectively always "chose" to just
+      // shuffle the King forward instead of taking a free recapture, so Black's
+      // bad trades were never punished. The literal reach-row-0 case is still
+      // an instant -Infinity below, this term is only the gradual approach.
       if (wKing) {
-        total -= (8 - wKing.y) * 2000; 
+        total -= (8 - wKing.y) * 150;
+
+        // Swarm pressure: black pieces are worth more the closer they crowd the King
+        for (const bp of blackPieces) {
+          const dist = Math.abs(bp.x - wKing.x) + Math.abs(bp.y - wKing.y);
+          total += (16 - dist) * 5;
+        }
       } else {
-        total += 500000; 
+        total += 500000;
+      }
+
+      // Tactical awareness: live forks/skewers still on the board after this
+      // line of play are worth keeping, not just one-off capture bonuses.
+      for (const bp of blackPieces) {
+        total += findForkBonus(b, bp.piece, bp.x, bp.y, valueOfAbs) * 0.5;
+        total += findSkewerBonus(b, bp.piece, bp.x, bp.y, valueOfAbs) * 0.5;
       }
 
       return total;

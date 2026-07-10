@@ -12,10 +12,54 @@
     font-family: sans-serif;
   }
 
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  #game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* In landscape, put the instructions beside the game instead of above it */
+  @media (orientation: landscape) {
+    main { flex-direction: row; align-items: flex-start; }
+  }
+
   /* 9 columns total: column 1 is the 30px rank numbers, columns 2-9 are the 40px squares */
   #board {
+    position: relative;
     display: grid;
     grid-template-columns: 30px repeat(8, 40px);
+  }
+
+  /* Out-of-flow: does not participate in #board's grid placement, so it can't
+     collide with the auto-placed square/rank-label cells. */
+  #board-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .threat-arrow { stroke: #d00; stroke-width: 3; }
+
+  .legal-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: rgba(0, 150, 0, 0.65);
+    pointer-events: none;
   }
 
   #captured-black {
@@ -26,6 +70,7 @@
   }
 
   .square {
+    position: relative;
     width: 40px;
     height: 40px;
     display: flex;
@@ -51,14 +96,79 @@
   .nine { border-bottom: solid; opacity: 0.3; }
   .selected { outline: 3px solid yellow; }
   #promotion { position: absolute; display: none; border: 1px solid black; background: white; padding: 4px; }
+
+  .square { touch-action: none; }
+  .dragging-source { opacity: 0.35; }
+  .drag-ghost { position: fixed; transform: translate(-50%, -50%); font-size: 25px; pointer-events: none; z-index: 1000; }
+
+  #instructions {
+    max-width: 380px;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  #instructions p { margin: 6px 0; }
+
+  #ai-mode {
+    margin-top: 12px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+  }
+  #ai-mode label { display: block; margin: 2px 0; cursor: pointer; }
 </style>
 </head>
 <body>
 
-<h1>Chezz</h1>
-<div id="board"></div>
-<div id="promotion"></div>
-<br><a href="/index.html">Reset</a><div id="captured-black"></div>
+<header><h1>Chezz</h1></header>
+
+<main>
+  <article id="game">
+    <aside id="captured-black"></aside>
+    <section id="board" aria-label="Chess board" oncontextmenu="cancelSelection(event)"></section>
+    <aside id="promotion"></aside>
+    <footer><a href="/index.html">Reset</a> · <a href="#" onclick="history.back(); return false;">Undo</a></footer>
+    <fieldset id="ai-mode">
+      <legend>Black AI</legend>
+      <label><input type="radio" name="aiMode" value="heuristic" onchange="setAiMode(this.value)"> Heuristic</label>
+      <label><input type="radio" name="aiMode" value="performant" checked onchange="setAiMode(this.value)"> Performant</label>
+      <label><input type="radio" name="aiMode" value="ruthless" onchange="setAiMode(this.value)"> Ruthless</label>
+    </fieldset>
+  </article>
+
+  <aside id="instructions">
+    <details>
+      <summary>How to play</summary>
+      <p>
+        You control a lone White King (♔) trying to fight up through an endless dungeon.
+        Each floor is seeded with a random black army — bigger and nastier the deeper you go —
+        scattered across the board above the bottom two ranks.
+      </p>
+      <p>
+        Click (or tap) a piece to select it, then click a destination to move it — or just
+        drag a piece straight to its destination instead. Clicking a different one of your
+        own pieces mid-selection switches your selection instead of wasting a click, and
+        pressing Escape (or right-clicking the board) cancels a selection outright. Pieces
+        move using standard chess rules, except once a floor's black army is completely
+        wiped out your King can leap to any empty square instead of creeping one step at a
+        time. After you move, the black side replies automatically.
+      </p>
+      <p>
+        Capture black pieces to bank them (shown above the board). Banked material lets you
+        promote a White pawn into a Queen, Rook, Bishop, or Knight once that pawn reaches the
+        second-to-last rank.
+      </p>
+      <p>
+        Get your King to the very top row to clear the floor. Surviving pieces carry over to
+        the next floor's back ranks, surviving pawns advance one rank, and any non-pawn
+        survivor gets escorted by a bonus pawn if you've banked a captured black pawn to spend.
+        Rank numbers on the left keep climbing across floors so you can track your overall depth.
+      </p>
+      <p>
+        Your progress is saved in the URL, so the page is reload- and share-safe, and the
+        browser back button undoes moves. Use "Reset" below the board to start over from floor 1.
+      </p>
+    </details>
+  </aside>
+</main>
 
 <script src="engine.js"></script>
 <script>
@@ -67,7 +177,7 @@
   const capturedElement = document.getElementById("captured-black");
   const promotionElement = document.getElementById("promotion");
 
-  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, seed: 0 };
+  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, seed: 0, lastSpawnBudget: 0 };
   let selected = null, promotion = null;
   let rng = () => Math.random(); // replaced with seeded prng on start()
 
@@ -102,7 +212,7 @@
   }
 
   function updateUrl(push = false) {
-    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0" });
+    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget });
     if (state.captured) params.set("captured", state.captured);
     const url = "?" + params.toString();
     if (push) history.pushState(null, "", url); //push is for back button history QOL
@@ -127,6 +237,9 @@
 
     let budget = state.floor + Math.floor(rng() * 3) - 1;
     if (budget < 1) budget = 1;
+    // Spawn material should ratchet up, never down, floor to floor.
+    if (budget < state.lastSpawnBudget) budget = state.lastSpawnBudget;
+    state.lastSpawnBudget = budget;
 
     const pieces = [];
     while (budget > 0) {
@@ -149,7 +262,16 @@
 
     let index = 0;
     for (let y = 1; y < 9 && index < pieces.length; y++) {
-      for (let x = 0; x < 8 && index < pieces.length; x++) {
+      // Randomize this row's column order so placement isn't left-side heavy —
+      // a true random pick out of the 8 columns for the first piece inserted,
+      // then a random pick of what's left for the next, and so on.
+      const cols = [0, 1, 2, 3, 4, 5, 6, 7];
+      for (let i = cols.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [cols[i], cols[j]] = [cols[j], cols[i]];
+      }
+      for (const x of cols) {
+        if (index >= pieces.length) break;
         if (state.board[y][x] === "" && rng() > 0.5) {
           state.board[y][x] = pieces[index++];
         }
@@ -193,11 +315,14 @@
     spawnBlackArmy();
   }
 
+  let promotionResolve = null;
+
   function choosePromotion(p) {
     state.captured = state.captured.replace(p.toLowerCase(), "");
     state.board[promotion.y][promotion.x] = p;
     promotion = null; promotionElement.style.display = "none";
     updateUrl(); renderBoard();
+    if (promotionResolve) { const resolve = promotionResolve; promotionResolve = null; resolve(); }
   }
 
   function renderPromotion() {
@@ -216,40 +341,192 @@
     });
   }
 
-  function clickSquare(x, y) {
-    if (promotion) return;
-    if (!selected) { if (state.board[y][x]) selected = { x, y }; renderBoard(); return; }
-    if (!Engine.isLegalMove(state.board, selected.x, selected.y, x, y)) { selected = null; renderBoard(); return; }
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  function playSound(name) { /* TODO: hook up real chessboard sound effects (move/capture/promote) */ }
 
-    if (state.board[y][x]) state.captured += state.board[y][x];
-    state.board[y][x] = state.board[selected.y][selected.x];
-    state.board[selected.y][selected.x] = "";
-    selected = null; state.turn = "b";
+  const AI_ENGINES = { heuristic: "getBlackMove", performant: "getBlackMovePerformant", ruthless: "getBlackMoveRuthless" };
+  let aiMode = "performant";
+  function setAiMode(mode) { aiMode = mode; }
 
-    if (state.board[y][x] === "P" && y === 1 && state.captured.split("").some(c => ["q","r","b","n"].includes(c))) {
-      promotion = { x, y }; renderPromotion();
+  // House rule layered on top of the engine, not inside it: once every black piece
+  // is off the board, the King can leap to any empty square instead of one at a time.
+  const kingIsFlying = () => !state.board.some(row => row.some(c => c && c === c.toLowerCase()));
+  function isLegalMove(fromX, fromY, toX, toY) {
+    if (state.board[fromY][fromX] === "K" && kingIsFlying()) return state.board[toY][toX] === "";
+    return Engine.isLegalMove(state.board, fromX, fromY, toX, toY);
+  }
+  function legalMovesFrom(fromX, fromY) {
+    if (state.board[fromY][fromX] === "K" && kingIsFlying()) {
+      const moves = [];
+      for (let y = 0; y < 9; y++) for (let x = 0; x < 8; x++) if (state.board[y][x] === "") moves.push({ x, y });
+      return moves;
+    }
+    return Engine.legalMovesFrom(state.board, fromX, fromY);
+  }
+
+  async function makeMove(fromX, fromY, toX, toY) {
+    if (state.board[toY][toX]) state.captured += state.board[toY][toX];
+    state.board[toY][toX] = state.board[fromY][fromX];
+    state.board[fromY][fromX] = "";
+    state.turn = "b";
+    playSound("move");
+
+    const promoting = state.board[toY][toX] === "P" && toY === 1 && state.captured.split("").some(c => ["q","r","b","n"].includes(c));
+    if (promoting) {
+      promotion = { x: toX, y: toY }; renderPromotion();
     }
     checkFloorProgression();
+    const blackWillReply = state.turn === "b";
+    // Always push a fresh checkpoint here, right after white's move — this is
+    // the entry a full turn will collapse into. If black is about to reply, we
+    // later REPLACE this same entry with the final state instead of pushing a
+    // second one; replacing here instead (and pushing after black) would
+    // overwrite the *previous* turn's checkpoint, since replaceState always
+    // rewrites whatever entry the browser is currently sitting on — which is
+    // exactly what made Undo/back land mid-turn instead of on the prior turn.
+    updateUrl(true); renderBoard();
 
-    if (state.turn === "b") {
-      const bm = Engine.getBlackMovePerformant(state.board);
+    if (promoting) {
+      // Black shouldn't get to move while the promotion choice is still pending —
+      // pause here until the player actually picks a piece.
+      await new Promise(resolve => { promotionResolve = resolve; });
+    }
+
+    if (blackWillReply) {
+      await wait(250);
+      const bm = Engine[AI_ENGINES[aiMode]](state.board);
       if (bm) {
         if (state.board[bm.toY][bm.toX]) state.captured += state.board[bm.toY][bm.toX];
         state.board[bm.toY][bm.toX] = state.board[bm.fromY][bm.fromX];
         state.board[bm.fromY][bm.fromX] = "";
+        playSound("move");
       }
       state.turn = "w";
+      checkFloorProgression(); updateUrl(false); renderBoard();
+      await wait(250);
     }
+  }
 
-    // change at end of clickSquare:
-    checkFloorProgression(); updateUrl(true); renderBoard();
+  // Shared entry point for both click-to-move and drag-and-drop; silently
+  // cancels (no-op) if the drop/click target isn't actually a legal move.
+  function attemptMove(fromX, fromY, toX, toY) {
+    selected = null;
+    if (fromX === toX && fromY === toY) { renderBoard(); return; }
+    if (isLegalMove(fromX, fromY, toX, toY)) makeMove(fromX, fromY, toX, toY);
+    else renderBoard();
+  }
 
-    // add after renderBoard():
+  let suppressNextClick = false;
+
+  function clickSquare(x, y) {
+    if (suppressNextClick) { suppressNextClick = false; return; }
+    if (promotion) return;
+    if (!selected) { if (state.board[y][x]) selected = { x, y }; renderBoard(); return; }
+    if (selected.x === x && selected.y === y) { selected = null; renderBoard(); return; }
+    if (isLegalMove(selected.x, selected.y, x, y)) {
+      const from = selected;
+      selected = null;
+      makeMove(from.x, from.y, x, y);
+    } else {
+      // Clicking a different one of your pieces switches the selection
+      // instead of just deselecting, saving a wasted click.
+      selected = state.board[y][x] ? { x, y } : null;
+      renderBoard();
+    }
+  }
+
+  function cancelSelection(e) {
+    e.preventDefault();
+    if (selected) { selected = null; renderBoard(); }
+  }
+
+  window.addEventListener("keydown", e => {
+    if (e.key === "Escape" && selected) { selected = null; renderBoard(); }
+  });
+
+  // --- Drag-and-drop (pointer-based so it works for both mouse and touch) ---
+  const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag rather than a click
+  let drag = null;
+
+  function squareElement(x, y) {
+    return boardElement.querySelector(`.square[data-x="${x}"][data-y="${y}"]`);
+  }
+
+  function moveGhostTo(clientX, clientY) {
+    drag.ghost.style.left = clientX + "px";
+    drag.ghost.style.top = clientY + "px";
+  }
+
+  function beginDrag(e) {
+    drag.dragging = true;
+    selected = { x: drag.x, y: drag.y };
+    renderBoard();
+    squareElement(drag.x, drag.y)?.classList.add("dragging-source");
+    drag.ghost = document.createElement("div");
+    drag.ghost.className = "drag-ghost";
+    drag.ghost.textContent = SYMBOLS[state.board[drag.y][drag.x]] || "";
+    document.body.appendChild(drag.ghost);
+    moveGhostTo(e.clientX, e.clientY);
+  }
+
+  function onPointerMove(e) {
+    if (!drag) return;
+    if (!drag.dragging) {
+      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD) return;
+      beginDrag(e);
+    }
+    moveGhostTo(e.clientX, e.clientY);
+  }
+
+  function onPointerUp(e) {
+    document.removeEventListener("pointermove", onPointerMove);
+    if (!drag) return;
+    const { x: fromX, y: fromY, dragging, ghost } = drag;
+    drag = null;
+    if (!dragging) return; // plain click/tap: let the normal click handler run
+    ghost.remove();
+    squareElement(fromX, fromY)?.classList.remove("dragging-source");
+    suppressNextClick = true;
+    const dropEl = document.elementFromPoint(e.clientX, e.clientY)?.closest(".square");
+    if (dropEl) attemptMove(fromX, fromY, Number(dropEl.dataset.x), Number(dropEl.dataset.y));
+    else { selected = null; renderBoard(); }
+  }
+
+  function pointerDownSquare(e, x, y) {
+    if (promotion || !state.board[y][x]) return;
+    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false, ghost: null };
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp, { once: true });
+  }
+
+  // Pixel centers, used only by the cross-cell threat arrow (dots live inside their own square instead)
+  function squareCenter(x, y) {
+    return { cx: 30 + x * 40 + 20, cy: y * 40 + 20 };
+  }
+
+  function renderThreatArrow() {
+    const king = Engine.findWhiteKing(state.board);
+    const attackers = king ? Engine.attackersOf(state.board, king.x, king.y, false) : [];
+    if (!king || !attackers.length) return "";
+
+    const arrows = attackers.map(a => {
+      const from = squareCenter(a.x, a.y), to = squareCenter(king.x, king.y);
+      return `<line x1="${from.cx}" y1="${from.cy}" x2="${to.cx}" y2="${to.cy}" class="threat-arrow" marker-end="url(#arrowhead)"/>`;
+    }).join("");
+
+    return `<svg id="board-overlay" viewBox="0 0 350 360">
+      <defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#d00"/></marker></defs>
+      ${arrows}
+    </svg>`;
   }
 
   function renderBoard() {
     const capturedBlack = state.captured.split("").filter(c => c === c.toLowerCase()).map(c => SYMBOLS[c] || "").join(" ");
     capturedElement.textContent = capturedBlack ? capturedBlack : "";
+
+    const legalTargets = new Set(
+      (selected ? legalMovesFrom(selected.x, selected.y) : []).map(m => `${m.x},${m.y}`)
+    );
 
     let html = "";
     for (let y = 0; y < 9; y++) {
@@ -257,9 +534,11 @@
       for (let x = 0; x < 8; x++) {
         const isSel = selected && selected.x === x && selected.y === y ? " selected" : "";
         const styleClass = `square ${(x + y) % 2 ? 'dark' : 'light'}${y === 0 ? ' nine' : ''}${isSel}`;
-        html += `<div class="${styleClass}" onclick="clickSquare(${x},${y})">${SYMBOLS[state.board[y][x]] || ""}</div>`;
+        const dot = legalTargets.has(`${x},${y}`) ? '<span class="legal-dot"></span>' : "";
+        html += `<div class="${styleClass}" data-x="${x}" data-y="${y}" onclick="clickSquare(${x},${y})" onpointerdown="pointerDownSquare(event,${x},${y})">${SYMBOLS[state.board[y][x]] || ""}${dot}</div>`;
       }
     }
+    html += renderThreatArrow();
     boardElement.innerHTML = html;
   }
 
@@ -268,6 +547,7 @@
     state.floor = parseInt(params.get("floor") || "1");
     state.spawned = params.get("spawned") === "1";
     state.captured = params.get("captured") || "";
+    state.lastSpawnBudget = parseInt(params.get("budget") || "0");
     loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
     selected = null; promotion = null;
     promotionElement.style.display = "none";
@@ -281,6 +561,7 @@
     state.floor = parseInt(params.get("floor") || "1");
     state.spawned = params.get("spawned") === "1";
     state.captured = params.get("captured") || "";
+    state.lastSpawnBudget = parseInt(params.get("budget") || "0");
     loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
     if (!state.spawned) spawnBlackArmy();
     updateUrl(); renderBoard();
