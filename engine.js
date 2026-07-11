@@ -167,14 +167,37 @@ function findSkewerBonus(board, piece, x, y, valueOf) {
   return bonus;
 }
 
-function findWhiteKing(board) {
-  for (let y = 0; y < 9; y++) {
-    for (let x = 0; x < 8; x++) {
-      if (board[y][x] === "K") {
-        return { x, y };
+// Auto-promotion, mirrored for both colors: a pawn reaching its far rank
+// (row 1 for White, row 8 for Black) promotes by spending one captured
+// piece of the matching type from the opponent out of `capturedPool` (the
+// same shared bank `state.captured` tracks in index.html) — never a free
+// promotion. Picks the strongest available type (queen first) since a
+// rational player facing this game's no-check rules never prefers a weaker
+// piece when a stronger one is banked. Leaves the pawn a pawn if nothing
+// promotable has been captured yet.
+function autoPromote(piece, toY, capturedPool) {
+  if (piece === "P" && toY === 1) {
+    for (const t of ["q", "r", "b", "n"]) {
+      const idx = capturedPool.indexOf(t);
+      if (idx !== -1) {
+        return { piece: t.toUpperCase(), capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
+      }
+    }
+  } else if (piece === "p" && toY === 8) {
+    for (const t of ["Q", "R", "B", "N"]) {
+      const idx = capturedPool.indexOf(t);
+      if (idx !== -1) {
+        return { piece: t.toLowerCase(), capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
       }
     }
   }
+  return { piece, capturedPool };
+}
+
+function findWhiteKing(board) {
+  for (let y = 0; y < 9; y++)
+    for (let x = 0; x < 8; x++)
+      if (board[y][x] === "K") return { x, y };
   return null;
 }
 
@@ -208,121 +231,7 @@ const Engine = {
   },
 
   findWhiteKing,
-
-  getBlackMove(board) {
-    const moves = [];
-    const king = findWhiteKing(board);
-    
-    // 1. Map out all legal White moves to calculate defensive grids
-    const whiteAttacks = new Set();
-    const whiteKingMoves = new Set();
-    
-    for (let y = 0; y < 9; y++) {
-      for (let x = 0; x < 8; x++) {
-        const piece = board[y][x];
-        if (piece && piece === piece.toUpperCase()) {
-          const legal = legalMovesForPiece(board, piece, x, y);
-          for (const m of legal) {
-            whiteAttacks.add(`${m.x},${m.y}`);
-            if (piece === "K") {
-              whiteKingMoves.add(`${m.x},${m.y}`);
-            }
-          }
-        }
-      }
-    }
-
-    // Helper values matching the HTML script context
-    const pieceValues = { p: 100, n: 300, b: 300, r: 500, q: 900 };
-
-    // 2. Evaluate every candidate move for Black
-    for (let y = 0; y < 9; y++) {
-      for (let x = 0; x < 8; x++) {
-        const piece = board[y][x];
-        
-        // Select only Black pieces
-        if (!piece || piece !== piece.toLowerCase()) continue;
-
-        const legal = legalMovesForPiece(board, piece, x, y);
-        const pType = piece.toLowerCase();
-        const myValue = pieceValues[pType] || 0;
-
-        for (const move of legal) {
-          let score = 0;
-          const target = board[move.y][move.x];
-
-          // --- STRATEGY A: AGGRESSIVE MATERIAL CAPTURES ---
-          if (target) {
-            const targetType = target.toLowerCase();
-            if (target === "K") {
-              score += 100000; // Immediate checkmate threat takes top priority
-            } else {
-              const targetValue = pieceValues[targetType] || 100;
-              // MVV-LVA (Most Valuable Victim, Least Valuable Aggressor)
-              score += (targetValue * 100) - (myValue * 0.1);
-            }
-          }
-
-          // --- STRATEGY B: DEFEND THE EXIT (ROW 0 & 1) ---
-          if (move.y === 0) score += 40; // Guarding the actual escape hatch
-          if (move.y === 1) score += 60; // Perfect barricade wall row
-
-          // --- STRATEGY C: KING HUNTING & PATH BLOCKING ---
-          if (king) {
-            const distBefore = Math.abs(x - king.x) + Math.abs(y - king.y);
-            const distAfter = Math.abs(move.x - king.x) + Math.abs(move.y - king.y);
-            
-            // Move pieces towards the White King
-            if (distAfter < distBefore) {
-              score += (pType === 'p') ? 15 : 25;
-            }
-
-            // EXTRA BONUS: Is this piece stepping directly into a square the King wants to step to?
-            if (whiteKingMoves.has(`${move.x},${move.y}`)) {
-              score += 80; // Intercept and form a direct roadblock
-            }
-          }
-
-          // --- STRATEGY D: SELF-PRESERVATION MATRIX ---
-          if (whiteAttacks.has(`${move.x},${move.y}`)) {
-            if (target) {
-              // Only trade pieces if it's a net-positive value capture
-              const targetValue = pieceValues[target.toLowerCase()] || 100;
-              if (myValue > targetValue) {
-                score -= (myValue - targetValue) * 10; // Penalty for bad material trades
-              }
-            } else {
-              score -= (myValue * 2); // Avoid moving into empty spaces that are covered by White
-            }
-          }
-
-          // Tactical retreat: reward moving out of danger if it isn't trading down
-          if (whiteAttacks.has(`${x},${y}`) && !whiteAttacks.has(`${move.x},${move.y}`)) {
-            score += (myValue * 0.5);
-          }
-
-          moves.push({
-            fromX: x, fromY: y,
-            toX: move.x, toY: move.y,
-            score: score
-          });
-        }
-      }
-    }
-
-    if (!moves.length) return null;
-
-    // 3. Select the move with the highest utility evaluation
-    let bestScore = -Infinity;
-    for (const m of moves) {
-      if (m.score > bestScore) bestScore = m.score;
-    }
-
-    const candidates = moves.filter(m => m.score === bestScore);
-
-    // Return a random choice from the best options to add behavioral variety
-    return candidates[Math.floor(Math.random() * candidates.length)];
-  },
+  autoPromote,
 
   getBlackMovePerformant(board) {
     const moves = [];
@@ -416,13 +325,30 @@ const Engine = {
     return candidates[Math.floor(Math.random() * candidates.length)];
   },
 
-  getBlackMoveRuthless(board) {
+  // capturedPool mirrors index.html's `state.captured`: every piece either
+  // side has ever captured, spent one at a time on promotions. Needed here
+  // so the search can correctly simulate promotion (and what it costs) deep
+  // in the tree instead of just leaving pawns stuck on the back rank.
+  getBlackMoveRuthless(board, capturedPool) {
+    capturedPool = capturedPool || "";
+
+    // How many plies deep to search: Black's move, White's reply, Black's
+    // follow-up, White's follow-up reply. Deliberately just raw material +
+    // king-safety search with no tactical special-casing (no fork/skewer
+    // pattern-matching) — at this depth a sacrifice's real cost shows up on
+    // the board itself (the piece gets recaptured within the horizon)
+    // instead of needing a hand-coded bonus to approximate it. Shallower
+    // search (the old depth-1 "White's single best reply") let Black hang a
+    // piece for free whenever a *bigger*, unrelated capture existed
+    // elsewhere on the board: White's one reply spent on grabbing the bigger
+    // prize left the sacrificed piece looking safe, because nothing in the
+    // search ever reached the ply where White comes back for it.
+    const DEPTH = 4;
+
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
       'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100
     };
-
-    const valueOfAbs = p => Math.abs(pieceValues[p]);
 
     // Static evaluation of any given board state
     function evaluateBoard(b) {
@@ -444,14 +370,14 @@ const Engine = {
           if (piece === piece.toLowerCase()) {
             if (y === 1) total += 50;
             if (y === 2) total += 30;
-            blackPieces.push({ x, y, piece });
+            blackPieces.push({ x, y });
           }
         }
       }
 
       // Main objective weight. Kept well below material values (100-900) so a
       // single King step never outweighs an actual capture — at 2000 it did,
-      // which meant getWhiteBestResponse effectively always "chose" to just
+      // which meant White's best response effectively always "chose" to just
       // shuffle the King forward instead of taking a free recapture, so Black's
       // bad trades were never punished. The literal reach-row-0 case is still
       // an instant -Infinity below, this term is only the gradual approach.
@@ -467,66 +393,87 @@ const Engine = {
         total += 500000;
       }
 
-      // Tactical awareness: live forks/skewers still on the board after this
-      // line of play are worth keeping, not just one-off capture bonuses.
-      for (const bp of blackPieces) {
-        total += findForkBonus(b, bp.piece, bp.x, bp.y, valueOfAbs) * 0.5;
-        total += findSkewerBonus(b, bp.piece, bp.x, bp.y, valueOfAbs) * 0.5;
-      }
-
       return total;
     }
 
-    // Minimax depth 1: Find White's best counter-response
-    function getWhiteBestResponse(b) {
-      let bestVal = Infinity; 
-      
+    function collectMoves(b, whiteToMove) {
+      const moves = [];
       for (let y = 0; y < 9; y++) {
         for (let x = 0; x < 8; x++) {
           const piece = b[y][x];
-          if (!piece || piece !== piece.toUpperCase()) continue;
-
-          const legal = legalMovesForPiece(b, piece, x, y);
-          for (const m of legal) {
-            if (piece === "K" && m.y === 0) return -Infinity;
-
-            const nextBoard = b.map(row => [...row]);
-            nextBoard[m.y][m.x] = piece;
-            nextBoard[y][x] = "";
-
-            const val = evaluateBoard(nextBoard);
-            if (val < bestVal) bestVal = val;
+          if (!piece || (piece === piece.toUpperCase()) !== whiteToMove) continue;
+          for (const m of legalMovesForPiece(b, piece, x, y)) {
+            moves.push({ piece, fromX: x, fromY: y, toX: m.x, toY: m.y });
           }
         }
       }
-      return bestVal === Infinity ? evaluateBoard(b) : bestVal;
+      // Move ordering for alpha-beta: try captures (biggest victim first) before
+      // quiet moves, since examining the strongest replies first prunes far more
+      // of the tree than a static natural-order scan would.
+      moves.sort((a, c) => {
+        const at = b[a.toY][a.toX], ct = b[c.toY][c.toX];
+        return (ct ? Math.abs(pieceValues[ct]) : -1) - (at ? Math.abs(pieceValues[at]) : -1);
+      });
+      return moves;
     }
 
-    // Root Generation
+    function applyMove(b, mv, pool) {
+      const nextBoard = b.map(row => [...row]);
+      const target = nextBoard[mv.toY][mv.toX];
+      if (target) pool += target;
+      nextBoard[mv.fromY][mv.fromX] = "";
+      const promo = autoPromote(mv.piece, mv.toY, pool);
+      nextBoard[mv.toY][mv.toX] = promo.piece;
+      return { nextBoard, pool: promo.capturedPool };
+    }
+
+    // Full alternating minimax with alpha-beta pruning: Black maximizes the
+    // (Black-positive/White-negative) evaluation, White minimizes it.
+    function search(b, depth, alpha, beta, whiteToMove, pool) {
+      if (depth === 0) return evaluateBoard(b);
+
+      const moves = collectMoves(b, whiteToMove);
+      if (!moves.length) return evaluateBoard(b);
+
+      if (whiteToMove) {
+        let best = Infinity;
+        for (const mv of moves) {
+          if (mv.piece === "K" && mv.toY === 0) return -Infinity; // White escapes: worst case for Black at any depth
+          const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+          const val = search(nextBoard, depth - 1, alpha, beta, false, nextPool);
+          if (val < best) best = val;
+          if (val < beta) beta = val;
+          if (beta <= alpha) break;
+        }
+        return best;
+      }
+
+      let best = -Infinity;
+      for (const mv of moves) {
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = search(nextBoard, depth - 1, alpha, beta, true, nextPool);
+        if (val > best) best = val;
+        if (val > alpha) alpha = val;
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+
+    // Root Generation — evaluated without pruning against each other so all
+    // moves tying for the maximum are collected for the random pick below.
     const candidates = [];
     let maxEvaluation = -Infinity;
 
-    for (let y = 0; y < 9; y++) {
-      for (let x = 0; x < 8; x++) {
-        const piece = board[y][x];
-        if (!piece || piece !== piece.toLowerCase()) continue;
+    for (const mv of collectMoves(board, false)) {
+      const { nextBoard, pool } = applyMove(board, mv, capturedPool);
+      const moveValue = search(nextBoard, DEPTH - 1, -Infinity, Infinity, true, pool);
 
-        const legal = legalMovesForPiece(board, piece, x, y);
-        for (const m of legal) {
-          const nextBoard = board.map(row => [...row]);
-          nextBoard[m.y][m.x] = piece;
-          nextBoard[y][x] = "";
-
-          const moveValue = getWhiteBestResponse(nextBoard);
-
-          if (moveValue > maxEvaluation) {
-            maxEvaluation = moveValue;
-            candidates.length = 0; 
-            candidates.push({ fromX: x, fromY: y, toX: m.x, toY: m.y, score: moveValue });
-          } else if (moveValue === maxEvaluation) {
-            candidates.push({ fromX: x, fromY: y, toX: m.x, toY: m.y, score: moveValue });
-          }
-        }
+      if (moveValue > maxEvaluation) {
+        maxEvaluation = moveValue;
+        candidates.length = 0;
+        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
+      } else if (moveValue === maxEvaluation) {
+        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
       }
     }
 
