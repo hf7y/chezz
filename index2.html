@@ -450,6 +450,17 @@
     }).join("-");
   }
 
+  // Encodes the live position into the URL — lets a stuck/odd position be
+  // audited by just copying the address bar, and (via pushState) gives the
+  // browser's own back button a working Undo with no on-page control needed.
+  function updateUrl(push = false) {
+    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget });
+    if (state.captured) params.set("captured", state.captured);
+    const url = "?" + params.toString();
+    if (push) history.pushState(null, "", url);
+    else history.replaceState(null, "", url);
+  }
+
   // Hash a string to a uint32 (djb2)
   function hashStr(str) {
     let h = 5381;
@@ -554,7 +565,7 @@
     state.captured = state.captured.replace(p.toLowerCase(), "");
     state.board[promotion.y][promotion.x] = p;
     promotion = null; promotionElement.close();
-    renderBoard();
+    updateUrl(); renderBoard();
     if (promotionResolve) { const resolve = promotionResolve; promotionResolve = null; resolve(); }
   }
 
@@ -591,7 +602,14 @@
     }
     checkFloorProgression();
     const blackWillReply = state.turn === "b";
-    renderBoard();
+    // Always push a fresh checkpoint here, right after white's move — this is
+    // the entry a full turn will collapse into. If black is about to reply, we
+    // later REPLACE this same entry with the final state instead of pushing a
+    // second one; replacing here instead (and pushing after black) would
+    // overwrite the *previous* turn's checkpoint, since replaceState always
+    // rewrites whatever entry the browser is currently sitting on — which is
+    // exactly what made Undo/back land mid-turn instead of on the prior turn.
+    updateUrl(true); renderBoard();
 
     if (promoting) {
       // Black shouldn't get to move while the promotion choice is still pending —
@@ -618,7 +636,7 @@
         state.captured = promo.capturedPool;
       }
       state.turn = "w";
-      checkFloorProgression(); renderBoard();
+      checkFloorProgression(); updateUrl(false); renderBoard();
       await wait(250);
     }
   }
@@ -727,10 +745,26 @@
     boardElement.innerHTML = html;
   }
 
-  // Boot: a fresh game, live only in memory.
-  loadFen("8-8-8-8-8-8-8-8-4K3_w");
-  spawnBlackArmy();
-  renderBoard();
+  // Boot, and browser back/forward (popstate) — either way, the board just
+  // needs to reflect whatever the URL says, defaulting to a fresh floor 1
+  // if there's nothing there yet. The URL is the only Undo control: no
+  // on-page button, just the browser's own back button.
+  function loadFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    state.floor = parseInt(params.get("floor") || "1");
+    state.spawned = params.get("spawned") === "1";
+    state.captured = params.get("captured") || "";
+    state.lastSpawnBudget = parseInt(params.get("budget") || "0");
+    loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
+    selected = null; promotion = null;
+    promotionElement.close();
+    if (!state.spawned) spawnBlackArmy();
+    updateUrl();
+    renderBoard();
+  }
+
+  window.addEventListener("popstate", loadFromUrl);
+  loadFromUrl();
 </script>
 </body>
 </html>
