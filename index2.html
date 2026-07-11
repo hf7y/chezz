@@ -82,26 +82,345 @@
 <p>Captured: <output></output></p>
 <table aria-label="Chess board"></table>
 <dialog><p>Promote to:</p></dialog>
-<menu>
-  <a href="/index.html">Reset</a> · <a href="#" onclick="history.back(); return false;">Undo</a>
-</menu>
-<fieldset>
-  <legend>Black AI</legend>
-  <label><input type="radio" name="aiMode" value="performant" checked onchange="setAiMode(this.value)"> Performant</label>
-  <label><input type="radio" name="aiMode" value="ruthless" onchange="setAiMode(this.value)"> Ruthless</label>
-</fieldset>
 
 <details id="instructions">
   <summary>How to play</summary>
   <p>
-    Click or drag your White King (♔) and other pieces to move them by standard chess
+    Drag your White King (♔) and other pieces to move them by standard chess
     rules — reach the top row to clear the floor, and Black replies automatically after
     every move.
   </p>
 </details>
 
-<script src="engine.js"></script>
 <script>
+  // The rules of the world: a 9-rank board (rows 0-8), White pieces uppercase
+  // (K Q R B N P), Black lowercase (k q r b n p). Row 0 is the "exit" row —
+  // White's King reaching it clears the floor.
+  function legalMovesForPiece(board, piece, fromX, fromY) {
+    const moves = [];
+    const lower = piece.toLowerCase();
+    const isWhite = piece === piece.toUpperCase();
+
+    const ROWS = 9;
+    const COLS = 8;
+
+    function inBounds(x, y) {
+      return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+    }
+
+    function isEmpty(x, y) {
+      return inBounds(x, y) && board[y][x] === "";
+    }
+
+    function isEnemy(x, y) {
+      if (!inBounds(x, y)) return false;
+      const target = board[y][x];
+      if (!target) return false;
+      return isWhite
+        ? target === target.toLowerCase()
+        : target === target.toUpperCase();
+    }
+
+    function isFriendly(x, y) {
+      if (!inBounds(x, y)) return false;
+      const target = board[y][x];
+      if (!target) return false;
+      return isWhite
+        ? target === target.toUpperCase()
+        : target === target.toLowerCase();
+    }
+
+    // Slide in a direction, pushing moves until blocked
+    function slide(dx, dy) {
+      let x = fromX + dx;
+      let y = fromY + dy;
+      while (inBounds(x, y)) {
+        if (isFriendly(x, y)) break;
+        moves.push({ x, y });
+        if (isEnemy(x, y)) break;
+        x += dx;
+        y += dy;
+      }
+    }
+
+    // Step to a single square if not friendly
+    function step(dx, dy) {
+      const x = fromX + dx;
+      const y = fromY + dy;
+      if (inBounds(x, y) && !isFriendly(x, y)) {
+        moves.push({ x, y });
+      }
+    }
+
+    if (lower === "r") {
+      slide(1, 0); slide(-1, 0); slide(0, 1); slide(0, -1);
+    }
+
+    else if (lower === "b") {
+      slide(1, 1); slide(-1, 1); slide(1, -1); slide(-1, -1);
+    }
+
+    else if (lower === "q") {
+      slide(1, 0); slide(-1, 0); slide(0, 1); slide(0, -1);
+      slide(1, 1); slide(-1, 1); slide(1, -1); slide(-1, -1);
+    }
+
+    else if (lower === "k") {
+      const dirs = [
+        [1,0],[-1,0],[0,1],[0,-1],
+        [1,1],[-1,1],[1,-1],[-1,-1]
+      ];
+      for (const [dx, dy] of dirs) step(dx, dy);
+    }
+
+    else if (lower === "n") {
+      const jumps = [
+        [2,1],[2,-1],[-2,1],[-2,-1],
+        [1,2],[1,-2],[-1,2],[-1,-2]
+      ];
+      for (const [dx, dy] of jumps) step(dx, dy);
+    }
+
+    else if (lower === "p") {
+      if (isWhite) {
+        // White pawns move up (decreasing y)
+        if (isEmpty(fromX, fromY - 1)) {
+          moves.push({ x: fromX, y: fromY - 1 });
+          // Double move from row 7 (white's starting rank on 9-rank board)
+          if (fromY === 7 && isEmpty(fromX, fromY - 2)) {
+            moves.push({ x: fromX, y: fromY - 2 });
+          }
+        }
+        // Captures
+        if (isEnemy(fromX - 1, fromY - 1)) moves.push({ x: fromX - 1, y: fromY - 1 });
+        if (isEnemy(fromX + 1, fromY - 1)) moves.push({ x: fromX + 1, y: fromY - 1 });
+      } else {
+        // Black pawns move down (increasing y)
+        if (isEmpty(fromX, fromY + 1)) {
+          moves.push({ x: fromX, y: fromY + 1 });
+          // Double move from rank 8 (black's starting row on 9-rank board)
+          if (fromY === 1 && isEmpty(fromX, fromY + 2)) {
+            moves.push({ x: fromX, y: fromY + 2 });
+          }
+        }
+        // Captures
+        if (isEnemy(fromX - 1, fromY + 1)) moves.push({ x: fromX - 1, y: fromY + 1 });
+        if (isEnemy(fromX + 1, fromY + 1)) moves.push({ x: fromX + 1, y: fromY + 1 });
+      }
+    }
+
+    // Row 0 is the exit row that carries White to the next floor — enemy
+    // pieces may never move onto it.
+    return isWhite ? moves : moves.filter(m => m.y !== 0);
+  }
+
+  // Derived queries, all built on top of legalMovesForPiece.
+  function isLegalMove(board, fromX, fromY, toX, toY) {
+    const piece = board[fromY][fromX];
+    if (!piece) return false;
+    return legalMovesForPiece(board, piece, fromX, fromY).some(m => m.x === toX && m.y === toY);
+  }
+
+  function legalMovesFrom(board, fromX, fromY) {
+    const piece = board[fromY][fromX];
+    return piece ? legalMovesForPiece(board, piece, fromX, fromY) : [];
+  }
+
+  // Squares of every byWhite-colored piece that can legally move onto (x, y)
+  function attackersOf(board, x, y, byWhite) {
+    const attackers = [];
+    for (let ay = 0; ay < 9; ay++) {
+      for (let ax = 0; ax < 8; ax++) {
+        const piece = board[ay][ax];
+        if (!piece || (piece === piece.toUpperCase()) !== byWhite) continue;
+        if (legalMovesForPiece(board, piece, ax, ay).some(m => m.x === x && m.y === y)) {
+          attackers.push({ x: ax, y: ay });
+        }
+      }
+    }
+    return attackers;
+  }
+
+  function findWhiteKing(board) {
+    for (let y = 0; y < 9; y++)
+      for (let x = 0; x < 8; x++)
+        if (board[y][x] === "K") return { x, y };
+    return null;
+  }
+
+  // Auto-promotion, mirrored for both colors: a pawn reaching its far rank
+  // (row 1 for White, row 8 for Black) promotes by spending one captured
+  // piece of the matching type from the opponent out of `capturedPool` —
+  // never a free promotion. Picks the strongest available type (queen
+  // first) since a rational player facing this game's no-check rules never
+  // prefers a weaker piece when a stronger one is banked. Leaves the pawn a
+  // pawn if nothing promotable has been captured yet.
+  function autoPromote(piece, toY, capturedPool) {
+    if (piece === "P" && toY === 1) {
+      for (const t of ["q", "r", "b", "n"]) {
+        const idx = capturedPool.indexOf(t);
+        if (idx !== -1) {
+          return { piece: t.toUpperCase(), capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
+        }
+      }
+    } else if (piece === "p" && toY === 8) {
+      for (const t of ["Q", "R", "B", "N"]) {
+        const idx = capturedPool.indexOf(t);
+        if (idx !== -1) {
+          return { piece: t.toLowerCase(), capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
+        }
+      }
+    }
+    return { piece, capturedPool };
+  }
+
+  // The opponent's mind: given the board (and what's been captured, for
+  // promotion), pick Black's move. A real alternating minimax with
+  // alpha-beta pruning, 4 plies deep (Black, White, Black, White) — deep
+  // enough that a sacrifice's real cost (the piece getting recaptured) shows
+  // up within the search horizon instead of needing a hand-coded bonus to
+  // approximate it.
+  function getBlackMoveRuthless(board, capturedPool) {
+    capturedPool = capturedPool || "";
+    const DEPTH = 4;
+
+    const pieceValues = {
+      'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
+      'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100
+    };
+
+    // Static evaluation of any given board state
+    function evaluateBoard(b) {
+      let total = 0;
+      let wKing = null;
+      const blackPieces = [];
+
+      for (let y = 0; y < 9; y++) {
+        for (let x = 0; x < 8; x++) {
+          const piece = b[y][x];
+          if (!piece) continue;
+
+          // Material balance
+          total += pieceValues[piece];
+
+          if (piece === "K") wKing = { x, y };
+
+          // Positional weights
+          if (piece === piece.toLowerCase()) {
+            if (y === 1) total += 50;
+            if (y === 2) total += 30;
+            blackPieces.push({ x, y });
+          }
+        }
+      }
+
+      // Main objective weight. Kept well below material values (100-900) so a
+      // single King step never outweighs an actual capture — at 2000 it did,
+      // which meant White's best response effectively always "chose" to just
+      // shuffle the King forward instead of taking a free recapture, so Black's
+      // bad trades were never punished. The literal reach-row-0 case is still
+      // an instant -Infinity below, this term is only the gradual approach.
+      if (wKing) {
+        total -= (8 - wKing.y) * 150;
+
+        // Swarm pressure: black pieces are worth more the closer they crowd the King
+        for (const bp of blackPieces) {
+          const dist = Math.abs(bp.x - wKing.x) + Math.abs(bp.y - wKing.y);
+          total += (16 - dist) * 5;
+        }
+      } else {
+        total += 500000;
+      }
+
+      return total;
+    }
+
+    function collectMoves(b, whiteToMove) {
+      const moves = [];
+      for (let y = 0; y < 9; y++) {
+        for (let x = 0; x < 8; x++) {
+          const piece = b[y][x];
+          if (!piece || (piece === piece.toUpperCase()) !== whiteToMove) continue;
+          for (const m of legalMovesForPiece(b, piece, x, y)) {
+            moves.push({ piece, fromX: x, fromY: y, toX: m.x, toY: m.y });
+          }
+        }
+      }
+      // Move ordering for alpha-beta: try captures (biggest victim first) before
+      // quiet moves, since examining the strongest replies first prunes far more
+      // of the tree than a static natural-order scan would.
+      moves.sort((a, c) => {
+        const at = b[a.toY][a.toX], ct = b[c.toY][c.toX];
+        return (ct ? Math.abs(pieceValues[ct]) : -1) - (at ? Math.abs(pieceValues[at]) : -1);
+      });
+      return moves;
+    }
+
+    function applyMove(b, mv, pool) {
+      const nextBoard = b.map(row => [...row]);
+      const target = nextBoard[mv.toY][mv.toX];
+      if (target) pool += target;
+      nextBoard[mv.fromY][mv.fromX] = "";
+      const promo = autoPromote(mv.piece, mv.toY, pool);
+      nextBoard[mv.toY][mv.toX] = promo.piece;
+      return { nextBoard, pool: promo.capturedPool };
+    }
+
+    // Full alternating minimax with alpha-beta pruning: Black maximizes the
+    // (Black-positive/White-negative) evaluation, White minimizes it.
+    function search(b, depth, alpha, beta, whiteToMove, pool) {
+      if (depth === 0) return evaluateBoard(b);
+
+      const moves = collectMoves(b, whiteToMove);
+      if (!moves.length) return evaluateBoard(b);
+
+      if (whiteToMove) {
+        let best = Infinity;
+        for (const mv of moves) {
+          if (mv.piece === "K" && mv.toY === 0) return -Infinity; // White escapes: worst case for Black at any depth
+          const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+          const val = search(nextBoard, depth - 1, alpha, beta, false, nextPool);
+          if (val < best) best = val;
+          if (val < beta) beta = val;
+          if (beta <= alpha) break;
+        }
+        return best;
+      }
+
+      let best = -Infinity;
+      for (const mv of moves) {
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = search(nextBoard, depth - 1, alpha, beta, true, nextPool);
+        if (val > best) best = val;
+        if (val > alpha) alpha = val;
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+
+    // Root Generation — evaluated without pruning against each other so all
+    // moves tying for the maximum are collected for the random pick below.
+    const candidates = [];
+    let maxEvaluation = -Infinity;
+
+    for (const mv of collectMoves(board, false)) {
+      const { nextBoard, pool } = applyMove(board, mv, capturedPool);
+      const moveValue = search(nextBoard, DEPTH - 1, -Infinity, Infinity, true, pool);
+
+      if (moveValue > maxEvaluation) {
+        maxEvaluation = moveValue;
+        candidates.length = 0;
+        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
+      } else if (moveValue === maxEvaluation) {
+        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
+      }
+    }
+
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  // The game's live state and the DOM it's painted into.
   const SYMBOLS = { K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙", k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" };
   const boardElement = document.querySelector("table");
   const capturedElement = document.querySelector("output");
@@ -110,6 +429,8 @@
   let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0 };
   let selected = null, promotion = null;
 
+  // Board <-> compact string conversion, used internally to reshuffle rows
+  // on a floor transition (see newFloor below).
   function loadFen(fen) {
     const parts = fen.split("_");
     state.turn = parts[1] || "w";
@@ -129,14 +450,6 @@
     }).join("-");
   }
 
-  function updateUrl(push = false) {
-    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget });
-    if (state.captured) params.set("captured", state.captured);
-    const url = "?" + params.toString();
-    if (push) history.pushState(null, "", url); //push is for back button history QOL
-    else history.replaceState(null, "", url);
-  }
-
   // Hash a string to a uint32 (djb2)
   function hashStr(str) {
     let h = 5381;
@@ -144,10 +457,10 @@
     return h;
   }
 
+  // World generation: populate the floor with a random black army, sized to
+  // the floor number so the dungeon gets harder as White climbs.
   function spawnBlackArmy() {
-    // Each call site gets a deterministic value derived from the FEN + a counter
     let h = hashStr(boardToFen() + state.floor);
-    let callCount = 0;
     function rng() {
       h = (Math.imul(h, 1664525) + 1013904223) >>> 0; // LCG step
       return h / 4294967296;
@@ -198,6 +511,7 @@
     state.spawned = true;
   }
 
+  // Floor progression: White's King reaching row 0 clears the floor.
   function checkFloorProgression() {
     const exitRow = state.board[0];
     if (!exitRow.includes("K")) { return; }
@@ -233,13 +547,14 @@
     spawnBlackArmy();
   }
 
+  // Promotion UI: pending choice, and the dialog that offers it.
   let promotionResolve = null;
 
   function choosePromotion(p) {
     state.captured = state.captured.replace(p.toLowerCase(), "");
     state.board[promotion.y][promotion.x] = p;
     promotion = null; promotionElement.close();
-    updateUrl(); renderBoard();
+    renderBoard();
     if (promotionResolve) { const resolve = promotionResolve; promotionResolve = null; resolve(); }
   }
 
@@ -260,18 +575,15 @@
   }
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-  function playSound(name) { /* TODO: hook up real chessboard sound effects (move/capture/promote) */ }
 
-  const AI_ENGINES = { performant: "getBlackMovePerformant", ruthless: "getBlackMoveRuthless" };
-  let aiMode = "performant";
-  function setAiMode(mode) { aiMode = mode; }
-
+  // The turn loop: apply White's move, handle promotion, check the floor,
+  // then let Black reply — the one function that ties the rules, the AI,
+  // promotion, and floor progression together.
   async function makeMove(fromX, fromY, toX, toY) {
     if (state.board[toY][toX]) state.captured += state.board[toY][toX];
     state.board[toY][toX] = state.board[fromY][fromX];
     state.board[fromY][fromX] = "";
     state.turn = "b";
-    playSound("move");
 
     const promoting = state.board[toY][toX] === "P" && toY === 1 && state.captured.split("").some(c => ["q","r","b","n"].includes(c));
     if (promoting) {
@@ -279,14 +591,7 @@
     }
     checkFloorProgression();
     const blackWillReply = state.turn === "b";
-    // Always push a fresh checkpoint here, right after white's move — this is
-    // the entry a full turn will collapse into. If black is about to reply, we
-    // later REPLACE this same entry with the final state instead of pushing a
-    // second one; replacing here instead (and pushing after black) would
-    // overwrite the *previous* turn's checkpoint, since replaceState always
-    // rewrites whatever entry the browser is currently sitting on — which is
-    // exactly what made Undo/back land mid-turn instead of on the prior turn.
-    updateUrl(true); renderBoard();
+    renderBoard();
 
     if (promoting) {
       // Black shouldn't get to move while the promotion choice is still pending —
@@ -296,75 +601,36 @@
 
     if (blackWillReply) {
       // Just long enough to yield back to the browser so White's move actually
-      // paints before this blocks the main thread on Black's (now real, and no
-      // longer instant) search — not simulating "thinking" anymore, the search
-      // itself takes care of that.
+      // paints before this blocks the main thread on Black's (real, not
+      // instant) search.
       await wait(30);
-      const bm = Engine[AI_ENGINES[aiMode]](state.board, state.captured);
+      const bm = getBlackMoveRuthless(state.board, state.captured);
       if (bm) {
         if (state.board[bm.toY][bm.toX]) state.captured += state.board[bm.toY][bm.toX];
         const movedPiece = state.board[bm.fromY][bm.fromX];
         state.board[bm.fromY][bm.fromX] = "";
-        // Mirrors White's own promotion rule (choosePromotion above): spend a
-        // captured piece of the matching type out of the shared state.captured
-        // bank rather than a free queen. No UI prompt needed since Black has no
-        // human to ask — always take the strongest piece available.
-        const promo = Engine.autoPromote(movedPiece, bm.toY, state.captured);
+        // Mirrors White's own promotion rule above: spend a captured piece
+        // of the matching type rather than a free queen. No UI prompt
+        // needed since Black has no human to ask — always take the
+        // strongest piece available.
+        const promo = autoPromote(movedPiece, bm.toY, state.captured);
         state.board[bm.toY][bm.toX] = promo.piece;
         state.captured = promo.capturedPool;
-        playSound("move");
       }
       state.turn = "w";
-      checkFloorProgression(); updateUrl(false); renderBoard();
+      checkFloorProgression(); renderBoard();
       await wait(250);
     }
   }
 
-  // The only thing the drag system below touches in here: if a drag just
-  // completed, the browser still fires a click on release, and we don't want
-  // it to also process as a click. Delete this one guard line if click-to-move
-  // is ever removed and only dragging remains.
-  let suppressNextClick = false;
-
+  // --- Drag-to-move ---
   // A cell's board coordinates fall straight out of where it sits in the
   // table — row 0 is the label column (<th>), so x is one less than cellIndex.
   function cellCoords(cell) {
     return { x: cell.cellIndex - 1, y: cell.parentElement.rowIndex };
   }
 
-  function clickSquare(x, y) {
-    if (suppressNextClick) { suppressNextClick = false; return; }
-    if (promotion) return;
-    if (!selected) { if (state.board[y][x]) selected = { x, y }; renderBoard(); return; }
-    if (selected.x === x && selected.y === y) { selected = null; renderBoard(); return; }
-    if (Engine.isLegalMove(state.board, selected.x, selected.y, x, y)) {
-      const from = selected;
-      selected = null;
-      makeMove(from.x, from.y, x, y);
-    } else {
-      // Clicking a different one of your pieces switches the selection
-      // instead of just deselecting, saving a wasted click.
-      selected = state.board[y][x] ? { x, y } : null;
-      renderBoard();
-    }
-  }
-
-  boardElement.addEventListener("click", e => {
-    const cell = e.target.closest("td");
-    if (cell) { const { x, y } = cellCoords(cell); clickSquare(x, y); }
-  });
-
-  window.addEventListener("keydown", e => {
-    if (e.key === "Escape" && selected) { selected = null; renderBoard(); }
-  });
-
-  // --- Drag-to-move ---
-  // Deliberately kept parallel to clickSquare above rather than built on top
-  // of it: this only calls the same shared primitives clickSquare does
-  // (Engine.isLegalMove, makeMove, renderBoard) and touches clickSquare itself
-  // through nothing but the suppressNextClick flag. Either input method can be
-  // deleted later without having to untangle the other one.
-  const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag rather than a click
+  const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag
   let drag = null;
 
   // A single reusable element that follows the pointer during a drag, styled
@@ -403,17 +669,16 @@
     if (!drag) return;
     const { x: fromX, y: fromY, dragging } = drag;
     drag = null;
-    if (!dragging) return; // plain tap/click: let clickSquare's own onclick handle it
+    if (!dragging) return; // never crossed the threshold: not a drag, nothing to do
 
     dragGhost.hidden = true;
     delete boardElement.rows[fromY].cells[fromX + 1].dataset.dragging;
-    suppressNextClick = true;
     selected = null;
 
     const dropCell = document.elementFromPoint(e.clientX, e.clientY)?.closest("td");
     if (dropCell) {
       const { x: toX, y: toY } = cellCoords(dropCell);
-      if ((toX !== fromX || toY !== fromY) && Engine.isLegalMove(state.board, fromX, fromY, toX, toY)) {
+      if ((toX !== fromX || toY !== fromY) && isLegalMove(state.board, fromX, fromY, toX, toY)) {
         makeMove(fromX, fromY, toX, toY);
         return;
       }
@@ -431,17 +696,19 @@
     document.addEventListener("pointerup", onDragEnd, { once: true });
   });
 
+  // Painting state to the DOM: rebuilds the whole board from state.board
+  // every time, rather than patching individual cells.
   function renderBoard() {
     const capturedBlack = state.captured.split("").filter(c => c === c.toLowerCase()).map(c => SYMBOLS[c] || "").join(" ");
     capturedElement.textContent = capturedBlack ? capturedBlack : "";
 
     const legalTargets = new Set(
-      (selected ? Engine.legalMovesFrom(state.board, selected.x, selected.y) : []).map(m => `${m.x},${m.y}`)
+      (selected ? legalMovesFrom(state.board, selected.x, selected.y) : []).map(m => `${m.x},${m.y}`)
     );
 
     // King-in-check indicator: a red glow on the King and on each piece attacking it.
-    const king = Engine.findWhiteKing(state.board);
-    const attackers = king ? Engine.attackersOf(state.board, king.x, king.y, false) : [];
+    const king = findWhiteKing(state.board);
+    const attackers = king ? attackersOf(state.board, king.x, king.y, false) : [];
     const threats = new Set(attackers.length ? [king, ...attackers].map(p => `${p.x},${p.y}`) : []);
 
     let html = "";
@@ -460,24 +727,10 @@
     boardElement.innerHTML = html;
   }
 
-  // Shared by both the initial page load and browser back/forward navigation
-  // (popstate) — either way, the board just needs to reflect whatever the URL says.
-  function loadFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    state.floor = parseInt(params.get("floor") || "1");
-    state.spawned = params.get("spawned") === "1";
-    state.captured = params.get("captured") || "";
-    state.lastSpawnBudget = parseInt(params.get("budget") || "0");
-    loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
-    selected = null; promotion = null;
-    promotionElement.close();
-    if (!state.spawned) spawnBlackArmy();
-    updateUrl();
-    renderBoard();
-  }
-
-  window.addEventListener("popstate", loadFromUrl);
-  loadFromUrl();
+  // Boot: a fresh game, live only in memory.
+  loadFen("8-8-8-8-8-8-8-8-4K3_w");
+  spawnBlackArmy();
+  renderBoard();
 </script>
 </body>
 </html>
