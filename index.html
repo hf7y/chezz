@@ -4,159 +4,131 @@
 <meta charset="UTF-8">
 <title>Chezz</title>
 <style>
-  .stack { display: flex; flex-direction: column; align-items: center; }
-
-  body {
-    margin-top: 20px;
-    font-family: sans-serif;
-  }
-
-  main { gap: 16px; }
-
-  /* In landscape, put the instructions beside the game instead of above it */
-  @media (orientation: landscape) {
-    main.stack { flex-direction: row; align-items: flex-start; }
-  }
-
-  /* 9 columns total: column 1 is the 30px rank numbers, columns 2-9 are the 40px squares */
-  /* user-select: none stops drag gestures from highlighting rank numbers/piece
-     text as if selecting a text range — the bug from the last drag attempt. */
-  #board {
-    display: grid;
-    grid-template-columns: 30px repeat(8, 40px);
-    user-select: none;
+  /* 9 columns: a row-number header cell, then 8 board squares. */
+  table {
+    border-collapse: collapse;
+    user-select: none; /* stops drag gestures from text-selecting rank numbers/pieces */
     -webkit-user-select: none;
   }
 
-  .square { touch-action: none; }
-  .dragging-source { opacity: 0.35; }
-  .drag-ghost { position: fixed; transform: translate(-50%, -50%); font-size: 25px; pointer-events: none; z-index: 1000; }
+  td, th {
+    width: 40px;
+    height: 40px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 25px;
+  }
 
-  /* King in check: a red glow on the King and on whatever's attacking it */
-  .threat { box-shadow: 0 0 0 3px red inset, 0 0 10px 3px red; }
+  th {
+    text-align: right;
+    padding-right: 8px;
+    font-size: 14px;
+    color: #666;
+  }
 
-  .legal-dot {
+  td {
+    position: relative;
+    cursor: pointer;
+    touch-action: none;
+  }
+
+  /* Checkerboard: same tr/td nth-child parity is one color, opposite is the other. */
+  tr:nth-child(odd) td:nth-child(odd),
+  tr:nth-child(even) td:nth-child(even) {
+    background: hsl(var(--hue, 30) 45% 55%);
+  }
+  tr:nth-child(odd) td:nth-child(even),
+  tr:nth-child(even) td:nth-child(odd) {
+    background: hsl(var(--hue, 30) 45% 78%);
+  }
+
+  /* Row 0 is the exit row (reach it with your King to clear the floor). */
+  tr:first-child > * { border-bottom: solid; opacity: 0.3; }
+
+  /* A legal destination for the currently-selected piece. */
+  td[data-legal]::after {
+    content: "";
     position: absolute;
-    top: 50%;
-    left: 50%;
+    inset: 50% auto auto 50%;
     width: 12px;
     height: 12px;
     margin: -6px 0 0 -6px;
     border-radius: 50%;
     background: rgba(0, 150, 0, 0.65);
-    pointer-events: none;
   }
 
-  #captured-black {
-    min-height: 30px;
-    font-size: 20px;
-    letter-spacing: 4px;
-    margin-bottom: 10px;
+  td[data-selected] { outline: 3px solid yellow; }
+
+  /* King in check: a red glow on the King and on whatever's attacking it. */
+  td[data-threat] { box-shadow: 0 0 0 3px red inset, 0 0 10px 3px red; }
+
+  td[data-dragging] { opacity: 0.35; }
+
+  output { font-size: 20px; letter-spacing: 4px; }
+
+  dialog {
+    position: absolute;
+    margin: 0;
+    padding: 4px;
   }
 
-  .square {
-    position: relative;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 25px;
-    cursor: pointer;
-  }
-
-  .rank-label {
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    font-size: 14px;
-    font-weight: bold;
-    color: #666;
-    padding-right: 8px;
-  }
-
-  /* Hue climbs linearly with rank (set per-row in renderBoard) so the board's
-     color subtly shifts floor over floor instead of looking identical forever —
-     a sense of continual progress. Lightness alone still carries the checkerboard. */
-  .light { background: hsl(var(--hue, 30), 45%, 78%); }
-  .dark { background: hsl(var(--hue, 30), 45%, 55%); }
-  .nine { border-bottom: solid; opacity: 0.3; }
-  .selected { outline: 3px solid yellow; }
-  #promotion { position: absolute; display: none; border: 1px solid black; background: white; padding: 4px; }
-
-  #instructions {
-    max-width: 380px;
-    font-size: 14px;
-  }
-  #instructions p { margin: 6px 0; }
-
-  #ai-mode {
-    margin-top: 12px;
-    font-size: 13px;
-    border: 1px solid #ccc;
-  }
-  #ai-mode label { display: block; margin: 2px 0; cursor: pointer; }
+  #instructions { max-width: 380px; font-size: 14px; }
 </style>
 </head>
-<body class="stack">
+<body>
 
 <h1>Chezz</h1>
 
-<main class="stack">
-  <div class="stack">
-    <output id="captured-black"></output>
-    <section id="board" aria-label="Chess board"></section>
-    <div id="promotion"></div>
-    <div><a href="/index.html">Reset</a> · <a href="#" onclick="history.back(); return false;">Undo</a></div>
-    <fieldset id="ai-mode">
-      <legend>Black AI</legend>
-      <label><input type="radio" name="aiMode" value="performant" checked onchange="setAiMode(this.value)"> Performant</label>
-      <label><input type="radio" name="aiMode" value="ruthless" onchange="setAiMode(this.value)"> Ruthless</label>
-    </fieldset>
-  </div>
+<output></output>
+<table aria-label="Chess board"></table>
+<dialog></dialog>
+<menu>
+  <a href="/index.html">Reset</a> · <a href="#" onclick="history.back(); return false;">Undo</a>
+</menu>
+<fieldset>
+  <legend>Black AI</legend>
+  <label><input type="radio" name="aiMode" value="performant" checked onchange="setAiMode(this.value)"> Performant</label>
+  <label><input type="radio" name="aiMode" value="ruthless" onchange="setAiMode(this.value)"> Ruthless</label>
+</fieldset>
 
-  <aside id="instructions">
-    <details>
-      <summary>How to play</summary>
-      <p>
-        You control a lone White King (♔) trying to fight up through an endless dungeon.
-        Each floor is seeded with a random black army — bigger and nastier the deeper you go —
-        scattered across the board above the bottom two ranks.
-      </p>
-      <p>
-        Click (or tap) a piece to select it, then click a destination to move it — or just
-        drag a piece straight to its destination instead. Clicking a different one of your
-        own pieces mid-selection switches your selection instead of wasting a click, and
-        pressing Escape cancels a selection outright. Pieces move using standard chess rules.
-        A red glow marks your King and whatever's threatening it. After you move, the black
-        side replies automatically.
-      </p>
-      <p>
-        Capture black pieces to bank them (shown above the board). Banked material lets you
-        promote a White pawn into a Queen, Rook, Bishop, or Knight once that pawn reaches the
-        second-to-last rank.
-      </p>
-      <p>
-        Get your King to the very top row to clear the floor. Surviving pieces carry over to
-        the next floor's back ranks, surviving pawns advance one rank, and any non-pawn
-        survivor gets escorted by a bonus pawn if you've banked a captured black pawn to spend.
-        Rank numbers on the left keep climbing across floors so you can track your overall depth.
-      </p>
-      <p>
-        Your progress is saved in the URL, so the page is reload- and share-safe, and the
-        browser back button undoes moves. Use "Reset" below the board to start over from floor 1.
-      </p>
-    </details>
-  </aside>
-</main>
+<details id="instructions">
+  <summary>How to play</summary>
+  <p>
+    You control a lone White King (♔) trying to fight up through an endless dungeon.
+    Each floor is seeded with a random black army — bigger and nastier the deeper you go —
+    scattered across the board above the bottom two ranks.
+  </p>
+  <p>
+    Click (or tap) a piece to select it, then click a destination to move it — or just
+    drag a piece straight to its destination instead. Clicking a different one of your
+    own pieces mid-selection switches your selection instead of wasting a click, and
+    pressing Escape cancels a selection outright. Pieces move using standard chess rules.
+    A red glow marks your King and whatever's threatening it. After you move, the black
+    side replies automatically.
+  </p>
+  <p>
+    Capture black pieces to bank them (shown above the board). Banked material lets you
+    promote a White pawn into a Queen, Rook, Bishop, or Knight once that pawn reaches the
+    second-to-last rank.
+  </p>
+  <p>
+    Get your King to the very top row to clear the floor. Surviving pieces carry over to
+    the next floor's back ranks, surviving pawns advance one rank, and any non-pawn
+    survivor gets escorted by a bonus pawn if you've banked a captured black pawn to spend.
+    Rank numbers on the left keep climbing across floors so you can track your overall depth.
+  </p>
+  <p>
+    Your progress is saved in the URL, so the page is reload- and share-safe, and the
+    browser back button undoes moves. Use "Reset" below the board to start over from floor 1.
+  </p>
+</details>
 
 <script src="engine.js"></script>
 <script>
   const SYMBOLS = { K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙", k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" };
-  const boardElement = document.getElementById("board");
-  const capturedElement = document.getElementById("captured-black");
-  const promotionElement = document.getElementById("promotion");
+  const boardElement = document.querySelector("table");
+  const capturedElement = document.querySelector("output");
+  const promotionElement = document.querySelector("dialog");
 
   let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0 };
   let selected = null, promotion = null;
@@ -255,7 +227,7 @@
     newFloor(boardToFen().split("-")[0]);
     state.turn = "w";
   }
- 
+
   function newFloor(survivorsFen) {
     // rank1 = new floor's back rank (row 8), rank2 = one step ahead (row 7)
     // White pawns advance to rank2, leaving rank1 empty in that column.
@@ -277,7 +249,7 @@
         }
       }
     }
- 
+
     loadFen("8-8-8-8-8-8-8-" + rank2 + "-" + rank1 + "_" + state.turn);
     state.floor++;
     state.spawned = false;
@@ -289,7 +261,7 @@
   function choosePromotion(p) {
     state.captured = state.captured.replace(p.toLowerCase(), "");
     state.board[promotion.y][promotion.x] = p;
-    promotion = null; promotionElement.style.display = "none";
+    promotion = null; promotionElement.close();
     updateUrl(); renderBoard();
     if (promotionResolve) { const resolve = promotionResolve; promotionResolve = null; resolve(); }
   }
@@ -297,8 +269,7 @@
   function renderPromotion() {
     promotionElement.innerHTML = "";
     if (!promotion) return;
-    promotionElement.style.display = "block";
-    const sq = boardElement.children[promotion.y * 9 + promotion.x + 1];
+    const sq = boardElement.rows[promotion.y].cells[promotion.x + 1];
     const r = sq.getBoundingClientRect();
     promotionElement.style.left = r.left + "px"; promotionElement.style.top = (r.top + window.scrollY + 40) + "px";
 
@@ -308,6 +279,7 @@
       btn.onclick = () => choosePromotion(p.toUpperCase());
       promotionElement.appendChild(btn);
     });
+    promotionElement.showModal();
   }
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -377,6 +349,12 @@
   // is ever removed and only dragging remains.
   let suppressNextClick = false;
 
+  // A cell's board coordinates fall straight out of where it sits in the
+  // table — row 0 is the label column (<th>), so x is one less than cellIndex.
+  function cellCoords(cell) {
+    return { x: cell.cellIndex - 1, y: cell.parentElement.rowIndex };
+  }
+
   function clickSquare(x, y) {
     if (suppressNextClick) { suppressNextClick = false; return; }
     if (promotion) return;
@@ -394,6 +372,11 @@
     }
   }
 
+  boardElement.addEventListener("click", e => {
+    const cell = e.target.closest("td");
+    if (cell) { const { x, y } = cellCoords(cell); clickSquare(x, y); }
+  });
+
   window.addEventListener("keydown", e => {
     if (e.key === "Escape" && selected) { selected = null; renderBoard(); }
   });
@@ -407,24 +390,25 @@
   const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag rather than a click
   let drag = null;
 
-  function squareElement(x, y) {
-    return boardElement.querySelector(`.square[data-x="${x}"][data-y="${y}"]`);
-  }
+  // A single reusable element that follows the pointer during a drag, styled
+  // entirely inline since it's the only one of its kind and never sits still
+  // long enough to need a stylesheet rule.
+  const dragGhost = document.body.appendChild(document.createElement("div"));
+  dragGhost.hidden = true;
+  Object.assign(dragGhost.style, { position: "fixed", transform: "translate(-50%, -50%)", fontSize: "25px", pointerEvents: "none", zIndex: 1000 });
 
   function moveGhostTo(clientX, clientY) {
-    drag.ghost.style.left = clientX + "px";
-    drag.ghost.style.top = clientY + "px";
+    dragGhost.style.left = clientX + "px";
+    dragGhost.style.top = clientY + "px";
   }
 
   function beginDrag(e) {
     drag.dragging = true;
     selected = { x: drag.x, y: drag.y };
     renderBoard();
-    squareElement(drag.x, drag.y)?.classList.add("dragging-source");
-    drag.ghost = document.createElement("div");
-    drag.ghost.className = "drag-ghost";
-    drag.ghost.textContent = SYMBOLS[state.board[drag.y][drag.x]] || "";
-    document.body.appendChild(drag.ghost);
+    boardElement.rows[drag.y].cells[drag.x + 1].dataset.dragging = "";
+    dragGhost.textContent = SYMBOLS[state.board[drag.y][drag.x]] || "";
+    dragGhost.hidden = false;
     moveGhostTo(e.clientX, e.clientY);
   }
 
@@ -440,18 +424,18 @@
   function onDragEnd(e) {
     document.removeEventListener("pointermove", onDragMove);
     if (!drag) return;
-    const { x: fromX, y: fromY, dragging, ghost } = drag;
+    const { x: fromX, y: fromY, dragging } = drag;
     drag = null;
     if (!dragging) return; // plain tap/click: let clickSquare's own onclick handle it
 
-    ghost.remove();
-    squareElement(fromX, fromY)?.classList.remove("dragging-source");
+    dragGhost.hidden = true;
+    delete boardElement.rows[fromY].cells[fromX + 1].dataset.dragging;
     suppressNextClick = true;
     selected = null;
 
-    const dropEl = document.elementFromPoint(e.clientX, e.clientY)?.closest(".square");
-    if (dropEl) {
-      const toX = Number(dropEl.dataset.x), toY = Number(dropEl.dataset.y);
+    const dropCell = document.elementFromPoint(e.clientX, e.clientY)?.closest("td");
+    if (dropCell) {
+      const { x: toX, y: toY } = cellCoords(dropCell);
       if ((toX !== fromX || toY !== fromY) && Engine.isLegalMove(state.board, fromX, fromY, toX, toY)) {
         makeMove(fromX, fromY, toX, toY);
         return;
@@ -460,12 +444,15 @@
     renderBoard();
   }
 
-  function pointerDownSquare(e, x, y) {
-    if (promotion || !state.board[y][x]) return;
-    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false, ghost: null };
+  boardElement.addEventListener("pointerdown", e => {
+    const cell = e.target.closest("td");
+    if (!cell || promotion) return;
+    const { x, y } = cellCoords(cell);
+    if (!state.board[y][x]) return;
+    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false };
     document.addEventListener("pointermove", onDragMove);
     document.addEventListener("pointerup", onDragEnd, { once: true });
-  }
+  });
 
   function renderBoard() {
     const capturedBlack = state.captured.split("").filter(c => c === c.toLowerCase()).map(c => SYMBOLS[c] || "").join(" ");
@@ -484,14 +471,14 @@
     for (let y = 0; y < 9; y++) {
       const rank = ((state.floor - 1) * 8) + (9 - y);
       const hue = (rank * 10) % 360; // 10deg/rank -> a full color cycle every 4.5 floors
-      html += `<div class="rank-label">${rank}</div>`;
+      html += `<tr style="--hue:${hue}"><th scope="row">${rank}</th>`;
       for (let x = 0; x < 8; x++) {
-        const isSel = selected && selected.x === x && selected.y === y ? " selected" : "";
-        const isThreat = threats.has(`${x},${y}`) ? " threat" : "";
-        const styleClass = `square ${(x + y) % 2 ? 'dark' : 'light'}${y === 0 ? ' nine' : ''}${isSel}${isThreat}`;
-        const dot = legalTargets.has(`${x},${y}`) ? '<span class="legal-dot"></span>' : "";
-        html += `<div class="${styleClass}" style="--hue:${hue}" data-x="${x}" data-y="${y}" onclick="clickSquare(${x},${y})" onpointerdown="pointerDownSquare(event,${x},${y})">${SYMBOLS[state.board[y][x]] || ""}${dot}</div>`;
+        const sel = selected && selected.x === x && selected.y === y ? " data-selected" : "";
+        const threat = threats.has(`${x},${y}`) ? " data-threat" : "";
+        const legal = legalTargets.has(`${x},${y}`) ? " data-legal" : "";
+        html += `<td${sel}${threat}${legal}>${SYMBOLS[state.board[y][x]] || ""}</td>`;
       }
+      html += `</tr>`;
     }
     boardElement.innerHTML = html;
   }
@@ -506,7 +493,7 @@
     state.lastSpawnBudget = parseInt(params.get("budget") || "0");
     loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
     selected = null; promotion = null;
-    promotionElement.style.display = "none";
+    promotionElement.close();
     if (!state.spawned) spawnBlackArmy();
     updateUrl();
     renderBoard();
