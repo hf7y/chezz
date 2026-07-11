@@ -182,31 +182,17 @@
     }
 
     else if (lower === "p") {
-      if (isWhite) {
-        // White pawns move up (decreasing y)
-        if (isEmpty(fromX, fromY - 1)) {
-          moves.push({ x: fromX, y: fromY - 1 });
-          // Double move from row 7 (white's starting rank on 9-rank board)
-          if (fromY === 7 && isEmpty(fromX, fromY - 2)) {
-            moves.push({ x: fromX, y: fromY - 2 });
-          }
+      const dir = isWhite ? -1 : 1; // White advances toward decreasing y, Black toward increasing y
+      const startRow = isWhite ? 7 : 1; // each side's starting rank, for the double-move rule
+
+      if (isEmpty(fromX, fromY + dir)) {
+        moves.push({ x: fromX, y: fromY + dir });
+        if (fromY === startRow && isEmpty(fromX, fromY + 2 * dir)) {
+          moves.push({ x: fromX, y: fromY + 2 * dir });
         }
-        // Captures
-        if (isEnemy(fromX - 1, fromY - 1)) moves.push({ x: fromX - 1, y: fromY - 1 });
-        if (isEnemy(fromX + 1, fromY - 1)) moves.push({ x: fromX + 1, y: fromY - 1 });
-      } else {
-        // Black pawns move down (increasing y)
-        if (isEmpty(fromX, fromY + 1)) {
-          moves.push({ x: fromX, y: fromY + 1 });
-          // Double move from rank 8 (black's starting row on 9-rank board)
-          if (fromY === 1 && isEmpty(fromX, fromY + 2)) {
-            moves.push({ x: fromX, y: fromY + 2 });
-          }
-        }
-        // Captures
-        if (isEnemy(fromX - 1, fromY + 1)) moves.push({ x: fromX - 1, y: fromY + 1 });
-        if (isEnemy(fromX + 1, fromY + 1)) moves.push({ x: fromX + 1, y: fromY + 1 });
       }
+      if (isEnemy(fromX - 1, fromY + dir)) moves.push({ x: fromX - 1, y: fromY + dir });
+      if (isEnemy(fromX + 1, fromY + dir)) moves.push({ x: fromX + 1, y: fromY + dir });
     }
 
     // Enemy pieces may never move onto the exit row.
@@ -247,6 +233,8 @@
     return null;
   }
 
+  const PROMOTION_PRIORITY = ["q", "r", "b", "n"]; // queen first
+
   // Auto-promotion, mirrored for both colors: a pawn reaching its far rank
   // promotes by spending one captured piece of the matching type from the
   // opponent out of `capturedPool` — never a free promotion. Picks the
@@ -255,19 +243,18 @@
   // stronger one is banked. Leaves the pawn a pawn if nothing promotable
   // has been captured yet.
   function autoPromote(piece, toY, capturedPool) {
-    if (piece === "P" && toY === WHITE_PROMOTION_ROW) {
-      for (const t of ["q", "r", "b", "n"]) {
-        const idx = capturedPool.indexOf(t);
-        if (idx !== -1) {
-          return { piece: t.toUpperCase(), capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
-        }
-      }
-    } else if (piece === "p" && toY === BLACK_PROMOTION_ROW) {
-      for (const t of ["Q", "R", "B", "N"]) {
-        const idx = capturedPool.indexOf(t);
-        if (idx !== -1) {
-          return { piece: t.toLowerCase(), capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
-        }
+    const isWhite = isWhitePiece(piece);
+    const promotionRow = isWhite ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
+    if (piece.toLowerCase() !== "p" || toY !== promotionRow) return { piece, capturedPool };
+
+    // White spends a captured (lowercase) Black piece; Black spends a
+    // captured (uppercase) White piece — same priority order either way.
+    for (const type of PROMOTION_PRIORITY) {
+      const spend = isWhite ? type : type.toUpperCase();
+      const idx = capturedPool.indexOf(spend);
+      if (idx !== -1) {
+        const promoted = isWhite ? type.toUpperCase() : type.toLowerCase();
+        return { piece: promoted, capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
       }
     }
     return { piece, capturedPool };
@@ -400,31 +387,28 @@
         if (!whiteToMove && standPat + bestPossibleGain <= alpha) return standPat;
       }
 
+      // Stand pat: settling for the position as-is (no further captures) is
+      // always a legal choice in quiescence, unlike the main search below —
+      // so it seeds the bound before any capture is even considered.
+      if (whiteToMove) {
+        if (standPat <= alpha) return standPat;
+        beta = Math.min(beta, standPat);
+      } else {
+        if (standPat >= beta) return standPat;
+        alpha = Math.max(alpha, standPat);
+      }
+
       let captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
       if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
 
-      if (whiteToMove) {
-        if (standPat <= alpha) return standPat;
-        if (standPat < beta) beta = standPat;
-        for (const mv of captures) {
-          if (mv.piece === "K" && mv.toY === EXIT_ROW) return -Infinity;
-          const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-          const val = quiesce(nextBoard, alpha, beta, false, nextPool, { x: mv.toX, y: mv.toY });
-          if (val < beta) beta = val;
-          if (beta <= alpha) return alpha;
-        }
-        return beta;
-      }
-
-      if (standPat >= beta) return standPat;
-      if (standPat > alpha) alpha = standPat;
       for (const mv of captures) {
+        if (mv.piece === "K" && mv.toY === EXIT_ROW) return -Infinity;
         const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-        const val = quiesce(nextBoard, alpha, beta, true, nextPool, { x: mv.toX, y: mv.toY });
-        if (val > alpha) alpha = val;
-        if (beta <= alpha) return beta;
+        const val = quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool, { x: mv.toX, y: mv.toY });
+        if (whiteToMove) { if (val < beta) beta = val; } else { if (val > alpha) alpha = val; }
+        if (beta <= alpha) return whiteToMove ? alpha : beta;
       }
-      return alpha;
+      return whiteToMove ? beta : alpha;
     }
 
     // Full alternating minimax with alpha-beta pruning: Black maximizes the
@@ -435,25 +419,18 @@
       const moves = collectMoves(b, whiteToMove);
       if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
 
-      if (whiteToMove) {
-        let best = Infinity;
-        for (const mv of moves) {
-          if (mv.piece === "K" && mv.toY === EXIT_ROW) return -Infinity; // White escapes: worst case for Black at any depth
-          const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-          const val = search(nextBoard, depth - 1, alpha, beta, false, nextPool);
+      let best = whiteToMove ? Infinity : -Infinity;
+      for (const mv of moves) {
+        if (mv.piece === "K" && mv.toY === EXIT_ROW) return -Infinity; // White escapes: worst case for Black at any depth
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = search(nextBoard, depth - 1, alpha, beta, !whiteToMove, nextPool);
+        if (whiteToMove) {
           if (val < best) best = val;
           if (val < beta) beta = val;
-          if (beta <= alpha) break;
+        } else {
+          if (val > best) best = val;
+          if (val > alpha) alpha = val;
         }
-        return best;
-      }
-
-      let best = -Infinity;
-      for (const mv of moves) {
-        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-        const val = search(nextBoard, depth - 1, alpha, beta, true, nextPool);
-        if (val > best) best = val;
-        if (val > alpha) alpha = val;
         if (beta <= alpha) break;
       }
       return best;
