@@ -343,13 +343,26 @@ const Engine = {
     // sacrificed piece looking safe, because nothing in the search ever
     // reached the ply where White comes back for it. Raw depth alone still
     // isn't enough once an exchange runs deeper than the horizon, though —
-    // that's what the quiescence search below is for.
-    const DEPTH = 3;
+    // that's what the quiescence search below is for. Iteratively deepened
+    // (below) past MIN_DEPTH as far as the time budget allows, rather than
+    // a single fixed depth, so quiet multi-move threats (not just capture
+    // sequences) get a chance to show up too.
+    const MIN_DEPTH = 3; // always completed in full, regardless of the deadline
+    const MAX_DEPTH = 8;
+    const SEARCH_DEADLINE_MS = 1200;
+    const deadline = Date.now() + SEARCH_DEADLINE_MS;
+    let hitDeadline = false;
 
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
       'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100
     };
+
+    // Dominant over any realistic material/positional sum (so White escaping
+    // is always treated as catastrophic), but unlike a flat -Infinity it still
+    // has the underlying position's eval added on top -- otherwise every lost
+    // line ties exactly, and the final pick among them becomes arbitrary.
+    const WHITE_ESCAPE_PENALTY = -500000;
 
     // Static evaluation of any given board state
     function evaluateBoard(b) {
@@ -381,7 +394,7 @@ const Engine = {
       // which meant White's best response effectively always "chose" to just
       // shuffle the King forward instead of taking a free recapture, so Black's
       // bad trades were never punished. The literal reach-row-0 case is still
-      // an instant -Infinity below, this term is only the gradual approach.
+      // covered by WHITE_ESCAPE_PENALTY below, this term is only the gradual approach.
       if (wKing) {
         total -= (8 - wKing.y) * 150;
 
@@ -459,9 +472,10 @@ const Engine = {
         if (standPat <= alpha) return standPat;
         if (standPat < beta) beta = standPat;
         for (const mv of captures) {
-          if (mv.piece === "K" && mv.toY === 0) return -Infinity;
           const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-          const val = quiesce(nextBoard, alpha, beta, false, nextPool, { x: mv.toX, y: mv.toY });
+          const val = (mv.piece === "K" && mv.toY === 0)
+            ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard)
+            : quiesce(nextBoard, alpha, beta, false, nextPool, { x: mv.toX, y: mv.toY });
           if (val < beta) beta = val;
           if (beta <= alpha) return alpha;
         }
@@ -483,6 +497,7 @@ const Engine = {
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
       if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
+      if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
       const moves = collectMoves(b, whiteToMove);
       if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
@@ -490,9 +505,10 @@ const Engine = {
       if (whiteToMove) {
         let best = Infinity;
         for (const mv of moves) {
-          if (mv.piece === "K" && mv.toY === 0) return -Infinity; // White escapes: worst case for Black at any depth
           const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-          const val = search(nextBoard, depth - 1, alpha, beta, false, nextPool);
+          const val = (mv.piece === "K" && mv.toY === 0)
+            ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard) // dominant, but still lets material break ties among lost lines
+            : search(nextBoard, depth - 1, alpha, beta, false, nextPool);
           if (val < best) best = val;
           if (val < beta) beta = val;
           if (beta <= alpha) break;
@@ -511,25 +527,51 @@ const Engine = {
       return best;
     }
 
-    // Root Generation — evaluated without pruning against each other so all
-    // moves tying for the maximum are collected for the random pick below.
-    const candidates = [];
-    let maxEvaluation = -Infinity;
+    // Root Generation for one depth — evaluated without pruning against each
+    // other so all moves tying for the maximum are collected for the random
+    // pick below.
+    function searchRoot(depth) {
+      const candidates = [];
+      let maxEvaluation = -Infinity;
+      for (const mv of collectMoves(board, false)) {
+        const { nextBoard, pool } = applyMove(board, mv, capturedPool);
+        const moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
+        const candidate = { fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
 
-    for (const mv of collectMoves(board, false)) {
-      const { nextBoard, pool } = applyMove(board, mv, capturedPool);
-      const moveValue = search(nextBoard, DEPTH - 1, -Infinity, Infinity, true, pool);
-
-      if (moveValue > maxEvaluation) {
-        maxEvaluation = moveValue;
-        candidates.length = 0;
-        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
-      } else if (moveValue === maxEvaluation) {
-        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
+        if (moveValue > maxEvaluation) {
+          maxEvaluation = moveValue;
+          candidates.length = 0;
+          candidates.push(candidate);
+        } else if (moveValue === maxEvaluation) {
+          candidates.push(candidate);
+        }
       }
+      return candidates;
     }
 
-    if (!candidates.length) return null;
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    // Iterative deepening: always finish MIN_DEPTH in full (it's cheap and
+    // bounded), then keep going one ply deeper as long as time allows. A
+    // depth attempt that runs into the deadline partway through is a mix of
+    // fully- and partially-searched root moves -- not a fair comparison --
+    // so it's thrown away entirely rather than trusted, falling back to the
+    // last depth that finished clean.
+    let bestCandidates = searchRoot(MIN_DEPTH);
+    for (let depth = MIN_DEPTH + 1; depth <= MAX_DEPTH; depth++) {
+      if (Date.now() > deadline) break;
+      hitDeadline = false;
+      const attempt = searchRoot(depth);
+      if (hitDeadline || !attempt.length) break;
+      bestCandidates = attempt;
+    }
+
+    if (!bestCandidates.length) return null;
+
+    // Deterministic tie-break, seeded from the position itself (same LCG
+    // pattern as index.html's spawnBlackArmy) rather than Math.random() --
+    // replaying the exact same position (e.g. from a saved/audited URL)
+    // must always pick the same move among ties.
+    let seed = hashStr(board.map(row => row.map(c => c || ".").join("")).join("|") + "|" + capturedPool);
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return bestCandidates[Math.floor((seed / 4294967296) * bestCandidates.length)];
   }
 };

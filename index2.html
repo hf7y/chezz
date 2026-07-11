@@ -262,15 +262,19 @@
 
   // The opponent's mind: given the board (and what's been captured, for
   // promotion), pick Black's move. A real alternating minimax with
-  // alpha-beta pruning, 3 plies deep (Black, White, Black), extended by a
-  // quiescence search (below) through any capture sequence still in
-  // progress once the main search bottoms out — together these mean a
-  // sacrifice's real cost (the piece getting recaptured, however many
-  // moves that takes) shows up on the board instead of needing a
-  // hand-coded bonus to approximate it.
+  // alpha-beta pruning, iteratively deepened (below) as far as a time
+  // budget allows, extended further still by a quiescence search through
+  // any capture sequence still in progress once a depth bottoms out —
+  // together these mean a sacrifice's real cost (the piece getting
+  // recaptured, however many moves that takes) shows up on the board
+  // instead of needing a hand-coded bonus to approximate it.
   function getBlackMoveRuthless(board, capturedPool) {
     capturedPool = capturedPool || "";
-    const DEPTH = 3;
+    const MIN_DEPTH = 3; // always completed in full, regardless of the deadline
+    const MAX_DEPTH = 8;
+    const SEARCH_DEADLINE_MS = 1200;
+    const deadline = Date.now() + SEARCH_DEADLINE_MS;
+    let hitDeadline = false;
 
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
@@ -281,8 +285,9 @@
     // outweighs an actual capture — at 2000 it did, which meant White's best
     // response effectively always "chose" to just shuffle the King forward
     // instead of taking a free recapture, so Black's bad trades were never
-    // punished. Reaching EXIT_ROW itself is still an instant -Infinity below;
-    // this weight only covers the gradual approach toward it.
+    // punished. Reaching EXIT_ROW itself is still covered by
+    // WHITE_ESCAPE_PENALTY below; this weight only covers the gradual
+    // approach toward it.
     const KING_SAFETY_WEIGHT = 150;
 
     const RANK_1_ADVANCE_BONUS = 50; // black piece one row from EXIT_ROW
@@ -292,6 +297,11 @@
     const SWARM_MAX_DISTANCE = 16; // bigger than any real taxicab distance on this board
 
     const KING_CAPTURED_BONUS = 500000;
+    // Dominant over any realistic material/positional sum (so White escaping
+    // is always treated as catastrophic), but unlike a flat -Infinity it still
+    // has the underlying position's eval added on top -- otherwise every lost
+    // line ties exactly, and the final pick among them becomes arbitrary.
+    const WHITE_ESCAPE_PENALTY = -500000;
     const DELTA_PRUNING_MARGIN = 150; // cushion added to a victim's value in quiesce's delta pruning
 
     function taxicabDistance(a, b) {
@@ -402,9 +412,10 @@
       if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
 
       for (const mv of captures) {
-        if (mv.piece === "K" && mv.toY === EXIT_ROW) return -Infinity;
         const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-        const val = quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool, { x: mv.toX, y: mv.toY });
+        const val = (mv.piece === "K" && mv.toY === EXIT_ROW)
+          ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard)
+          : quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool, { x: mv.toX, y: mv.toY });
         if (whiteToMove) { if (val < beta) beta = val; } else { if (val > alpha) alpha = val; }
         if (beta <= alpha) return whiteToMove ? alpha : beta;
       }
@@ -415,15 +426,17 @@
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
       if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
+      if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
       const moves = collectMoves(b, whiteToMove);
       if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
 
       let best = whiteToMove ? Infinity : -Infinity;
       for (const mv of moves) {
-        if (mv.piece === "K" && mv.toY === EXIT_ROW) return -Infinity; // White escapes: worst case for Black at any depth
         const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
-        const val = search(nextBoard, depth - 1, alpha, beta, !whiteToMove, nextPool);
+        const val = (mv.piece === "K" && mv.toY === EXIT_ROW)
+          ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard) // dominant, but still lets material break ties among lost lines
+          : search(nextBoard, depth - 1, alpha, beta, !whiteToMove, nextPool);
         if (whiteToMove) {
           if (val < best) best = val;
           if (val < beta) beta = val;
@@ -436,27 +449,52 @@
       return best;
     }
 
-    // Root Generation — evaluated without pruning against each other so all
-    // moves tying for the maximum are collected for the random pick below.
-    const candidates = [];
-    let maxEvaluation = -Infinity;
+    // Root Generation for one depth — evaluated without pruning against each
+    // other so all moves tying for the maximum are collected for the random
+    // pick below.
+    function searchRoot(depth) {
+      const candidates = [];
+      let maxEvaluation = -Infinity;
+      for (const mv of collectMoves(board, false)) {
+        const { nextBoard, pool } = applyMove(board, mv, capturedPool);
+        const moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
+        const candidate = { fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
 
-    for (const mv of collectMoves(board, false)) {
-      const { nextBoard, pool } = applyMove(board, mv, capturedPool);
-      const moveValue = search(nextBoard, DEPTH - 1, -Infinity, Infinity, true, pool);
-      const candidate = { fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
-
-      if (moveValue > maxEvaluation) {
-        maxEvaluation = moveValue;
-        candidates.length = 0;
-        candidates.push(candidate);
-      } else if (moveValue === maxEvaluation) {
-        candidates.push(candidate);
+        if (moveValue > maxEvaluation) {
+          maxEvaluation = moveValue;
+          candidates.length = 0;
+          candidates.push(candidate);
+        } else if (moveValue === maxEvaluation) {
+          candidates.push(candidate);
+        }
       }
+      return candidates;
     }
 
-    if (!candidates.length) return null;
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    // Iterative deepening: always finish MIN_DEPTH in full (it's cheap and
+    // bounded), then keep going one ply deeper as long as time allows. A
+    // depth attempt that runs into the deadline partway through is a mix of
+    // fully- and partially-searched root moves -- not a fair comparison --
+    // so it's thrown away entirely rather than trusted, falling back to the
+    // last depth that finished clean.
+    let bestCandidates = searchRoot(MIN_DEPTH);
+    for (let depth = MIN_DEPTH + 1; depth <= MAX_DEPTH; depth++) {
+      if (Date.now() > deadline) break;
+      hitDeadline = false;
+      const attempt = searchRoot(depth);
+      if (hitDeadline || !attempt.length) break;
+      bestCandidates = attempt;
+    }
+
+    if (!bestCandidates.length) return null;
+
+    // Deterministic tie-break, seeded from the position itself (same LCG
+    // pattern as spawnBlackArmy) rather than Math.random() -- replaying the
+    // exact same position (e.g. from a saved/audited URL) must always pick
+    // the same move among ties.
+    let seed = hashStr(board.map(row => row.map(c => c || ".").join("")).join("|") + "|" + capturedPool);
+    seed = (Math.imul(seed, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
+    return bestCandidates[Math.floor((seed / LCG_MODULUS) * bestCandidates.length)];
   }
 
   // The game's live state and the DOM it's painted into.
