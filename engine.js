@@ -333,17 +333,18 @@ const Engine = {
     capturedPool = capturedPool || "";
 
     // How many plies deep to search: Black's move, White's reply, Black's
-    // follow-up, White's follow-up reply. Deliberately just raw material +
-    // king-safety search with no tactical special-casing (no fork/skewer
-    // pattern-matching) — at this depth a sacrifice's real cost shows up on
-    // the board itself (the piece gets recaptured within the horizon)
-    // instead of needing a hand-coded bonus to approximate it. Shallower
-    // search (the old depth-1 "White's single best reply") let Black hang a
-    // piece for free whenever a *bigger*, unrelated capture existed
-    // elsewhere on the board: White's one reply spent on grabbing the bigger
-    // prize left the sacrificed piece looking safe, because nothing in the
-    // search ever reached the ply where White comes back for it.
-    const DEPTH = 4;
+    // follow-up. Deliberately just raw material + king-safety search with
+    // no tactical special-casing (no fork/skewer pattern-matching) — a
+    // sacrifice's real cost shows up on the board itself (the piece gets
+    // recaptured) instead of needing a hand-coded bonus to approximate it.
+    // The old depth-1 "White's single best reply" let Black hang a piece
+    // for free whenever a *bigger*, unrelated capture existed elsewhere:
+    // White's one reply spent on grabbing the bigger prize left the
+    // sacrificed piece looking safe, because nothing in the search ever
+    // reached the ply where White comes back for it. Raw depth alone still
+    // isn't enough once an exchange runs deeper than the horizon, though —
+    // that's what the quiescence search below is for.
+    const DEPTH = 3;
 
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
@@ -427,13 +428,64 @@ const Engine = {
       return { nextBoard, pool: promo.capturedPool };
     }
 
+    // Quiescence search: a plain static eval at the search horizon can badly
+    // misjudge a position mid-exchange — it has no idea whether the capture
+    // that just happened is about to be recaptured one ply later (the
+    // "horizon effect"). So instead of evaluating immediately once the main
+    // search bottoms out, keep searching, but ONLY through captures, until
+    // the position settles. Once a capture lands on a square, only further
+    // recaptures on that SAME square continue the thread — unrelated
+    // captures elsewhere get examined once the main search reaches them as
+    // an actual move, not smuggled in here. That's what keeps this cheap:
+    // an exchange is bounded by however many pieces attack one square
+    // (rarely more than 2-3), not by every capture on the board.
+    function quiesce(b, alpha, beta, whiteToMove, pool, targetSquare) {
+      const standPat = evaluateBoard(b);
+
+      // Delta pruning: even winning the single most valuable piece sitting
+      // on the target square couldn't close the gap to alpha/beta, so don't
+      // even bother generating moves.
+      if (targetSquare) {
+        const victim = b[targetSquare.y][targetSquare.x];
+        const bestPossibleGain = (victim ? Math.abs(pieceValues[victim]) : 0) + 150;
+        if (whiteToMove && standPat - bestPossibleGain >= beta) return standPat;
+        if (!whiteToMove && standPat + bestPossibleGain <= alpha) return standPat;
+      }
+
+      let captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
+      if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
+
+      if (whiteToMove) {
+        if (standPat <= alpha) return standPat;
+        if (standPat < beta) beta = standPat;
+        for (const mv of captures) {
+          if (mv.piece === "K" && mv.toY === 0) return -Infinity;
+          const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+          const val = quiesce(nextBoard, alpha, beta, false, nextPool, { x: mv.toX, y: mv.toY });
+          if (val < beta) beta = val;
+          if (beta <= alpha) return alpha;
+        }
+        return beta;
+      }
+
+      if (standPat >= beta) return standPat;
+      if (standPat > alpha) alpha = standPat;
+      for (const mv of captures) {
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = quiesce(nextBoard, alpha, beta, true, nextPool, { x: mv.toX, y: mv.toY });
+        if (val > alpha) alpha = val;
+        if (beta <= alpha) return beta;
+      }
+      return alpha;
+    }
+
     // Full alternating minimax with alpha-beta pruning: Black maximizes the
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
-      if (depth === 0) return evaluateBoard(b);
+      if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
 
       const moves = collectMoves(b, whiteToMove);
-      if (!moves.length) return evaluateBoard(b);
+      if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
 
       if (whiteToMove) {
         let best = Infinity;

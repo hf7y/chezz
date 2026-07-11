@@ -276,13 +276,15 @@
 
   // The opponent's mind: given the board (and what's been captured, for
   // promotion), pick Black's move. A real alternating minimax with
-  // alpha-beta pruning, 4 plies deep (Black, White, Black, White) — deep
-  // enough that a sacrifice's real cost (the piece getting recaptured) shows
-  // up within the search horizon instead of needing a hand-coded bonus to
-  // approximate it.
+  // alpha-beta pruning, 3 plies deep (Black, White, Black), extended by a
+  // quiescence search (below) through any capture sequence still in
+  // progress once the main search bottoms out — together these mean a
+  // sacrifice's real cost (the piece getting recaptured, however many
+  // moves that takes) shows up on the board instead of needing a
+  // hand-coded bonus to approximate it.
   function getBlackMoveRuthless(board, capturedPool) {
     capturedPool = capturedPool || "";
-    const DEPTH = 4;
+    const DEPTH = 3;
 
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
@@ -366,13 +368,64 @@
       return { nextBoard, pool: promo.capturedPool };
     }
 
+    // Quiescence search: a plain static eval at the search horizon can badly
+    // misjudge a position mid-exchange — it has no idea whether the capture
+    // that just happened is about to be recaptured one ply later (the
+    // "horizon effect"). So instead of evaluating immediately once the main
+    // search bottoms out, keep searching, but ONLY through captures, until
+    // the position settles. Once a capture lands on a square, only further
+    // recaptures on that SAME square continue the thread — unrelated
+    // captures elsewhere get examined once the main search reaches them as
+    // an actual move, not smuggled in here. That's what keeps this cheap:
+    // an exchange is bounded by however many pieces attack one square
+    // (rarely more than 2-3), not by every capture on the board.
+    function quiesce(b, alpha, beta, whiteToMove, pool, targetSquare) {
+      const standPat = evaluateBoard(b);
+
+      // Delta pruning: even winning the single most valuable piece sitting
+      // on the target square couldn't close the gap to alpha/beta, so don't
+      // even bother generating moves.
+      if (targetSquare) {
+        const victim = b[targetSquare.y][targetSquare.x];
+        const bestPossibleGain = (victim ? Math.abs(pieceValues[victim]) : 0) + 150;
+        if (whiteToMove && standPat - bestPossibleGain >= beta) return standPat;
+        if (!whiteToMove && standPat + bestPossibleGain <= alpha) return standPat;
+      }
+
+      let captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
+      if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
+
+      if (whiteToMove) {
+        if (standPat <= alpha) return standPat;
+        if (standPat < beta) beta = standPat;
+        for (const mv of captures) {
+          if (mv.piece === "K" && mv.toY === 0) return -Infinity;
+          const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+          const val = quiesce(nextBoard, alpha, beta, false, nextPool, { x: mv.toX, y: mv.toY });
+          if (val < beta) beta = val;
+          if (beta <= alpha) return alpha;
+        }
+        return beta;
+      }
+
+      if (standPat >= beta) return standPat;
+      if (standPat > alpha) alpha = standPat;
+      for (const mv of captures) {
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = quiesce(nextBoard, alpha, beta, true, nextPool, { x: mv.toX, y: mv.toY });
+        if (val > alpha) alpha = val;
+        if (beta <= alpha) return beta;
+      }
+      return alpha;
+    }
+
     // Full alternating minimax with alpha-beta pruning: Black maximizes the
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
-      if (depth === 0) return evaluateBoard(b);
+      if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
 
       const moves = collectMoves(b, whiteToMove);
-      if (!moves.length) return evaluateBoard(b);
+      if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
 
       if (whiteToMove) {
         let best = Infinity;
