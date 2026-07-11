@@ -79,9 +79,9 @@
 
 <h1>Chezz</h1>
 
-<output></output>
+<p>Captured: <output></output></p>
 <table aria-label="Chess board"></table>
-<dialog></dialog>
+<dialog><p>Promote to:</p></dialog>
 <menu>
   <a href="/index.html">Reset</a> · <a href="#" onclick="history.back(); return false;">Undo</a>
 </menu>
@@ -94,32 +94,9 @@
 <details id="instructions">
   <summary>How to play</summary>
   <p>
-    You control a lone White King (♔) trying to fight up through an endless dungeon.
-    Each floor is seeded with a random black army — bigger and nastier the deeper you go —
-    scattered across the board above the bottom two ranks.
-  </p>
-  <p>
-    Click (or tap) a piece to select it, then click a destination to move it — or just
-    drag a piece straight to its destination instead. Clicking a different one of your
-    own pieces mid-selection switches your selection instead of wasting a click, and
-    pressing Escape cancels a selection outright. Pieces move using standard chess rules.
-    A red glow marks your King and whatever's threatening it. After you move, the black
-    side replies automatically.
-  </p>
-  <p>
-    Capture black pieces to bank them (shown above the board). Banked material lets you
-    promote a White pawn into a Queen, Rook, Bishop, or Knight once that pawn reaches the
-    second-to-last rank.
-  </p>
-  <p>
-    Get your King to the very top row to clear the floor. Surviving pieces carry over to
-    the next floor's back ranks, surviving pawns advance one rank, and any non-pawn
-    survivor gets escorted by a bonus pawn if you've banked a captured black pawn to spend.
-    Rank numbers on the left keep climbing across floors so you can track your overall depth.
-  </p>
-  <p>
-    Your progress is saved in the URL, so the page is reload- and share-safe, and the
-    browser back button undoes moves. Use "Reset" below the board to start over from floor 1.
+    Click or drag your White King (♔) and other pieces to move them by standard chess
+    rules — reach the top row to clear the floor, and Black replies automatically after
+    every move.
   </p>
 </details>
 
@@ -267,7 +244,7 @@
   }
 
   function renderPromotion() {
-    promotionElement.innerHTML = "";
+    promotionElement.innerHTML = "<p>Promote to:</p>";
     if (!promotion) return;
     const sq = boardElement.rows[promotion.y].cells[promotion.x + 1];
     const r = sq.getBoundingClientRect();
