@@ -467,13 +467,14 @@
     for (const mv of collectMoves(board, false)) {
       const { nextBoard, pool } = applyMove(board, mv, capturedPool);
       const moveValue = search(nextBoard, DEPTH - 1, -Infinity, Infinity, true, pool);
+      const candidate = { fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
 
       if (moveValue > maxEvaluation) {
         maxEvaluation = moveValue;
         candidates.length = 0;
-        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
+        candidates.push(candidate);
       } else if (moveValue === maxEvaluation) {
-        candidates.push({ fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue });
+        candidates.push(candidate);
       }
     }
 
@@ -488,6 +489,12 @@
   const promotionElement = document.querySelector("dialog");
 
   let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0 };
+
+  // Transient interaction state, read from rendering, dragging, and boot
+  // alike — deliberately kept separate from `state` above since neither
+  // belongs in the saved/shared/audited URL. (drag and promotionResolve are
+  // this same kind of thing too, declared further down next to the one
+  // section that actually touches them.)
   let selected = null, promotion = null;
 
   // Board <-> compact string conversion, used internally to reshuffle rows
