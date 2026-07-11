@@ -229,23 +229,72 @@
       [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
     }
 
-    let index = 0;
-    for (let y = 1; y < 9 && index < pieces.length; y++) {
-      // Randomize this row's column order so placement isn't left-side heavy —
-      // a true random pick out of the 8 columns for the first piece inserted,
-      // then a random pick of what's left for the next, and so on.
+    // Randomize a row's column order so placement isn't left-side heavy —
+    // a true random pick out of the 8 columns for the first piece inserted
+    // into it, then a random pick of what's left for the next, and so on.
+    function shuffledCols() {
       const cols = [0, 1, 2, 3, 4, 5, 6, 7];
       for (let i = cols.length - 1; i > 0; i--) {
         const j = Math.floor(rng() * (i + 1));
         [cols[i], cols[j]] = [cols[j], cols[i]];
       }
-      for (const x of cols) {
-        if (index >= pieces.length) break;
-        if (state.board[y][x] === "" && rng() > 0.5) {
-          state.board[y][x] = pieces[index++];
+      return cols;
+    }
+
+    // Aware of White's carried-over position (already sitting in state.board
+    // by the time this runs): never spawn onto a square White could capture
+    // for free before Black even gets a turn. Checks against the square
+    // actually occupied rather than empty -- a pawn's diagonal only counts
+    // as an attack once there's really an enemy piece sitting there for it
+    // to capture, so checking the empty square would miss pawn threats
+    // entirely.
+    function isSafeSquare(x, y) {
+      const occupant = state.board[y][x];
+      state.board[y][x] = "p";
+      const attackers = Engine.attackersOf(state.board, x, y, true);
+      state.board[y][x] = occupant;
+      return attackers.length === 0;
+    }
+
+    // Black's pawn wall sits one row ahead of White's carried-over back rank
+    // (row 8) -- mirrors a real chessboard's pawn rank, and keeps the
+    // cheapest piece to lose between White and whatever stronger pieces
+    // spawn further back.
+    const PAWN_RANK = 7;
+    const backRanks = [1, 2, 3, 4, 5, 6];
+
+    // Places as many of `queue` as fit across `rows`, skipping any square
+    // that's occupied, unsafe, or loses this particular placement roll.
+    // Returns whatever didn't fit.
+    function fill(rows, queue) {
+      let i = 0;
+      for (const y of rows) {
+        if (i >= queue.length) break;
+        for (const x of shuffledCols()) {
+          if (i >= queue.length) break;
+          if (state.board[y][x] === "" && isSafeSquare(x, y) && rng() > 0.5) {
+            state.board[y][x] = queue[i++];
+          }
         }
       }
+      return queue.slice(i);
     }
+
+    const pawns = pieces.filter(p => p === "p");
+    const others = pieces.filter(p => p !== "p");
+    const strandedOthers = fill(backRanks, others);
+    const strandedPawns = fill([PAWN_RANK], pawns);
+
+    // Anything that couldn't find a safe square on its intended rank (a
+    // cramped or heavily-covered board) converts to pawns and gets one more
+    // pass across every row instead of being dropped outright -- pawns are
+    // the cheapest, easiest piece to tuck into whatever's left, so material
+    // still ratchets up roughly on schedule.
+    const spawnCost = { q: 9, r: 5, n: 3, b: 3, p: 1 };
+    const fillerPawns = strandedPawns.concat(
+      strandedOthers.flatMap(p => Array(spawnCost[p]).fill("p"))
+    );
+    fill([PAWN_RANK, ...backRanks, 8], fillerPawns);
     state.spawned = true;
   }
 
@@ -467,9 +516,19 @@
     document.addEventListener("pointerup", onDragEnd, { once: true });
   }
 
+  const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+  const toSuperscript = n => String(n).split("").map(d => SUPERSCRIPT_DIGITS[d]).join("");
+  const CAPTURED_DISPLAY_ORDER = ["q", "r", "b", "n", "p"];
+
   function renderBoard() {
-    const capturedBlack = state.captured.split("").filter(c => c === c.toLowerCase()).map(c => SYMBOLS[c] || "").join(" ");
-    capturedElement.textContent = capturedBlack ? capturedBlack : "";
+    const capturedCounts = {};
+    for (const c of state.captured) {
+      if (c === c.toLowerCase()) capturedCounts[c] = (capturedCounts[c] || 0) + 1;
+    }
+    capturedElement.textContent = CAPTURED_DISPLAY_ORDER
+      .filter(c => capturedCounts[c])
+      .map(c => SYMBOLS[c] + (capturedCounts[c] > 1 ? toSuperscript(capturedCounts[c]) : ""))
+      .join(" ");
 
     const legalTargets = new Set(
       (selected ? Engine.legalMovesFrom(state.board, selected.x, selected.y) : []).map(m => `${m.x},${m.y}`)
