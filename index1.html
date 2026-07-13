@@ -376,19 +376,19 @@
     const MIN_DEPTH = 3; // always completed in full, regardless of the deadline
     const MAX_DEPTH = 8;
 
-    // Floor 1 gets a fast, weak AI -- a gentle on-ramp -- and the budget
-    // grows with the climb, capping out much stronger by floor 45. This
-    // started as a fix for dense high-floor positions (many amazons) not
-    // getting enough time to look past a bad-looking trade, but scaling it
-    // by floor doubles as the game's actual difficulty curve instead of a
-    // flat difficulty from move one.
-    const BASE_SEARCH_DEADLINE_MS = 300;
-    const SEARCH_DEADLINE_MS_PER_FLOOR = 60;
-    const MAX_SEARCH_DEADLINE_MS = 3000;
-    const SEARCH_DEADLINE_MS = Math.min(
-      BASE_SEARCH_DEADLINE_MS + (floor || 1) * SEARCH_DEADLINE_MS_PER_FLOOR,
-      MAX_SEARCH_DEADLINE_MS
-    );
+    // Depth curves with floor, not time -- a time-based curve would hand
+    // players on faster hardware a stronger AI than players on slower
+    // hardware at the very same floor, which isn't the point. Floor 1-8
+    // stays at MIN_DEPTH (weak, fast on-ramp); every RANKS_PER_FLOOR floors
+    // after that adds one more ply, up to the MAX_DEPTH ceiling -- so the
+    // climb itself is what makes the AI stronger, the same way on any device.
+    const TARGET_DEPTH = Math.min(MIN_DEPTH + Math.floor(((floor || 1) - 1) / RANKS_PER_FLOOR), MAX_DEPTH);
+
+    // Time is only a safety valve now -- generous enough that reaching
+    // TARGET_DEPTH ordinarily finishes well within it -- protecting slow
+    // devices (or an unusually dense position) from freezing the tab,
+    // rather than being the thing that decides how strong the AI is.
+    const SEARCH_DEADLINE_MS = 4000;
     const deadline = Date.now() + SEARCH_DEADLINE_MS;
     let hitDeadline = false;
 
@@ -628,7 +628,7 @@
     // last depth that finished clean.
     let best = searchRoot(MIN_DEPTH, null, null);
     let prevScores = new Map(best.all.map(c => [moveKey(c), c.score]));
-    for (let depth = MIN_DEPTH + 1; depth <= MAX_DEPTH; depth++) {
+    for (let depth = MIN_DEPTH + 1; depth <= TARGET_DEPTH; depth++) {
       if (Date.now() > deadline) break;
       hitDeadline = false;
       const attempt = searchRoot(depth, best.candidates[0], prevScores);
