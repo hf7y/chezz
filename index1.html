@@ -1131,16 +1131,24 @@
   // A tester's one-line report, plus whatever position they're looking at
   // (the URL already encodes fen/floor/budget/captured/maxRank) -- lands in
   // the same spreadsheet as scores, on its own "BugReports" tab.
-  function reportBug() {
+  async function reportBug() {
     if (!LEADERBOARD_URL) { alert("Leaderboard isn't configured, so there's nowhere to send this yet."); return; }
     const description = prompt("What went wrong? (the current position's URL is attached automatically)");
     if (!description) return;
-    fetch(LEADERBOARD_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ type: "bug", name: getPlayerName(), url: location.href, description }),
-    }).catch(() => {});
-    alert("Thanks, reported!");
+    // Waits for and checks the actual response rather than firing an
+    // unconditional "Thanks!" -- a tester otherwise has no way to tell a
+    // report actually saved from one that silently failed.
+    try {
+      const res = await fetch(LEADERBOARD_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ type: "bug", name: getPlayerName(), url: location.href, description }),
+      });
+      const data = await res.json();
+      alert(data && data.ok ? "Thanks, reported!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.");
+    } catch (err) {
+      alert("Couldn't reach the leaderboard -- report not sent. Check your connection and try again.");
+    }
   }
 
   // Just the single top score per scope -- fetched fresh each time rather
