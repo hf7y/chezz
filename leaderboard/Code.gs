@@ -22,13 +22,17 @@
 //     body: JSON.stringify({ type: "bug", name, url, description }),
 //   });
 //
-// Read the leaderboard (scores only -- bug reports aren't exposed here):
+// Read the leaderboard:
 //   fetch(WEB_APP_URL + "?scope=today&dateKey=" + todayKey())  -- today's board
 //   fetch(WEB_APP_URL + "?scope=all")                          -- all-time board
 //   Both accept &limit=N (default 20). Response is a JSON array, highest
 //   rank first: [{ timestamp, dateKey, name, floor, rank }, ...]
 //   (history is intentionally not included in read results, to keep the
 //   leaderboard payload small -- look it up in the sheet directly if needed.)
+//
+// Read bug reports (newest first):
+//   fetch(WEB_APP_URL + "?scope=bugs")  -- accepts &limit=N (default 20)
+//   Response: [{ timestamp, name, url, description }, ...]
 
 const SCORES_SHEET_NAME = "Scores";
 const SCORES_HEADERS = ["timestamp", "dateKey", "name", "floor", "rank", "history"];
@@ -91,6 +95,11 @@ function submitBugReport_(body) {
 }
 
 function doGet(e) {
+  const scope = (e.parameter.scope || "all");
+  const limit = Number(e.parameter.limit) || DEFAULT_LIMIT;
+
+  if (scope === "bugs") return getBugReports_(limit);
+
   const sheet = getScoresSheet_();
   const rows = sheet.getDataRange().getValues();
   const [header, ...data] = rows;
@@ -104,14 +113,31 @@ function doGet(e) {
     rank: r[col("rank")],
   }));
 
-  const scope = (e.parameter.scope || "all");
   if (scope === "today") {
     const dateKey = e.parameter.dateKey || "";
     entries = entries.filter(x => x.dateKey === dateKey);
   }
 
   entries.sort((a, b) => b.rank - a.rank);
-  const limit = Number(e.parameter.limit) || DEFAULT_LIMIT;
+  const top = entries.slice(0, limit);
+
+  return ContentService.createTextOutput(JSON.stringify(top))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getBugReports_(limit) {
+  const sheet = getOrCreateSheet_(BUGS_SHEET_NAME, BUGS_HEADERS);
+  const rows = sheet.getDataRange().getValues();
+  const [header, ...data] = rows;
+  const col = name => header.indexOf(name);
+
+  const entries = data.map(r => ({
+    timestamp: r[col("timestamp")],
+    name: r[col("name")],
+    url: r[col("url")],
+    description: r[col("description")],
+  }));
+  entries.reverse(); // newest first
   const top = entries.slice(0, limit);
 
   return ContentService.createTextOutput(JSON.stringify(top))
