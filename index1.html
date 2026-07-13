@@ -861,27 +861,42 @@
             break;
           }
 
-          let emptyCol = -1;
-          for (const x of shuffledCols()) {
-            if (state.board[BACK_RANK][x] === "") { emptyCol = x; break; }
+          // A shield pawn only blocks a same-file attack -- if the only
+          // way to place this piece leaves it open to a diagonal or
+          // knight-vector threat instead (unblockable by interposition,
+          // since a knight-move component jumps over pieces entirely),
+          // the shield does nothing and it's left hanging anyway. Only
+          // accept a column where shielding it actually clears the threat.
+          const cols = shuffledCols();
+          let shieldableCol = -1, anyEmpty = false;
+          for (const x of cols) {
+            if (state.board[BACK_RANK][x] !== "") continue;
+            anyEmpty = true;
+            if (state.board[PAWN_RANK][x] !== "") continue;
+            state.board[PAWN_RANK][x] = "p";
+            const safe = isSafeSquare(x, BACK_RANK);
+            state.board[PAWN_RANK][x] = "";
+            if (safe) { shieldableCol = x; break; }
           }
-          if (emptyCol === -1) {
+
+          if (shieldableCol !== -1 && remaining >= cost + PIECE_SPAWN_COST.p) {
+            state.board[BACK_RANK][shieldableCol] = type;
+            markCovered(type, shieldableCol, BACK_RANK);
+            state.board[PAWN_RANK][shieldableCol] = "p";
+            markCovered("p", shieldableCol, PAWN_RANK);
+            remaining -= cost + PIECE_SPAWN_COST.p;
+            break;
+          }
+
+          if (!anyEmpty) {
             // Back rank is entirely full -- nothing more fits there.
             if (!placePawn()) remaining = 0; else remaining -= PIECE_SPAWN_COST.p;
             break;
           }
 
-          if (remaining >= cost + PIECE_SPAWN_COST.p) {
-            state.board[BACK_RANK][emptyCol] = type;
-            markCovered(type, emptyCol, BACK_RANK);
-            if (state.board[PAWN_RANK][emptyCol] === "") { state.board[PAWN_RANK][emptyCol] = "p"; markCovered("p", emptyCol, PAWN_RANK); }
-            else placePawn(); // that column's shield square is already taken -- shield from elsewhere instead
-            remaining -= cost + PIECE_SPAWN_COST.p;
-            break;
-          }
-
-          // Can't afford this piece plus its shield -- downgrade a tier
-          // and try again, rather than forcing it down unshielded.
+          // No column a shield would actually protect (or can't afford
+          // it) -- downgrade a tier and try again, rather than forcing it
+          // down still-hanging.
           type = tierBelow(type);
         }
       }
