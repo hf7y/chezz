@@ -76,6 +76,18 @@
 
   #leaderboard dt { font-weight: bold; }
   #leaderboard dd { margin: 0 0 6px; }
+
+  /* Color swatch for a player's 6-hex-digit id, driven by --swatch. */
+  #leaderboard data::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 2px;
+    background: var(--swatch, transparent);
+    vertical-align: middle;
+  }
 </style>
 </head>
 <body>
@@ -96,6 +108,8 @@
 </details>
 
 <dl id="leaderboard">
+  <dt>Your best</dt>
+  <dd><data id="leaderboardMine"></data></dd>
   <dt>Today's top</dt>
   <dd><data id="leaderboardToday"></data></dd>
   <dt>All-time top</dt>
@@ -684,8 +698,14 @@
       const lower = p.toLowerCase();
       return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || 0));
     }, 0);
-    const BONUS_PAWN_FACTOR = 0.3; // fraction of the material gap converted to bonus pawns
-    const bonusPawns = Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_PAWN_FACTOR));
+    // Capped: White's material lead keeps growing floor over floor (more
+    // queens from more promotions), so an uncapped bonus eventually turns
+    // most of the board into a solid multi-row pawn wall -- padding, not
+    // real difficulty. A handful of extra pawns is enough to say "White is
+    // way ahead here" without drowning the rest of the army in them.
+    const BONUS_PAWN_FACTOR = 0.2; // fraction of the material gap converted to bonus pawns
+    const BONUS_PAWN_CAP = 8;
+    const bonusPawns = Math.min(BONUS_PAWN_CAP, Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_PAWN_FACTOR)));
 
     placeArmy: for (let attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
       state.board = baseline.map(row => [...row]);
@@ -1041,8 +1061,6 @@
   const RANKS_PER_FLOOR = BOARD_ROWS - 1; // every row below the shared exit row
   const HUE_DEGREES_PER_RANK = 10; // a full color cycle every 36 ranks (4.5 floors)
 
-  const SUPERSCRIPT_DIGITS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
-  const toSuperscript = n => String(n).split("").map(d => SUPERSCRIPT_DIGITS[d]).join("");
   const CAPTURED_DISPLAY_ORDER = ["q", "r", "b", "n", "p"];
 
   // Leaderboard: fire-and-forget, best-effort -- paste your deployed Apps
@@ -1052,10 +1070,13 @@
   // player's best progress without any extra interaction.
   const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec";
 
+  // A 6-hex-digit identifier -- doubles as a #rrggbb color, so a player can
+  // be shown as a swatch instead of a name with no prompt and nothing
+  // personally identifying.
   function getPlayerName() {
     let name = localStorage.getItem("chezzPlayerName");
-    if (!name) {
-      name = "Player" + Math.floor(Math.random() * 100000);
+    if (!name || !/^[0-9a-f]{6}$/.test(name)) {
+      name = Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, "0");
       localStorage.setItem("chezzPlayerName", name);
     }
     return name;
@@ -1095,21 +1116,34 @@
     return top || null;
   }
 
-  // <data> pairs a machine-readable value with the human-readable text --
-  // textContent (not innerHTML) since name is free text from a public
-  // write endpoint.
-  function renderTopScore(el, top, emptyMessage) {
-    if (!top) { el.removeAttribute("value"); el.textContent = emptyMessage; return; }
-    el.setAttribute("value", top.rank);
-    el.textContent = `${top.name} — floor ${top.floor}, rank ${top.rank}`;
+  // <data> pairs a machine-readable value (the rank) with human-readable
+  // text -- textContent (not innerHTML) since name is free text from a
+  // public write endpoint, even though here it's constrained to 6 hex
+  // digits by the sender's own getPlayerName(). The color swatch (::before
+  // in the stylesheet) reads --swatch, so a step colored input never has
+  // to touch the text at all.
+  function renderScore(el, entry, emptyMessage) {
+    if (!entry) { el.removeAttribute("value"); el.textContent = emptyMessage; el.style.removeProperty("--swatch"); return; }
+    el.setAttribute("value", entry.rank);
+    el.textContent = `Rank ${entry.rank} (${entry.floor})`;
+    el.style.setProperty("--swatch", "#" + entry.name);
+  }
+
+  // The player's own best -- purely local, no network round trip, shown
+  // even when the leaderboard itself isn't configured or reachable.
+  function renderMyBest() {
+    const el = document.getElementById("leaderboardMine");
+    if (!el) return;
+    renderScore(el, state.maxRank ? { rank: state.maxRank, floor: state.floor, name: getPlayerName() } : null, "No runs yet.");
   }
 
   async function refreshLeaderboards() {
+    renderMyBest();
     if (!LEADERBOARD_URL) return;
     try {
       const [today, allTime] = await Promise.all([fetchTopScore("today"), fetchTopScore("all")]);
-      renderTopScore(document.getElementById("leaderboardToday"), today, "No scores yet today.");
-      renderTopScore(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
+      renderScore(document.getElementById("leaderboardToday"), today, "No scores yet today.");
+      renderScore(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
     } catch (err) {
       // best-effort -- offline or unreachable just leaves whatever was shown last
     }
@@ -1125,15 +1159,15 @@
   // every time, rather than patching individual cells.
   function renderBoard() {
     const rank = currentKingRank();
-    if (rank > state.maxRank) { state.maxRank = rank; submitScore(rank); }
+    if (rank > state.maxRank) { state.maxRank = rank; renderMyBest(); submitScore(rank); }
 
     const capturedCounts = {};
     for (const c of state.captured) {
       if (!isWhitePiece(c)) capturedCounts[c] = (capturedCounts[c] || 0) + 1;
     }
-    capturedElement.textContent = CAPTURED_DISPLAY_ORDER
+    capturedElement.innerHTML = CAPTURED_DISPLAY_ORDER
       .filter(c => capturedCounts[c])
-      .map(c => SYMBOLS[c] + (capturedCounts[c] > 1 ? toSuperscript(capturedCounts[c]) : ""))
+      .map(c => SYMBOLS[c] + (capturedCounts[c] > 1 ? `<sup>${capturedCounts[c]}</sup>` : ""))
       .join(" ");
 
     const legalTargets = new Set(
