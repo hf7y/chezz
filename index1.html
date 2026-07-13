@@ -73,6 +73,11 @@
   }
 
   #instructions { max-width: 380px; font-size: 14px; }
+
+  #leaderboards { display: flex; gap: 32px; margin-top: 16px; }
+  #leaderboards > div { min-width: 200px; }
+  #leaderboards h2 { font-size: 16px; margin: 0 0 4px; }
+  #leaderboards ol { margin: 0; padding-left: 20px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -91,6 +96,19 @@
     every move.
   </p>
 </details>
+
+<div id="leaderboards">
+  <div>
+    <h2>Today</h2>
+    <ol id="leaderboardToday"></ol>
+  </div>
+  <div>
+    <h2>All-time</h2>
+    <ol id="leaderboardAllTime"></ol>
+  </div>
+</div>
+
+<p><a href="#" id="reportBugLink">Report a bug</a></p>
 
 <script>
   // The rules of the world. Pieces are uppercase for White, lowercase for
@@ -616,9 +634,12 @@
   // Day+month only (no year) -- every player gets the same dice rolls for a
   // given floor on a given day, so runs are comparable on a daily
   // leaderboard, and the whole game resets to a fresh daily seed tomorrow.
+  // Leads with a letter so it can never look like a date to Google Sheets
+  // -- a bare "7-13" gets silently auto-converted to an actual date cell,
+  // which then never string-matches this same value again.
   function todayKey() {
     const d = new Date();
-    return (d.getMonth() + 1) + "-" + d.getDate();
+    return "d" + (d.getMonth() + 1) + "-" + d.getDate();
   }
 
   const LCG_MULTIPLIER = 1664525;
@@ -1030,8 +1051,50 @@
     fetch(LEADERBOARD_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" }, // avoids a CORS preflight
-      body: JSON.stringify({ name: getPlayerName(), floor: state.floor, rank, dateKey: todayKey() }),
-    }).catch(() => {}); // best-effort -- offline/unreachable just skips this entry, play continues either way
+      body: JSON.stringify({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: todayKey() }),
+    }).catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
+  }
+
+  // A tester's one-line report, plus whatever position they're looking at
+  // (the URL already encodes fen/floor/budget/captured/maxRank) -- lands in
+  // the same spreadsheet as scores, on its own "BugReports" tab.
+  function reportBug() {
+    if (!LEADERBOARD_URL) { alert("Leaderboard isn't configured, so there's nowhere to send this yet."); return; }
+    const description = prompt("What went wrong? (the current position's URL is attached automatically)");
+    if (!description) return;
+    fetch(LEADERBOARD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ type: "bug", name: getPlayerName(), url: location.href, description }),
+    }).catch(() => {});
+    alert("Thanks, reported!");
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  async function fetchLeaderboard(scope) {
+    const params = new URLSearchParams({ scope, dateKey: todayKey(), limit: "10" });
+    const res = await fetch(`${LEADERBOARD_URL}?${params}`);
+    return res.json();
+  }
+
+  function renderLeaderboardList(el, entries, emptyMessage) {
+    el.innerHTML = entries.length
+      ? entries.map(e => `<li>${escapeHtml(e.name)} — floor ${e.floor}, rank ${e.rank}</li>`).join("")
+      : `<li>${emptyMessage}</li>`;
+  }
+
+  async function refreshLeaderboards() {
+    if (!LEADERBOARD_URL) return;
+    try {
+      const [today, allTime] = await Promise.all([fetchLeaderboard("today"), fetchLeaderboard("all")]);
+      renderLeaderboardList(document.getElementById("leaderboardToday"), today, "No scores yet today.");
+      renderLeaderboardList(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
+    } catch (err) {
+      // best-effort -- offline or unreachable just leaves whatever was shown last
+    }
   }
 
   function currentKingRank() {
@@ -1099,8 +1162,14 @@
     renderBoard();
   }
 
+  document.getElementById("reportBugLink").addEventListener("click", e => {
+    e.preventDefault();
+    reportBug();
+  });
+
   window.addEventListener("popstate", loadFromUrl);
   loadFromUrl();
+  refreshLeaderboards();
 </script>
 </body>
 </html>
