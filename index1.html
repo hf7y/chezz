@@ -77,7 +77,7 @@
 </head>
 <body>
 
-<h1>Chezz</h1>
+<h1><a href="index1.html">Chezz</a></h1>
 
 <p>Captured: <output></output></p>
 <table aria-label="Chess board"></table>
@@ -586,6 +586,14 @@
     return h;
   }
 
+  // Day+month only (no year) -- every player gets the same dice rolls for a
+  // given floor on a given day, so runs are comparable on a daily
+  // leaderboard, and the whole game resets to a fresh daily seed tomorrow.
+  function todayKey() {
+    const d = new Date();
+    return (d.getMonth() + 1) + "-" + d.getDate();
+  }
+
   const LCG_MULTIPLIER = 1664525;
   const LCG_INCREMENT = 1013904223;
   const LCG_MODULUS = 4294967296; // 2^32
@@ -599,7 +607,13 @@
   // the floor number so the dungeon gets harder as White climbs.
   function spawnBlackArmy() {
     const baseline = state.board.map(row => [...row]);
-    const baseSeed = hashStr(boardToFen() + state.floor);
+    // Seeded from the date (not the board) so every player rolls the same
+    // budget/piece-mix/column-order dice for a given floor today -- actual
+    // placement still adapts to whatever's really on each player's board
+    // (safety, shielding, the survives-next-move retry), so floors still
+    // diverge with play the way they always have, but the underlying dice
+    // are shared and the whole game resets fresh each day.
+    const baseSeed = hashStr(todayKey() + ":" + state.floor);
 
     // Budget is derived once, independent of the placement attempts below --
     // a retry should reshuffle where the army goes, never how big it is.
