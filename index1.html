@@ -1182,9 +1182,13 @@
 
   boardElement.addEventListener("pointerdown", e => {
     const cell = e.target.closest("td");
-    if (!cell || promotion) return;
+    // Nothing here checked whose piece this is, or whose turn it even is --
+    // a player could drag a Black piece directly, or start a second White
+    // move while Black's reply search was still in flight.
+    if (!cell || promotion || state.turn !== "w") return;
     const { x, y } = cellCoords(cell);
-    if (!state.board[y][x]) return;
+    const piece = state.board[y][x];
+    if (!piece || !isWhitePiece(piece)) return;
     drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false };
     document.addEventListener("pointermove", onDragMove);
     document.addEventListener("pointerup", onDragEnd, { once: true });
