@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Chezz</title>
+<!-- Only the fairy pieces (Amazon/Chancellor/Archbishop) actually need this --
+     the rest of the game works fully offline with no network at all. Loaded
+     non-blocking (display=swap); if it can't reach the network, those three
+     glyphs fall back to tofu/placeholder boxes rather than breaking anything. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 <style>
   /* 9 columns: a row-number header cell, then 8 board squares. */
   table {
@@ -15,9 +22,21 @@
     width: 40px;
     height: 40px;
     text-align: center;
-    vertical-align: middle;
+    vertical-align: baseline;
+    line-height: 40px;
     font-size: 25px;
   }
+
+  /* Only the fairy pieces actually need Noto Sans Symbols 2 -- the plain
+     chess glyphs already render fine in any system font, and per-glyph
+     fallback means this only ever kicks in for the characters it's needed
+     for, whether or not the webfont link above actually loaded. Scoped to
+     .piece-glyph rather than applied broadly to its container: applying it
+     to the whole captured-count display also pulled the <sup> count
+     digits into Noto's own (much wider-spaced) numerals, splaying
+     double-digit counts apart -- e.g. "17" rendering as "1" and "7" with a
+     visible gap. */
+  .piece-glyph { font-family: "Noto Sans Symbols 2", system-ui, sans-serif; }
 
   th {
     text-align: right;
@@ -278,13 +297,9 @@
     return null;
   }
 
-  // Does White have any legal move at all after which the King (wherever it
-  // ends up -- moved to safety, or left in place while something else
-  // blocks/captures a threat) isn't attacked by any black piece? This game
-  // doesn't enforce check/checkmate as a rule, but a freshly spawned floor
-  // that leaves White's King guaranteed to be captured on Black's very next
-  // move regardless of what White plays is dead on arrival -- used to
-  // reject that specific outcome when spawning a new army, not during play.
+  // Does White have any legal move after which the King isn't attacked by
+  // any black piece? Not an enforced check/checkmate rule -- used only to
+  // reject a freshly spawned floor that's already dead on arrival.
   function whiteSurvivesNextMove(board) {
     const king = findWhiteKing(board);
     if (!king) return true; // nothing for this check to protect
@@ -304,15 +319,12 @@
     return false;
   }
 
-  const PROMOTION_PRIORITY = ["q", "r", "b", "n"]; // queen first
+  const PROMOTION_PRIORITY = ["m", "q", "c", "a", "r", "b", "n"]; // strongest first
 
-  // Auto-promotion, mirrored for both colors: a pawn reaching its far rank
-  // promotes by spending one captured piece of the matching type from the
-  // opponent out of `capturedPool` — never a free promotion. Picks the
-  // strongest available type (queen first) since a rational player facing
-  // this game's no-check rules never prefers a weaker piece when a
-  // stronger one is banked. Leaves the pawn a pawn if nothing promotable
-  // has been captured yet.
+  // A pawn reaching its far rank promotes by spending one captured piece
+  // of the matching type from the opponent out of `capturedPool` -- never
+  // a free promotion. Picks the strongest available type; leaves the pawn
+  // a pawn if nothing promotable has been captured yet.
   function autoPromote(piece, toY, capturedPool) {
     const isWhite = isWhitePiece(piece);
     const promotionRow = isWhite ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
@@ -331,13 +343,10 @@
     return { piece, capturedPool };
   }
 
-  // The opponent's mind: given the board (and what's been captured, for
-  // promotion), pick Black's move. A real alternating minimax with
-  // alpha-beta pruning, iteratively deepened (below) as far as a time
-  // budget allows, extended further still by a quiescence search through
-  // any capture sequence still in progress once a depth bottoms out —
-  // together these mean a sacrifice's real cost (the piece getting
-  // recaptured, however many moves that takes) shows up on the board
+  // The opponent's mind: alternating minimax with alpha-beta pruning,
+  // iteratively deepened as far as the time budget allows, extended by a
+  // quiescence search through any capture sequence still in progress at
+  // the horizon -- so a sacrifice's real cost shows up on the board
   // instead of needing a hand-coded bonus to approximate it.
   function getBlackMoveRuthless(board, capturedPool) {
     capturedPool = capturedPool || "";
@@ -355,12 +364,10 @@
     };
 
     // Kept well below material values (100-900) so a single King step never
-    // outweighs an actual capture — at 2000 it did, which meant White's best
-    // response effectively always "chose" to just shuffle the King forward
-    // instead of taking a free recapture, so Black's bad trades were never
-    // punished. Reaching EXIT_ROW itself is still covered by
-    // WHITE_ESCAPE_PENALTY below; this weight only covers the gradual
-    // approach toward it.
+    // outweighs an actual capture -- at 2000 it did, letting White shuffle
+    // the King instead of taking a free recapture. Reaching EXIT_ROW itself
+    // is still covered by WHITE_ESCAPE_PENALTY; this only covers the
+    // gradual approach.
     const KING_SAFETY_WEIGHT = 150;
 
     const RANK_1_ADVANCE_BONUS = 50; // black piece one row from EXIT_ROW
@@ -446,17 +453,12 @@
       return { nextBoard, pool: promo.capturedPool };
     }
 
-    // Quiescence search: a plain static eval at the search horizon can badly
-    // misjudge a position mid-exchange — it has no idea whether the capture
-    // that just happened is about to be recaptured one ply later (the
-    // "horizon effect"). So instead of evaluating immediately once the main
-    // search bottoms out, keep searching, but ONLY through captures, until
-    // the position settles. Once a capture lands on a square, only further
-    // recaptures on that SAME square continue the thread — unrelated
-    // captures elsewhere get examined once the main search reaches them as
-    // an actual move, not smuggled in here. That's what keeps this cheap:
-    // an exchange is bounded by however many pieces attack one square
-    // (rarely more than 2-3), not by every capture on the board.
+    // Quiescence: a static eval at the horizon can misjudge a position
+    // mid-exchange (the "horizon effect"), so keep searching through
+    // captures until it settles. Only recaptures on the SAME square
+    // continue the thread -- unrelated captures get picked up once the
+    // main search reaches them normally -- bounding the cost to however
+    // many pieces attack one square, not the whole board.
     function quiesce(b, alpha, beta, whiteToMove, pool, targetSquare) {
       const standPat = evaluateBoard(b);
 
@@ -502,13 +504,10 @@
       if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
       const moves = collectMoves(b, whiteToMove);
-      // No legal moves isn't a terminal state here (the real game just skips
-      // the turn, per makeMove) -- passing it straight to quiesce/eval made
-      // the search treat "steer into a position where I have zero moves" as
-      // a good outcome, since it cut the lookahead short right there and hid
-      // however many more free turns the opponent would actually get. Burn a
-      // ply and let the other side move instead, so a real continuation
-      // still gets evaluated.
+      // No legal moves isn't terminal (the real game just skips the turn) --
+      // ending the search here made "steer into zero moves" look good, since
+      // it hid however many free turns the opponent would actually get. Burn
+      // a ply and let the other side move instead.
       if (!moves.length) return search(b, depth - 1, alpha, beta, !whiteToMove, pool);
 
       let best = whiteToMove ? Infinity : -Infinity;
@@ -571,18 +570,12 @@
     let bestCandidates = best.candidates;
     if (!bestCandidates.length) return null;
 
-    // Once the best root move is already catastrophic (White's escape
-    // judged all but certain no matter what Black picks), small score
-    // differences between root moves are mostly search-depth noise from
-    // how far each branch got explored before the deadline, not real
-    // tactical merit -- see the getting-mated-anyway bishop case, where a
-    // move that hung a piece for free outscored several safe retreats by
-    // only ~30 out of a ~600000-point score. Rather than let that noise
-    // decide it, widen the pool to every root move within one pawn's worth
-    // of the best (not just exact ties) and prefer whichever of those
-    // don't hang the moved piece for free right now. Only engages far
-    // below any real material/positional swing (half the escape penalty
-    // itself), so it never touches an actually competitive position.
+    // Once the best root move is already catastrophic, small score gaps
+    // between root moves are mostly search-depth noise, not real tactical
+    // merit. Widen the pool to every move within one pawn's worth of the
+    // best (not just exact ties) and prefer whichever doesn't hang the
+    // moved piece for free. Threshold sits well below any real
+    // material/positional swing, so it never touches a competitive position.
     const CATASTROPHE_THRESHOLD = WHITE_ESCAPE_PENALTY / 2;
     const NOISE_MARGIN = 100; // one pawn's worth
     if (bestCandidates[0].score < CATASTROPHE_THRESHOLD) {
@@ -612,6 +605,11 @@
     K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙", M:"🩎", C:"🩏", A:"🩐",
     k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", m:"🩑", c:"🩒", a:"🩓",
   };
+
+  function pieceGlyphHtml(piece) {
+    if (!piece) return "";
+    return `<span class="piece-glyph">${SYMBOLS[piece] || ""}</span>`;
+  }
   const boardElement = document.querySelector("table");
   const capturedElement = document.querySelector("output");
   const promotionElement = document.querySelector("dialog");
@@ -691,11 +689,9 @@
   function spawnBlackArmy() {
     const baseline = state.board.map(row => [...row]);
     // Seeded from the date (not the board) so every player rolls the same
-    // budget/piece-mix/column-order dice for a given floor today -- actual
-    // placement still adapts to whatever's really on each player's board
-    // (safety, shielding, the survives-next-move retry), so floors still
-    // diverge with play the way they always have, but the underlying dice
-    // are shared and the whole game resets fresh each day.
+    // dice for a given floor today -- actual placement still adapts to
+    // each player's real board, so floors still diverge with play, but
+    // the whole game resets fresh each day.
     const baseSeed = hashStr(todayKey() + ":" + state.floor);
 
     // Budget is derived once, independent of the placement attempts below --
@@ -711,27 +707,18 @@
     if (budget < state.lastSpawnBudget) budget = state.lastSpawnBudget;
     state.lastSpawnBudget = budget;
 
-    // If White's carried-over material has snowballed far beyond what this
-    // floor's budget alone would produce, the safety/shield/downgrade
-    // cascade above converts most of the army down to pawns anyway --
-    // there's nowhere safe left for anything bigger. Top up with extra
-    // guaranteed pawns rather than extra general budget, since pawns are
-    // the one thing that always lands regardless of how dominant White's
-    // army is. Deliberately doesn't touch state.lastSpawnBudget -- this is
-    // a one-floor correction for an already-lopsided board, not a
-    // permanent ratchet that would keep compounding floor to floor.
+    // Total value of White's carried-over material (survivors from prior
+    // floors), used below to size a balance bonus when it's snowballed
+    // far past this floor's raw budget.
     const whiteMaterial = baseline.flat().reduce((sum, p) => {
       if (!p || !isWhitePiece(p) || p === "K") return sum;
       const lower = p.toLowerCase();
       return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || 0));
     }, 0);
-    // Capped: White's material lead keeps growing floor over floor (more
-    // queens from more promotions), so an uncapped bonus would keep
-    // growing without bound too. Merged straight into the same budget the
-    // per-piece loop below already spends -- not a separate forced-pawns
-    // pass -- so it still tries a bonus queen/rook/minor on the back rank
-    // first if there's room, and only falls back to pawns exactly when the
-    // normal budget would too (rank's full, or can't afford the shield).
+    // Merged into the same budget the per-piece loop below spends, so a
+    // bonus queen/rook/minor still gets tried on the back rank first if
+    // there's room, falling back to pawns only when the normal budget
+    // would too. Capped since White's lead only grows floor over floor.
     const BONUS_FACTOR = 0.2; // fraction of the material gap added to the budget
     const BONUS_CAP = 8;
     const bonus = Math.min(BONUS_CAP, Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_FACTOR)));
@@ -757,16 +744,11 @@
         return cols;
       }
 
-      // Aware of White's carried-over position (already sitting in
-      // state.board by the time this runs): is this square one White could
-      // capture for free before Black even gets a turn? Checks against the
-      // square actually occupied rather than empty -- a pawn's diagonal
-      // only counts as an attack once there's really an enemy piece sitting
-      // there for it to capture, so checking the empty square would miss
-      // pawn threats entirely. Only consulted for non-pawn pieces -- pawns
-      // are the cheap, expendable piece meant to stand in the open and
-      // screen whatever's behind them, not to only ever spawn somewhere
-      // already safe.
+      // Could White capture here for free before Black even gets a turn?
+      // Checks the square as occupied rather than empty -- a pawn's
+      // diagonal only counts once there's really a piece there to capture.
+      // Only consulted for non-pawn pieces -- pawns are meant to stand in
+      // the open and screen whatever's behind them.
       function isSafeSquare(x, y) {
         const occupant = state.board[y][x];
         state.board[y][x] = "p";
@@ -790,16 +772,13 @@
       const pawnRanks = [PAWN_RANK];
       for (let y = PAWN_RANK + 1; y <= BOARD_ROWS - 3; y++) pawnRanks.push(y);
 
-      // Placement, among several equally-safe candidates, leans toward
-      // whichever square covers the most squares this army doesn't already
-      // reach -- one general "don't waste a piece's coverage on redundant
-      // squares" rule, applied the same way to every piece type, rather
-      // than a piece-specific one. The clearest case is two bishops: a
-      // second bishop on the same square color overlaps almost entirely
-      // with the first (same diagonals), while the opposite color is
-      // completely disjoint from it -- so this naturally favors opposite-
-      // colored bishops as a side effect, without anything here ever
-      // checking square color or piece identity.
+      // Placement among several equally-safe squares leans toward
+      // whichever covers the most squares this army doesn't already
+      // reach -- one general rule applied to every piece type, not a
+      // bishop-specific one. Two bishops are the clearest case: same-color
+      // overlaps almost entirely, opposite color is disjoint, so
+      // opposite-colored bishops emerge naturally without ever checking
+      // square color.
       const coveredSquares = new Set();
       function markCovered(type, x, y) {
         for (const m of legalMovesForPiece(state.board, type, x, y)) coveredSquares.add(m.x + "," + m.y);
@@ -848,14 +827,11 @@
         return "p";
       }
 
-      // One piece at a time, biggest the remaining budget affords first:
-      // try every back-rank column for one White can't capture for free;
-      // if every column is threatened, place it anyway and spend one more
-      // budget shielding it with a pawn directly in front instead of
-      // scrapping the whole piece down to loose pawns. Only when even that
-      // shield isn't affordable does it downgrade to the next cheaper
-      // piece and try again -- so a budget shortfall costs one tier of
-      // piece, not the piece's entire value in pawns.
+      // One piece at a time, biggest affordable first: try every back-rank
+      // column for a safe one; if none exists, place it anyway and spend
+      // one more budget shielding it with a pawn in front rather than
+      // scrapping the whole piece to loose pawns. Downgrades a tier only
+      // when even the shield isn't affordable.
       while (remaining > 0) {
         const skip = rng() < SPAWN_SKIP_CHANCE; // chance to hold out for a cheaper piece, for variety
 
@@ -979,9 +955,9 @@
     promotionElement.style.left = r.left + "px";
     promotionElement.style.top = (r.top + window.scrollY + PROMOTION_DIALOG_OFFSET_Y) + "px";
 
-    [...new Set(state.captured.split("").filter(c => ["q","r","b","n"].includes(c)))].forEach(p => {
+    [...new Set(state.captured.split("").filter(c => PROMOTION_PRIORITY.includes(c)))].forEach(p => {
       const btn = document.createElement("button");
-      btn.textContent = SYMBOLS[p.toUpperCase()];
+      btn.innerHTML = pieceGlyphHtml(p.toUpperCase());
       btn.onclick = () => choosePromotion(p.toUpperCase());
       promotionElement.appendChild(btn);
     });
@@ -1006,19 +982,17 @@
     state.board[fromY][fromX] = "";
     state.turn = "b";
 
-    const promoting = state.board[toY][toX] === "P" && toY === WHITE_PROMOTION_ROW && state.captured.split("").some(c => ["q","r","b","n"].includes(c));
+    const promoting = state.board[toY][toX] === "P" && toY === WHITE_PROMOTION_ROW && state.captured.split("").some(c => PROMOTION_PRIORITY.includes(c));
     if (promoting) {
       promotion = { x: toX, y: toY }; renderPromotion();
     }
     checkFloorProgression();
     const blackWillReply = state.turn === "b";
-    // Always push a fresh checkpoint here, right after white's move — this is
-    // the entry a full turn will collapse into. If black is about to reply, we
-    // later REPLACE this same entry with the final state instead of pushing a
-    // second one; replacing here instead (and pushing after black) would
-    // overwrite the *previous* turn's checkpoint, since replaceState always
-    // rewrites whatever entry the browser is currently sitting on — which is
-    // exactly what made Undo/back land mid-turn instead of on the prior turn.
+    // Always push a fresh checkpoint here, right after White's move; if
+    // Black is about to reply, that same entry gets replaced with the
+    // final state rather than pushing a second one -- replacing here
+    // instead would overwrite the *previous* turn's checkpoint, breaking
+    // Undo/back.
     updateUrl(true); renderBoard();
 
     if (promoting) {
@@ -1230,7 +1204,7 @@
     }
     capturedElement.innerHTML = CAPTURED_DISPLAY_ORDER
       .filter(c => capturedCounts[c])
-      .map(c => SYMBOLS[c] + (capturedCounts[c] > 1 ? `<sup>${capturedCounts[c]}</sup>` : ""))
+      .map(c => pieceGlyphHtml(c) + (capturedCounts[c] > 1 ? `<sup>${capturedCounts[c]}</sup>` : ""))
       .join(" ");
 
     const legalTargets = new Set(
@@ -1251,7 +1225,7 @@
         const sel = selected && selected.x === x && selected.y === y ? " data-selected" : "";
         const threat = threats.has(`${x},${y}`) ? " data-threat" : "";
         const legal = legalTargets.has(`${x},${y}`) ? " data-legal" : "";
-        html += `<td${sel}${threat}${legal}>${SYMBOLS[state.board[y][x]] || ""}</td>`;
+        html += `<td${sel}${threat}${legal}>${pieceGlyphHtml(state.board[y][x])}</td>`;
       }
       html += `</tr>`;
     }
