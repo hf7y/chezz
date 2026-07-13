@@ -74,10 +74,8 @@
 
   #instructions { max-width: 380px; font-size: 14px; }
 
-  #leaderboards { display: flex; gap: 32px; margin-top: 16px; }
-  #leaderboards > div { min-width: 200px; }
-  #leaderboards h2 { font-size: 16px; margin: 0 0 4px; }
-  #leaderboards ol { margin: 0; padding-left: 20px; font-size: 14px; }
+  #leaderboard dt { font-weight: bold; }
+  #leaderboard dd { margin: 0 0 6px; }
 </style>
 </head>
 <body>
@@ -97,16 +95,12 @@
   </p>
 </details>
 
-<div id="leaderboards">
-  <div>
-    <h2>Today</h2>
-    <ol id="leaderboardToday"></ol>
-  </div>
-  <div>
-    <h2>All-time</h2>
-    <ol id="leaderboardAllTime"></ol>
-  </div>
-</div>
+<dl id="leaderboard">
+  <dt>Today's top</dt>
+  <dd><data id="leaderboardToday"></data></dd>
+  <dt>All-time top</dt>
+  <dd><data id="leaderboardAllTime"></data></dd>
+</dl>
 
 <p><a href="#" id="reportBugLink">Report a bug</a></p>
 
@@ -676,6 +670,23 @@
     if (budget < state.lastSpawnBudget) budget = state.lastSpawnBudget;
     state.lastSpawnBudget = budget;
 
+    // If White's carried-over material has snowballed far beyond what this
+    // floor's budget alone would produce, the safety/shield/downgrade
+    // cascade above converts most of the army down to pawns anyway --
+    // there's nowhere safe left for anything bigger. Top up with extra
+    // guaranteed pawns rather than extra general budget, since pawns are
+    // the one thing that always lands regardless of how dominant White's
+    // army is. Deliberately doesn't touch state.lastSpawnBudget -- this is
+    // a one-floor correction for an already-lopsided board, not a
+    // permanent ratchet that would keep compounding floor to floor.
+    const whiteMaterial = baseline.flat().reduce((sum, p) => {
+      if (!p || !isWhitePiece(p) || p === "K") return sum;
+      const lower = p.toLowerCase();
+      return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || 0));
+    }, 0);
+    const BONUS_PAWN_FACTOR = 0.3; // fraction of the material gap converted to bonus pawns
+    const bonusPawns = Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_PAWN_FACTOR));
+
     placeArmy: for (let attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
       state.board = baseline.map(row => [...row]);
       let remaining = budget;
@@ -810,6 +821,10 @@
           // and try again, rather than forcing it down unshielded.
           type = tierBelow(type);
         }
+      }
+
+      for (let i = 0; i < bonusPawns; i++) {
+        if (!placePawn()) break; // board's entirely full, nothing more fits anywhere
       }
 
       // Placing this army may have left White's King attacked from more
@@ -1070,28 +1085,31 @@
     alert("Thanks, reported!");
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
-
-  async function fetchLeaderboard(scope) {
-    const params = new URLSearchParams({ scope, dateKey: todayKey(), limit: "10" });
+  // Just the single top score per scope -- fetched fresh each time rather
+  // than trusting a cached top-N list, so this stays correct even if a
+  // better score landed between refreshes.
+  async function fetchTopScore(scope) {
+    const params = new URLSearchParams({ scope, dateKey: todayKey(), limit: "1" });
     const res = await fetch(`${LEADERBOARD_URL}?${params}`);
-    return res.json();
+    const [top] = await res.json();
+    return top || null;
   }
 
-  function renderLeaderboardList(el, entries, emptyMessage) {
-    el.innerHTML = entries.length
-      ? entries.map(e => `<li>${escapeHtml(e.name)} — floor ${e.floor}, rank ${e.rank}</li>`).join("")
-      : `<li>${emptyMessage}</li>`;
+  // <data> pairs a machine-readable value with the human-readable text --
+  // textContent (not innerHTML) since name is free text from a public
+  // write endpoint.
+  function renderTopScore(el, top, emptyMessage) {
+    if (!top) { el.removeAttribute("value"); el.textContent = emptyMessage; return; }
+    el.setAttribute("value", top.rank);
+    el.textContent = `${top.name} — floor ${top.floor}, rank ${top.rank}`;
   }
 
   async function refreshLeaderboards() {
     if (!LEADERBOARD_URL) return;
     try {
-      const [today, allTime] = await Promise.all([fetchLeaderboard("today"), fetchLeaderboard("all")]);
-      renderLeaderboardList(document.getElementById("leaderboardToday"), today, "No scores yet today.");
-      renderLeaderboardList(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
+      const [today, allTime] = await Promise.all([fetchTopScore("today"), fetchTopScore("all")]);
+      renderTopScore(document.getElementById("leaderboardToday"), today, "No scores yet today.");
+      renderTopScore(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
     } catch (err) {
       // best-effort -- offline or unreachable just leaves whatever was shown last
     }
