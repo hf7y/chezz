@@ -371,11 +371,24 @@
   // quiescence search through any capture sequence still in progress at
   // the horizon -- so a sacrifice's real cost shows up on the board
   // instead of needing a hand-coded bonus to approximate it.
-  function getBlackMoveRuthless(board, capturedPool) {
+  function getBlackMoveRuthless(board, capturedPool, floor) {
     capturedPool = capturedPool || "";
     const MIN_DEPTH = 3; // always completed in full, regardless of the deadline
     const MAX_DEPTH = 8;
-    const SEARCH_DEADLINE_MS = 1200;
+
+    // Floor 1 gets a fast, weak AI -- a gentle on-ramp -- and the budget
+    // grows with the climb, capping out much stronger by floor 45. This
+    // started as a fix for dense high-floor positions (many amazons) not
+    // getting enough time to look past a bad-looking trade, but scaling it
+    // by floor doubles as the game's actual difficulty curve instead of a
+    // flat difficulty from move one.
+    const BASE_SEARCH_DEADLINE_MS = 300;
+    const SEARCH_DEADLINE_MS_PER_FLOOR = 60;
+    const MAX_SEARCH_DEADLINE_MS = 3000;
+    const SEARCH_DEADLINE_MS = Math.min(
+      BASE_SEARCH_DEADLINE_MS + (floor || 1) * SEARCH_DEADLINE_MS_PER_FLOOR,
+      MAX_SEARCH_DEADLINE_MS
+    );
     const deadline = Date.now() + SEARCH_DEADLINE_MS;
     let hitDeadline = false;
 
@@ -1075,7 +1088,7 @@
 
     if (blackWillReply) {
       await wait(RENDER_YIELD_MS);
-      const bm = getBlackMoveRuthless(state.board, state.captured);
+      const bm = getBlackMoveRuthless(state.board, state.captured, state.floor);
       if (bm) {
         if (state.board[bm.toY][bm.toX]) state.captured += state.board[bm.toY][bm.toX];
         const movedPiece = state.board[bm.fromY][bm.fromX];
