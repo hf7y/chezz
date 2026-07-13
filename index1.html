@@ -64,7 +64,7 @@
 
   td[data-dragging] { opacity: 0.35; }
 
-  output { font-size: 20px; letter-spacing: 4px; }
+  output { font-size: 20px; }
 
   dialog {
     position: absolute;
@@ -790,6 +790,36 @@
       const pawnRanks = [PAWN_RANK];
       for (let y = PAWN_RANK + 1; y <= BOARD_ROWS - 3; y++) pawnRanks.push(y);
 
+      // Placement, among several equally-safe candidates, leans toward
+      // whichever square covers the most squares this army doesn't already
+      // reach -- one general "don't waste a piece's coverage on redundant
+      // squares" rule, applied the same way to every piece type, rather
+      // than a piece-specific one. The clearest case is two bishops: a
+      // second bishop on the same square color overlaps almost entirely
+      // with the first (same diagonals), while the opposite color is
+      // completely disjoint from it -- so this naturally favors opposite-
+      // colored bishops as a side effect, without anything here ever
+      // checking square color or piece identity.
+      const coveredSquares = new Set();
+      function markCovered(type, x, y) {
+        for (const m of legalMovesForPiece(state.board, type, x, y)) coveredSquares.add(m.x + "," + m.y);
+      }
+      function pickByCoverage(type, cols, y) {
+        const weights = cols.map(x => {
+          let novel = 0;
+          for (const m of legalMovesForPiece(state.board, type, x, y)) {
+            if (!coveredSquares.has(m.x + "," + m.y)) novel++;
+          }
+          return novel + 1; // +1 so a fully-redundant square is unlikely, not impossible
+        });
+        let r = rng() * weights.reduce((a, b) => a + b, 0);
+        for (let i = 0; i < cols.length; i++) {
+          r -= weights[i];
+          if (r <= 0) return cols[i];
+        }
+        return cols[cols.length - 1];
+      }
+
       // Drops one pawn on the first empty square found (columns visited in
       // random order within each row) -- no safety check, pawns are meant
       // to stand in the open. Returns false only once there's truly
@@ -797,7 +827,7 @@
       function placePawn() {
         for (const y of pawnRanks) {
           for (const x of shuffledCols()) {
-            if (state.board[y][x] === "") { state.board[y][x] = "p"; return true; }
+            if (state.board[y][x] === "") { state.board[y][x] = "p"; markCovered("p", x, y); return true; }
           }
         }
         return false;
@@ -846,16 +876,14 @@
           }
 
           const cost = costOf(type);
-          let placedSafely = false;
-          for (const x of shuffledCols()) {
-            if (state.board[BACK_RANK][x] === "" && isSafeSquare(x, BACK_RANK)) {
-              state.board[BACK_RANK][x] = type;
-              remaining -= cost;
-              placedSafely = true;
-              break;
-            }
+          const safeCols = shuffledCols().filter(x => state.board[BACK_RANK][x] === "" && isSafeSquare(x, BACK_RANK));
+          if (safeCols.length) {
+            const chosen = pickByCoverage(type, safeCols, BACK_RANK);
+            state.board[BACK_RANK][chosen] = type;
+            markCovered(type, chosen, BACK_RANK);
+            remaining -= cost;
+            break;
           }
-          if (placedSafely) break;
 
           let emptyCol = -1;
           for (const x of shuffledCols()) {
@@ -869,7 +897,8 @@
 
           if (remaining >= cost + PIECE_SPAWN_COST.p) {
             state.board[BACK_RANK][emptyCol] = type;
-            if (state.board[PAWN_RANK][emptyCol] === "") state.board[PAWN_RANK][emptyCol] = "p";
+            markCovered(type, emptyCol, BACK_RANK);
+            if (state.board[PAWN_RANK][emptyCol] === "") { state.board[PAWN_RANK][emptyCol] = "p"; markCovered("p", emptyCol, PAWN_RANK); }
             else placePawn(); // that column's shield square is already taken -- shield from elsewhere instead
             remaining -= cost + PIECE_SPAWN_COST.p;
             break;
