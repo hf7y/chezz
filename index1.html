@@ -699,17 +699,19 @@
       return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || 0));
     }, 0);
     // Capped: White's material lead keeps growing floor over floor (more
-    // queens from more promotions), so an uncapped bonus eventually turns
-    // most of the board into a solid multi-row pawn wall -- padding, not
-    // real difficulty. A handful of extra pawns is enough to say "White is
-    // way ahead here" without drowning the rest of the army in them.
-    const BONUS_PAWN_FACTOR = 0.2; // fraction of the material gap converted to bonus pawns
-    const BONUS_PAWN_CAP = 8;
-    const bonusPawns = Math.min(BONUS_PAWN_CAP, Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_PAWN_FACTOR)));
+    // queens from more promotions), so an uncapped bonus would keep
+    // growing without bound too. Merged straight into the same budget the
+    // per-piece loop below already spends -- not a separate forced-pawns
+    // pass -- so it still tries a bonus queen/rook/minor on the back rank
+    // first if there's room, and only falls back to pawns exactly when the
+    // normal budget would too (rank's full, or can't afford the shield).
+    const BONUS_FACTOR = 0.2; // fraction of the material gap added to the budget
+    const BONUS_CAP = 8;
+    const bonus = Math.min(BONUS_CAP, Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_FACTOR)));
 
     placeArmy: for (let attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
       state.board = baseline.map(row => [...row]);
-      let remaining = budget;
+      let remaining = budget + bonus;
       let h = hashStr(baseSeed + ":" + attempt);
       function rng() {
         h = (Math.imul(h, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
@@ -841,10 +843,6 @@
           // and try again, rather than forcing it down unshielded.
           type = tierBelow(type);
         }
-      }
-
-      for (let i = 0; i < bonusPawns; i++) {
-        if (!placePawn()) break; // board's entirely full, nothing more fits anywhere
       }
 
       // Placing this army may have left White's King attacked from more
