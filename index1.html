@@ -486,12 +486,14 @@
     // other so all moves tying for the maximum are collected for the random
     // pick below.
     function searchRoot(depth) {
+      const all = [];
       const candidates = [];
       let maxEvaluation = -Infinity;
       for (const mv of collectMoves(board, false)) {
         const { nextBoard, pool } = applyMove(board, mv, capturedPool);
         const moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
         const candidate = { fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
+        all.push(candidate);
 
         if (moveValue > maxEvaluation) {
           maxEvaluation = moveValue;
@@ -501,7 +503,7 @@
           candidates.push(candidate);
         }
       }
-      return candidates;
+      return { all, candidates };
     }
 
     // Iterative deepening: always finish MIN_DEPTH in full (it's cheap and
@@ -510,16 +512,41 @@
     // fully- and partially-searched root moves -- not a fair comparison --
     // so it's thrown away entirely rather than trusted, falling back to the
     // last depth that finished clean.
-    let bestCandidates = searchRoot(MIN_DEPTH);
+    let best = searchRoot(MIN_DEPTH);
     for (let depth = MIN_DEPTH + 1; depth <= MAX_DEPTH; depth++) {
       if (Date.now() > deadline) break;
       hitDeadline = false;
       const attempt = searchRoot(depth);
-      if (hitDeadline || !attempt.length) break;
-      bestCandidates = attempt;
+      if (hitDeadline || !attempt.candidates.length) break;
+      best = attempt;
     }
 
+    let bestCandidates = best.candidates;
     if (!bestCandidates.length) return null;
+
+    // Once the best root move is already catastrophic (White's escape
+    // judged all but certain no matter what Black picks), small score
+    // differences between root moves are mostly search-depth noise from
+    // how far each branch got explored before the deadline, not real
+    // tactical merit -- see the getting-mated-anyway bishop case, where a
+    // move that hung a piece for free outscored several safe retreats by
+    // only ~30 out of a ~600000-point score. Rather than let that noise
+    // decide it, widen the pool to every root move within one pawn's worth
+    // of the best (not just exact ties) and prefer whichever of those
+    // don't hang the moved piece for free right now. Only engages far
+    // below any real material/positional swing (half the escape penalty
+    // itself), so it never touches an actually competitive position.
+    const CATASTROPHE_THRESHOLD = WHITE_ESCAPE_PENALTY / 2;
+    const NOISE_MARGIN = 100; // one pawn's worth
+    if (bestCandidates[0].score < CATASTROPHE_THRESHOLD) {
+      const nearBest = best.all.filter(c => c.score >= bestCandidates[0].score - NOISE_MARGIN);
+      const survivable = nearBest.filter(c => {
+        const piece = board[c.fromY][c.fromX];
+        const { nextBoard } = applyMove(board, { piece, fromX: c.fromX, fromY: c.fromY, toX: c.toX, toY: c.toY }, capturedPool);
+        return attackersOf(nextBoard, c.toX, c.toY, true).length === 0;
+      });
+      if (survivable.length) bestCandidates = survivable;
+    }
 
     // Deterministic tie-break, seeded from the position itself (same LCG
     // pattern as spawnBlackArmy) rather than Math.random() -- replaying the
@@ -987,7 +1014,7 @@
   // submits with no button and no prompt, every time the King's own
   // high-water-mark rank increases, so the leaderboard always reflects a
   // player's best progress without any extra interaction.
-  const LEADERBOARD_URL = "";
+  const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec";
 
   function getPlayerName() {
     let name = localStorage.getItem("chezzPlayerName");
