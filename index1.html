@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chezz</title>
 <!-- Only the fairy pieces (Amazon/Chancellor/Archbishop) actually need this --
      the rest of the game works fully offline with no network at all. Loaded
@@ -11,37 +12,59 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 <style>
-  /* 9 columns: a row-number header cell, then 8 board squares. */
+  /* 9 columns: a row-number header cell, then 8 board squares. font-size
+     is the one responsive quantity -- everything below is sized in em, the
+     ordinary unit for "scales with text," so cells and glyphs shrink
+     together on narrow screens without a separate rule per dimension. */
   table {
     border-collapse: collapse;
     user-select: none; /* stops drag gestures from text-selecting rank numbers/pieces */
     -webkit-user-select: none;
+    font-size: 25px;
+  }
+
+  /* Narrow phones: shrink the board so 9 columns still fit the screen
+     width instead of overflowing or forcing horizontal scroll. */
+  @media (max-width: 400px) {
+    table { font-size: 18px; }
   }
 
   td, th {
-    width: 40px;
-    height: 40px;
+    width: 1.6em;
+    height: 1.6em;
     text-align: center;
     vertical-align: baseline;
-    line-height: 40px;
-    font-size: 25px;
+    line-height: 1.6em;
   }
 
   /* Only the fairy pieces actually need Noto Sans Symbols 2 -- the plain
      chess glyphs already render fine in any system font, and per-glyph
      fallback means this only ever kicks in for the characters it's needed
      for, whether or not the webfont link above actually loaded. Scoped to
-     .piece-glyph rather than applied broadly to its container: applying it
+     .piece rather than applied broadly to its container: applying it
      to the whole captured-count display also pulled the <sup> count
      digits into Noto's own (much wider-spaced) numerals, splaying
      double-digit counts apart -- e.g. "17" rendering as "1" and "7" with a
      visible gap. */
-  .piece-glyph { font-family: "Noto Sans Symbols 2", system-ui, sans-serif; }
+  .piece {
+    font-family: "Noto Sans Symbols 2", system-ui, sans-serif;
+    /* A table cell's declared height is only a minimum, not a cap -- every
+       glyph (not just the fairy ones) sits on a slightly taller line box
+       than an empty cell at the same font-size, so the whole row visibly
+       grew a couple px whenever a piece moved onto a square. overflow on
+       the *cell* doesn't stop this (still measured the same growth with
+       it); a normal block only obeys an explicit height as a real cap, so
+       moving the cap here -- the one element every occupied square already
+       has -- fixes it for any glyph, not any one piece in particular. */
+    display: block;
+    height: 1.6em;
+    overflow: hidden;
+  }
 
   th {
     text-align: right;
     padding-right: 8px;
-    font-size: 14px;
+    font-size: 0.56em; /* rank-number label, smaller than the board glyphs */
     color: #666;
   }
 
@@ -642,7 +665,7 @@
 
   function pieceGlyphHtml(piece) {
     if (!piece) return "";
-    return `<span class="piece-glyph">${SYMBOLS[piece] || ""}</span>`;
+    return `<span class="piece">${SYMBOLS[piece] || ""}</span>`;
   }
   const boardElement = document.querySelector("table");
   const capturedElement = document.querySelector("output");
@@ -1086,7 +1109,7 @@
   // long enough to need a stylesheet rule.
   const dragGhost = document.body.appendChild(document.createElement("div"));
   dragGhost.hidden = true;
-  Object.assign(dragGhost.style, { position: "fixed", transform: "translate(-50%, -50%)", fontSize: "25px", pointerEvents: "none", zIndex: 1000 });
+  Object.assign(dragGhost.style, { position: "fixed", transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 1000 });
 
   function moveGhostTo(clientX, clientY) {
     dragGhost.style.left = clientX + "px";
@@ -1099,6 +1122,7 @@
     renderBoard();
     boardElement.rows[drag.y].cells[drag.x + 1].dataset.dragging = "";
     dragGhost.textContent = SYMBOLS[state.board[drag.y][drag.x]] || "";
+    dragGhost.style.fontSize = getComputedStyle(boardElement).fontSize;
     dragGhost.hidden = false;
     moveGhostTo(e.clientX, e.clientY);
   }
