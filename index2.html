@@ -429,7 +429,14 @@
       if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
       const moves = collectMoves(b, whiteToMove);
-      if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
+      // No legal moves isn't a terminal state here (the real game just skips
+      // the turn, per makeMove) -- passing it straight to quiesce/eval made
+      // the search treat "steer into a position where I have zero moves" as
+      // a good outcome, since it cut the lookahead short right there and hid
+      // however many more free turns the opponent would actually get. Burn a
+      // ply and let the other side move instead, so a real continuation
+      // still gets evaluated.
+      if (!moves.length) return search(b, depth - 1, alpha, beta, !whiteToMove, pool);
 
       let best = whiteToMove ? Infinity : -Infinity;
       for (const mv of moves) {
@@ -623,13 +630,12 @@
       return attackers.length === 0;
     }
 
-    // Black's pawn wall sits one row ahead of White's carried-over back rank
-    // (row 8) -- mirrors a real chessboard's pawn rank, and keeps the
-    // cheapest piece to lose between White and whatever stronger pieces
-    // spawn further back.
-    const PAWN_RANK = BOARD_ROWS - 2;
-    const backRanks = [];
-    for (let y = 1; y < PAWN_RANK; y++) backRanks.push(y);
+    // Black's pawn wall sits one row ahead of Black's own back rank (row 1),
+    // mirroring White's row 7 pawn rank sitting one row ahead of White's row
+    // 8 back rank -- a real chessboard's pawn rank on both sides, not a
+    // meat shield pressed up against White.
+    const PAWN_RANK = 2;
+    const backRanks = [1];
 
     // Places as many of `queue` as fit across `rows`, skipping any square
     // that's occupied, unsafe, or loses this particular placement roll.

@@ -500,7 +500,14 @@ const Engine = {
       if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
       const moves = collectMoves(b, whiteToMove);
-      if (!moves.length) return quiesce(b, alpha, beta, whiteToMove, pool, null);
+      // No legal moves isn't a terminal state here (the real game just skips
+      // the turn) -- passing it straight to quiesce/eval made the search
+      // treat "steer into a position where I have zero moves" as a good
+      // outcome, since it cut the lookahead short right there and hid
+      // however many more free turns the opponent would actually get. Burn a
+      // ply and let the other side move instead, so a real continuation
+      // still gets evaluated.
+      if (!moves.length) return search(b, depth - 1, alpha, beta, !whiteToMove, pool);
 
       if (whiteToMove) {
         let best = Infinity;

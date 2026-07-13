@@ -256,12 +256,12 @@
       return attackers.length === 0;
     }
 
-    // Black's pawn wall sits one row ahead of White's carried-over back rank
-    // (row 8) -- mirrors a real chessboard's pawn rank, and keeps the
-    // cheapest piece to lose between White and whatever stronger pieces
-    // spawn further back.
-    const PAWN_RANK = 7;
-    const backRanks = [1, 2, 3, 4, 5, 6];
+    // Black's pawn wall sits one row ahead of Black's own back rank (row 1),
+    // mirroring White's row 7 pawn rank sitting one row ahead of White's row
+    // 8 back rank -- a real chessboard's pawn rank on both sides, not a
+    // meat shield pressed up against White.
+    const PAWN_RANK = 2;
+    const backRanks = [1];
 
     // Places as many of `queue` as fit across `rows`, skipping any square
     // that's occupied, unsafe, or loses this particular placement roll.
