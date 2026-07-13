@@ -233,6 +233,32 @@
     return null;
   }
 
+  // Does White have any legal move at all after which the King (wherever it
+  // ends up -- moved to safety, or left in place while something else
+  // blocks/captures a threat) isn't attacked by any black piece? This game
+  // doesn't enforce check/checkmate as a rule, but a freshly spawned floor
+  // that leaves White's King guaranteed to be captured on Black's very next
+  // move regardless of what White plays is dead on arrival -- used to
+  // reject that specific outcome when spawning a new army, not during play.
+  function whiteSurvivesNextMove(board) {
+    const king = findWhiteKing(board);
+    if (!king) return true; // nothing for this check to protect
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        const piece = board[y][x];
+        if (!piece || !isWhitePiece(piece)) continue;
+        for (const m of legalMovesForPiece(board, piece, x, y)) {
+          const next = board.map(row => [...row]);
+          next[m.y][m.x] = piece;
+          next[y][x] = "";
+          const kingPos = piece === "K" ? { x: m.x, y: m.y } : king;
+          if (attackersOf(next, kingPos.x, kingPos.y, false).length === 0) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   const PROMOTION_PRIORITY = ["q", "r", "b", "n"]; // queen first
 
   // Auto-promotion, mirrored for both colors: a pawn reaching its far rank
@@ -566,108 +592,172 @@
 
   const SPAWN_SKIP_CHANCE = 0.3; // chance to hold out for a cheaper piece instead of the biggest affordable one
   const MINOR_PIECE_CHANCE = 0.5; // knight vs bishop, once a minor piece is chosen
-  const PLACEMENT_CHANCE = 0.5; // chance a candidate square actually gets a piece
   const PIECE_SPAWN_COST = { q: 9, r: 5, minor: 3, p: 1 };
+  const MAX_SPAWN_ATTEMPTS = 20; // reshuffle placement if it leaves White dead on arrival (see whiteSurvivesNextMove)
 
   // World generation: populate the floor with a random black army, sized to
   // the floor number so the dungeon gets harder as White climbs.
   function spawnBlackArmy() {
-    let h = hashStr(boardToFen() + state.floor);
-    function rng() {
-      h = (Math.imul(h, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
-      return h / LCG_MODULUS;
-    }
+    const baseline = state.board.map(row => [...row]);
+    const baseSeed = hashStr(boardToFen() + state.floor);
 
-    let budget = state.floor + Math.floor(rng() * 3) - 1;
+    // Budget is derived once, independent of the placement attempts below --
+    // a retry should reshuffle where the army goes, never how big it is.
+    let budgetH = baseSeed;
+    const budgetRng = () => {
+      budgetH = (Math.imul(budgetH, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
+      return budgetH / LCG_MODULUS;
+    };
+    let budget = state.floor + Math.floor(budgetRng() * 3) - 1;
     if (budget < 1) budget = 1;
     // Spawn material should ratchet up, never down, floor to floor.
     if (budget < state.lastSpawnBudget) budget = state.lastSpawnBudget;
     state.lastSpawnBudget = budget;
 
-    const pieces = [];
-    while (budget > 0) {
-      const skip = rng() < SPAWN_SKIP_CHANCE;
-
-      if (budget >= PIECE_SPAWN_COST.q && !skip) { pieces.push("q"); budget -= PIECE_SPAWN_COST.q; }
-      else if (budget >= PIECE_SPAWN_COST.r && !skip) { pieces.push("r"); budget -= PIECE_SPAWN_COST.r; }
-      else if (budget >= PIECE_SPAWN_COST.minor) {
-        pieces.push(rng() < MINOR_PIECE_CHANCE ? "n" : "b");
-        budget -= PIECE_SPAWN_COST.minor;
+    placeArmy: for (let attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
+      state.board = baseline.map(row => [...row]);
+      let remaining = budget;
+      let h = hashStr(baseSeed + ":" + attempt);
+      function rng() {
+        h = (Math.imul(h, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
+        return h / LCG_MODULUS;
       }
-      else { pieces.push("p"); budget -= PIECE_SPAWN_COST.p; }
-    }
 
-    // Deterministic Fisher-Yates shuffle
-    for (let i = pieces.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
-    }
-
-    // Randomize a row's column order so placement isn't left-side heavy —
-    // a true random pick out of the 8 columns for the first piece inserted
-    // into it, then a random pick of what's left for the next, and so on.
-    function shuffledCols() {
-      const cols = [0, 1, 2, 3, 4, 5, 6, 7];
-      for (let i = cols.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [cols[i], cols[j]] = [cols[j], cols[i]];
+      // Randomize a row's column order so placement isn't left-side heavy —
+      // a true random pick out of the 8 columns for the first piece inserted
+      // into it, then a random pick of what's left for the next, and so on.
+      function shuffledCols() {
+        const cols = [0, 1, 2, 3, 4, 5, 6, 7];
+        for (let i = cols.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [cols[i], cols[j]] = [cols[j], cols[i]];
+        }
+        return cols;
       }
-      return cols;
-    }
 
-    // Aware of White's carried-over position (already sitting in state.board
-    // by the time this runs): never spawn onto a square White could capture
-    // for free before Black even gets a turn. Checks against the square
-    // actually occupied rather than empty -- a pawn's diagonal only counts
-    // as an attack once there's really an enemy piece sitting there for it
-    // to capture, so checking the empty square would miss pawn threats
-    // entirely.
-    function isSafeSquare(x, y) {
-      const occupant = state.board[y][x];
-      state.board[y][x] = "p";
-      const attackers = attackersOf(state.board, x, y, true);
-      state.board[y][x] = occupant;
-      return attackers.length === 0;
-    }
+      // Aware of White's carried-over position (already sitting in
+      // state.board by the time this runs): is this square one White could
+      // capture for free before Black even gets a turn? Checks against the
+      // square actually occupied rather than empty -- a pawn's diagonal
+      // only counts as an attack once there's really an enemy piece sitting
+      // there for it to capture, so checking the empty square would miss
+      // pawn threats entirely. Only consulted for non-pawn pieces -- pawns
+      // are the cheap, expendable piece meant to stand in the open and
+      // screen whatever's behind them, not to only ever spawn somewhere
+      // already safe.
+      function isSafeSquare(x, y) {
+        const occupant = state.board[y][x];
+        state.board[y][x] = "p";
+        const attackers = attackersOf(state.board, x, y, true);
+        state.board[y][x] = occupant;
+        return attackers.length === 0;
+      }
 
-    // Black's pawn wall sits one row ahead of Black's own back rank (row 1),
-    // mirroring White's row 7 pawn rank sitting one row ahead of White's row
-    // 8 back rank -- a real chessboard's pawn rank on both sides, not a
-    // meat shield pressed up against White.
-    const PAWN_RANK = 2;
-    const backRanks = [1];
+      // Black's back rank (row 1) holds the stronger pieces, mirroring
+      // White's row 8; its pawn wall (row 2) sits one row ahead of it,
+      // mirroring White's row 7 -- a real chessboard's pawn rank on both
+      // sides, not a meat shield pressed up against White.
+      const BACK_RANK = 1;
+      const PAWN_RANK = 2;
 
-    // Places as many of `queue` as fit across `rows`, skipping any square
-    // that's occupied, unsafe, or loses this particular placement roll.
-    // Returns whatever didn't fit.
-    function fill(rows, queue) {
-      let i = 0;
-      for (const y of rows) {
-        if (i >= queue.length) break;
-        for (const x of shuffledCols()) {
-          if (i >= queue.length) break;
-          if (state.board[y][x] === "" && isSafeSquare(x, y) && rng() > PLACEMENT_CHANCE) {
-            state.board[y][x] = queue[i++];
+      // If the pawn rank doesn't have room for a pawn (every square already
+      // taken), overflow pushes deeper toward White (ranks 6 down to 3,
+      // i.e. rows 3-6) rather than spilling back into the back rank or
+      // White's own carried-over row 8 -- back-rank pieces and pawns should
+      // never end up sharing a row.
+      const pawnRanks = [PAWN_RANK];
+      for (let y = PAWN_RANK + 1; y <= BOARD_ROWS - 3; y++) pawnRanks.push(y);
+
+      // Drops one pawn on the first empty square found (columns visited in
+      // random order within each row) -- no safety check, pawns are meant
+      // to stand in the open. Returns false only once there's truly
+      // nowhere left to put one.
+      function placePawn() {
+        for (const y of pawnRanks) {
+          for (const x of shuffledCols()) {
+            if (state.board[y][x] === "") { state.board[y][x] = "p"; return true; }
           }
         }
+        return false;
       }
-      return queue.slice(i);
+
+      function minorType() { return rng() < MINOR_PIECE_CHANCE ? "n" : "b"; }
+      function costOf(type) { return type === "p" ? PIECE_SPAWN_COST.p : PIECE_SPAWN_COST[type] || PIECE_SPAWN_COST.minor; }
+      function tierBelow(type) {
+        if (type === "q") return "r";
+        if (type === "r") return minorType();
+        if (type === "n" || type === "b") return "p";
+        return "p";
+      }
+
+      // One piece at a time, biggest the remaining budget affords first:
+      // try every back-rank column for one White can't capture for free;
+      // if every column is threatened, place it anyway and spend one more
+      // budget shielding it with a pawn directly in front instead of
+      // scrapping the whole piece down to loose pawns. Only when even that
+      // shield isn't affordable does it downgrade to the next cheaper
+      // piece and try again -- so a budget shortfall costs one tier of
+      // piece, not the piece's entire value in pawns.
+      while (remaining > 0) {
+        const skip = rng() < SPAWN_SKIP_CHANCE; // chance to hold out for a cheaper piece, for variety
+
+        let type;
+        if (remaining >= PIECE_SPAWN_COST.q && !skip) type = "q";
+        else if (remaining >= PIECE_SPAWN_COST.r && !skip) type = "r";
+        else if (remaining >= PIECE_SPAWN_COST.minor) type = minorType();
+        else type = "p";
+
+        for (;;) {
+          if (type === "p") {
+            if (!placePawn()) remaining = 0; // board's entirely full, nothing more fits anywhere
+            else remaining -= PIECE_SPAWN_COST.p;
+            break;
+          }
+
+          const cost = costOf(type);
+          let placedSafely = false;
+          for (const x of shuffledCols()) {
+            if (state.board[BACK_RANK][x] === "" && isSafeSquare(x, BACK_RANK)) {
+              state.board[BACK_RANK][x] = type;
+              remaining -= cost;
+              placedSafely = true;
+              break;
+            }
+          }
+          if (placedSafely) break;
+
+          let emptyCol = -1;
+          for (const x of shuffledCols()) {
+            if (state.board[BACK_RANK][x] === "") { emptyCol = x; break; }
+          }
+          if (emptyCol === -1) {
+            // Back rank is entirely full -- nothing more fits there.
+            if (!placePawn()) remaining = 0; else remaining -= PIECE_SPAWN_COST.p;
+            break;
+          }
+
+          if (remaining >= cost + PIECE_SPAWN_COST.p) {
+            state.board[BACK_RANK][emptyCol] = type;
+            if (state.board[PAWN_RANK][emptyCol] === "") state.board[PAWN_RANK][emptyCol] = "p";
+            else placePawn(); // that column's shield square is already taken -- shield from elsewhere instead
+            remaining -= cost + PIECE_SPAWN_COST.p;
+            break;
+          }
+
+          // Can't afford this piece plus its shield -- downgrade a tier
+          // and try again, rather than forcing it down unshielded.
+          type = tierBelow(type);
+        }
+      }
+
+      // Placing this army may have left White's King attacked from more
+      // than one direction at once with no move that saves it -- not
+      // enforced as an actual checkmate rule in this game, but a floor
+      // that's already lost on arrival defeats the point of a fresh floor.
+      // Good enough: done. Otherwise loop around and reshuffle with a
+      // different seed.
+      if (whiteSurvivesNextMove(state.board)) break placeArmy;
     }
-
-    const pawns = pieces.filter(p => p === "p");
-    const others = pieces.filter(p => p !== "p");
-    const strandedOthers = fill(backRanks, others);
-    const strandedPawns = fill([PAWN_RANK], pawns);
-
-    // Anything that couldn't find a safe square on its intended rank (a
-    // cramped or heavily-covered board) converts to pawns and gets one more
-    // pass across every row instead of being dropped outright -- pawns are
-    // the cheapest, easiest piece to tuck into whatever's left, so material
-    // still ratchets up roughly on schedule.
-    const fillerPawns = strandedPawns.concat(
-      strandedOthers.flatMap(p => Array(PIECE_SPAWN_COST[p === "n" || p === "b" ? "minor" : p]).fill("p"))
-    );
-    fill([PAWN_RANK, ...backRanks, BOARD_ROWS - 1], fillerPawns);
 
     state.spawned = true;
   }
