@@ -53,12 +53,21 @@
        than an empty cell at the same font-size, so the whole row visibly
        grew a couple px whenever a piece moved onto a square. overflow on
        the *cell* doesn't stop this (still measured the same growth with
-       it); a normal block only obeys an explicit height as a real cap, so
-       moving the cap here -- the one element every occupied square already
-       has -- fixes it for any glyph, not any one piece in particular. */
-    display: block;
+       it); a normal block-level box only obeys an explicit height as a
+       real cap, so moving the cap here -- the one element every occupied
+       square already has -- fixes it for any glyph, not any one piece in
+       particular. inline-block rather than block: this same class is also
+       used in the captured-piece list, where several of these need to sit
+       side by side with their <sup> counts, not stack on their own line.
+       vertical-align can't stay "baseline" once this is a box with its own
+       height rather than plain inline content, though -- that pulled in
+       the same per-glyph metric variance right back in, just measured
+       against the box instead of the cell. "top" sidesteps it: the glyph
+       is still centered *within* the box by line-height alone. */
+    display: inline-block;
     height: 1.6em;
     overflow: hidden;
+    vertical-align: top;
   }
 
   th {
