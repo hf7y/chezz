@@ -536,7 +536,7 @@
   const capturedElement = document.querySelector("output");
   const promotionElement = document.querySelector("dialog");
 
-  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0 };
+  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0 };
 
   // Transient interaction state, read from rendering, dragging, and boot
   // alike — deliberately kept separate from `state` above since neither
@@ -570,7 +570,7 @@
   // audited by just copying the address bar, and (via pushState) gives the
   // browser's own back button a working Undo with no on-page control needed.
   function updateUrl(push = false) {
-    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget });
+    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank });
     if (state.captured) params.set("captured", state.captured);
     const url = "?" + params.toString();
     if (push) history.pushState(null, "", url);
@@ -982,9 +982,43 @@
   const toSuperscript = n => String(n).split("").map(d => SUPERSCRIPT_DIGITS[d]).join("");
   const CAPTURED_DISPLAY_ORDER = ["q", "r", "b", "n", "p"];
 
+  // Leaderboard: fire-and-forget, best-effort -- paste your deployed Apps
+  // Script /exec URL (see leaderboard/Code.gs) here to turn this on. Auto-
+  // submits with no button and no prompt, every time the King's own
+  // high-water-mark rank increases, so the leaderboard always reflects a
+  // player's best progress without any extra interaction.
+  const LEADERBOARD_URL = "";
+
+  function getPlayerName() {
+    let name = localStorage.getItem("chezzPlayerName");
+    if (!name) {
+      name = "Player" + Math.floor(Math.random() * 100000);
+      localStorage.setItem("chezzPlayerName", name);
+    }
+    return name;
+  }
+
+  function submitScore(rank) {
+    if (!LEADERBOARD_URL) return;
+    fetch(LEADERBOARD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" }, // avoids a CORS preflight
+      body: JSON.stringify({ name: getPlayerName(), floor: state.floor, rank, dateKey: todayKey() }),
+    }).catch(() => {}); // best-effort -- offline/unreachable just skips this entry, play continues either way
+  }
+
+  function currentKingRank() {
+    const king = findWhiteKing(state.board);
+    if (!king) return state.maxRank;
+    return ((state.floor - 1) * RANKS_PER_FLOOR) + (BOARD_ROWS - king.y);
+  }
+
   // Painting state to the DOM: rebuilds the whole board from state.board
   // every time, rather than patching individual cells.
   function renderBoard() {
+    const rank = currentKingRank();
+    if (rank > state.maxRank) { state.maxRank = rank; submitScore(rank); }
+
     const capturedCounts = {};
     for (const c of state.captured) {
       if (!isWhitePiece(c)) capturedCounts[c] = (capturedCounts[c] || 0) + 1;
@@ -1029,6 +1063,7 @@
     state.spawned = params.get("spawned") === "1";
     state.captured = params.get("captured") || "";
     state.lastSpawnBudget = parseInt(params.get("budget") || "0");
+    state.maxRank = parseInt(params.get("maxRank") || "0");
     loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
     selected = null; promotion = null;
     promotionElement.close();
