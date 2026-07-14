@@ -37,7 +37,13 @@
     width: 1.6em;
     height: 1.6em;
     text-align: center;
-    vertical-align: baseline;
+    /* "middle" (not "baseline") centers every cell purely by box geometry --
+       "baseline" instead aligns cells to a shared row baseline derived from
+       each cell's own font metrics, which differ between the rank number's
+       plain text and a piece glyph's font (more so once a fairy piece's
+       webfont is actually loaded), so the rank number visibly shifted
+       whenever a neighboring square gained or lost a piece. */
+    vertical-align: middle;
     line-height: 1.6em;
   }
 
