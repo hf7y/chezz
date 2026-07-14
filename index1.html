@@ -157,16 +157,17 @@
 
 <h1><a href="#" id="resetLink">Chezz</a></h1>
 
-<p>Captured: <output></output></p>
 <table aria-label="Chess board"></table>
+<p>Captured: <output></output></p>
 <dialog><p>Promote to:</p></dialog>
 
 <details id="instructions">
   <summary>How to play</summary>
   <p>
-    Drag your White King (♔) and other pieces to move them by standard chess
+    Tap (or drag) your White King (♔) and other pieces to move them by standard chess
     rules — reach the top row to clear the floor, and Black replies automatically after
-    every move.
+    every move. Pawns you capture don't just vanish: each one you're still holding when
+    a surviving piece carries over to the next floor comes back as an extra White pawn.
   </p>
 </details>
 
@@ -1140,7 +1141,12 @@
     return { x: cell.cellIndex - 1, y: cell.parentElement.rowIndex };
   }
 
-  const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag
+  const DRAG_THRESHOLD = 6; // px of movement before a mouse/pen press counts as a drag
+  // A touch naturally jitters more between finger-down and finger-up than a mouse
+  // click does -- at the mouse-sized threshold, an ordinary tap-to-select routinely
+  // measured 8+px of incidental movement and got misread as a drag that immediately
+  // failed (dropping the just-made selection instead of registering the tap).
+  const TOUCH_DRAG_THRESHOLD = 16;
   let drag = null;
 
   // A single reusable element that follows the pointer during a drag, styled
@@ -1169,7 +1175,7 @@
   function onDragMove(e) {
     if (!drag) return;
     if (!drag.dragging) {
-      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD) return;
+      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < drag.threshold) return;
       if (!drag.hasOwnPiece) return; // pointer came down on a bare target square -- nothing to drag, resolved as a tap (or ignored) on release
       beginDrag(e);
     }
@@ -1179,7 +1185,7 @@
   function onDragEnd(e) {
     document.removeEventListener("pointermove", onDragMove);
     if (!drag) return;
-    const { x, y, dragging, hasOwnPiece, startX, startY } = drag;
+    const { x, y, dragging, hasOwnPiece, startX, startY, threshold } = drag;
     drag = null;
 
     if (dragging) {
@@ -1212,7 +1218,7 @@
     // move if it's a legal target, or cancels the selection otherwise.
     // A swipe that merely started over an empty/enemy square (scrolling
     // the page) leaves the selection alone instead of canceling it.
-    if (Math.hypot(e.clientX - startX, e.clientY - startY) >= DRAG_THRESHOLD) return;
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) >= threshold) return;
     if (selected && isLegalMove(state.board, selected.x, selected.y, x, y)) {
       const { x: fromX, y: fromY } = selected;
       selected = null;
@@ -1233,7 +1239,8 @@
     const piece = state.board[y][x];
     const hasOwnPiece = !!piece && isWhitePiece(piece);
     if (!hasOwnPiece && !selected) return; // nothing here to pick up, and no pending move to complete
-    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false, hasOwnPiece };
+    const threshold = e.pointerType === "mouse" ? DRAG_THRESHOLD : TOUCH_DRAG_THRESHOLD;
+    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false, hasOwnPiece, threshold };
     document.addEventListener("pointermove", onDragMove);
     document.addEventListener("pointerup", onDragEnd, { once: true });
   });
@@ -1318,11 +1325,27 @@
   }
 
   // The player's own best -- purely local, no network round trip, shown
-  // even when the leaderboard itself isn't configured or reachable.
+  // even when the leaderboard itself isn't configured or reachable. Kept in
+  // localStorage rather than read off state.maxRank alone: state.maxRank (and
+  // the URL it's saved in) only track the *current* run, so a page reload
+  // with no query string, or the reset link starting a fresh run, used to
+  // drop "Your best" back to nothing even though the player had climbed
+  // higher in an earlier run.
+  const BEST_SCORE_KEY = "chezzBestScore";
+
+  function loadBestScore() {
+    try { return JSON.parse(localStorage.getItem(BEST_SCORE_KEY)); } catch { return null; }
+  }
+
   function renderMyBest() {
     const el = document.getElementById("leaderboardMine");
     if (!el) return;
-    renderScore(el, state.maxRank ? { rank: state.maxRank, floor: state.floor, name: getPlayerName() } : null, "No runs yet.");
+    let best = loadBestScore();
+    if (state.maxRank && (!best || state.maxRank > best.rank)) {
+      best = { rank: state.maxRank, floor: state.floor };
+      localStorage.setItem(BEST_SCORE_KEY, JSON.stringify(best));
+    }
+    renderScore(el, best ? { rank: best.rank, floor: best.floor, name: getPlayerName() } : null, "No runs yet.");
   }
 
   async function refreshLeaderboards() {
