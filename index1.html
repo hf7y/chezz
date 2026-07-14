@@ -104,6 +104,12 @@
 
   td[data-dragging] { opacity: 0.35; }
 
+  /* Plays once per newly-spawned floor (class is added/removed in JS, not
+     tied to any persistent state) -- a plain fade+scale-in so a fresh army
+     registers as a new floor instead of just silently replacing the old one. */
+  @keyframes floor-enter { from { opacity: 0; transform: scale(0.96); } }
+  table.floor-enter { animation: floor-enter 0.3s ease-out; }
+
   output { font-size: 20px; }
 
   dialog {
@@ -176,6 +182,25 @@
     [2,1],[2,-1],[-2,1],[-2,-1],
     [1,2],[1,-2],[-1,2],[-1,-2]
   ];
+  const ROOK_DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+  const BISHOP_DIRS = [[1,1],[-1,1],[1,-1],[-1,-1]];
+  const QUEEN_DIRS = [...ROOK_DIRS, ...BISHOP_DIRS];
+
+  // Every non-pawn piece is a slide (rook/bishop/queen dirs), a step (king),
+  // a jump (knight), or a union of those -- fairy pieces (Amazon/Chancellor/
+  // Archbishop, Unicode Chess Symbols block) are exactly the queen/rook/
+  // archbishop's dirs plus a knight jump, so one dispatch below covers all
+  // ten piece types instead of a slide/step call sequence repeated per type.
+  const PIECE_MOVE_SPEC = {
+    r: { slides: [ROOK_DIRS] },
+    b: { slides: [BISHOP_DIRS] },
+    q: { slides: [QUEEN_DIRS] },
+    k: { steps: QUEEN_DIRS },
+    n: { jumps: true },
+    a: { slides: [BISHOP_DIRS], jumps: true }, // bishop + knight
+    c: { slides: [ROOK_DIRS], jumps: true },   // rook + knight
+    m: { slides: [QUEEN_DIRS], jumps: true },  // queen + knight
+  };
 
   function legalMovesForPiece(board, piece, fromX, fromY) {
     const moves = [];
@@ -224,47 +249,11 @@
       }
     }
 
-    if (lower === "r") {
-      slide(1, 0); slide(-1, 0); slide(0, 1); slide(0, -1);
-    }
-
-    else if (lower === "b") {
-      slide(1, 1); slide(-1, 1); slide(1, -1); slide(-1, -1);
-    }
-
-    else if (lower === "q") {
-      slide(1, 0); slide(-1, 0); slide(0, 1); slide(0, -1);
-      slide(1, 1); slide(-1, 1); slide(1, -1); slide(-1, -1);
-    }
-
-    else if (lower === "k") {
-      const dirs = [
-        [1,0],[-1,0],[0,1],[0,-1],
-        [1,1],[-1,1],[1,-1],[-1,-1]
-      ];
-      for (const [dx, dy] of dirs) step(dx, dy);
-    }
-
-    else if (lower === "n") {
-      for (const [dx, dy] of KNIGHT_JUMPS) step(dx, dy);
-    }
-
-    // Fairy pieces (Unicode Chess Symbols block, U+1FA4E-1FA53): each moves
-    // as the union of its two namesake pieces' moves.
-    else if (lower === "a") { // Archbishop: bishop + knight
-      slide(1, 1); slide(-1, 1); slide(1, -1); slide(-1, -1);
-      for (const [dx, dy] of KNIGHT_JUMPS) step(dx, dy);
-    }
-
-    else if (lower === "c") { // Chancellor: rook + knight
-      slide(1, 0); slide(-1, 0); slide(0, 1); slide(0, -1);
-      for (const [dx, dy] of KNIGHT_JUMPS) step(dx, dy);
-    }
-
-    else if (lower === "m") { // Amazon: queen + knight
-      slide(1, 0); slide(-1, 0); slide(0, 1); slide(0, -1);
-      slide(1, 1); slide(-1, 1); slide(1, -1); slide(-1, -1);
-      for (const [dx, dy] of KNIGHT_JUMPS) step(dx, dy);
+    const spec = PIECE_MOVE_SPEC[lower];
+    if (spec) {
+      if (spec.slides) for (const dirs of spec.slides) for (const [dx, dy] of dirs) slide(dx, dy);
+      if (spec.steps) for (const [dx, dy] of spec.steps) step(dx, dy);
+      if (spec.jumps) for (const [dx, dy] of KNIGHT_JUMPS) step(dx, dy);
     }
 
     else if (lower === "p") {
@@ -670,6 +659,7 @@
   // it doesn't belong in the saved/shared/audited URL (drag and
   // promotionResolve, declared further down, are this same kind of thing).
   let selected = null, promotion = null;
+  let floorJustSpawned = false; // consumed once by the next renderBoard()
 
   // Board <-> compact string conversion, used to reshuffle rows on a floor
   // transition (see newFloor below).
@@ -939,6 +929,7 @@
     }
 
     state.spawned = true;
+    floorJustSpawned = true;
   }
 
   // Floor progression.
@@ -1318,6 +1309,13 @@
       html += `</tr>`;
     }
     boardElement.innerHTML = html;
+
+    if (floorJustSpawned) {
+      floorJustSpawned = false;
+      boardElement.classList.remove("floor-enter");
+      void boardElement.offsetWidth; // force reflow so a repeat floor-enter restarts the animation
+      boardElement.classList.add("floor-enter");
+    }
   }
 
   // Boot, and browser back/forward (popstate) -- the board just reflects
