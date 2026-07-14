@@ -89,7 +89,10 @@
   td {
     position: relative;
     cursor: pointer;
-    touch-action: none;
+    /* "manipulation" (not "none") lets a touch swipe over the board still
+       scroll the page -- moves are made by tapping now, not dragging, so
+       there's no gesture left here that needs to block panning. */
+    touch-action: manipulation;
   }
 
   /* Checkerboard: same tr/td nth-child parity is one color, opposite is the other. */
@@ -1167,6 +1170,7 @@
     if (!drag) return;
     if (!drag.dragging) {
       if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < DRAG_THRESHOLD) return;
+      if (!drag.hasOwnPiece) return; // pointer came down on a bare target square -- nothing to drag, resolved as a tap (or ignored) on release
       beginDrag(e);
     }
     moveGhostTo(e.clientX, e.clientY);
@@ -1175,22 +1179,47 @@
   function onDragEnd(e) {
     document.removeEventListener("pointermove", onDragMove);
     if (!drag) return;
-    const { x: fromX, y: fromY, dragging } = drag;
+    const { x, y, dragging, hasOwnPiece, startX, startY } = drag;
     drag = null;
-    if (!dragging) return; // never crossed the threshold: not a drag, nothing to do
 
-    dragGhost.hidden = true;
-    delete boardElement.rows[fromY].cells[fromX + 1].dataset.dragging;
-    selected = null;
+    if (dragging) {
+      dragGhost.hidden = true;
+      delete boardElement.rows[y].cells[x + 1].dataset.dragging;
+      selected = null;
 
-    const dropCell = document.elementFromPoint(e.clientX, e.clientY)?.closest("td");
-    if (dropCell) {
-      const { x: toX, y: toY } = cellCoords(dropCell);
-      if ((toX !== fromX || toY !== fromY) && isLegalMove(state.board, fromX, fromY, toX, toY)) {
-        makeMove(fromX, fromY, toX, toY);
-        return;
+      const dropCell = document.elementFromPoint(e.clientX, e.clientY)?.closest("td");
+      if (dropCell) {
+        const { x: toX, y: toY } = cellCoords(dropCell);
+        if ((toX !== x || toY !== y) && isLegalMove(state.board, x, y, toX, toY)) {
+          makeMove(x, y, toX, toY);
+          return;
+        }
       }
+      renderBoard();
+      return;
     }
+
+    // Never crossed the drag threshold -- a tap, not a drag.
+    if (hasOwnPiece) {
+      // Tap your own piece to select it; tap the same one again (or a
+      // drag on it that fizzled out below the threshold) to deselect it.
+      selected = (selected && selected.x === x && selected.y === y) ? null : { x, y };
+      renderBoard();
+      return;
+    }
+
+    // A tap on some other square while a piece is selected completes the
+    // move if it's a legal target, or cancels the selection otherwise.
+    // A swipe that merely started over an empty/enemy square (scrolling
+    // the page) leaves the selection alone instead of canceling it.
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) >= DRAG_THRESHOLD) return;
+    if (selected && isLegalMove(state.board, selected.x, selected.y, x, y)) {
+      const { x: fromX, y: fromY } = selected;
+      selected = null;
+      makeMove(fromX, fromY, x, y);
+      return;
+    }
+    selected = null;
     renderBoard();
   }
 
@@ -1202,8 +1231,9 @@
     if (!cell || promotion || state.turn !== "w") return;
     const { x, y } = cellCoords(cell);
     const piece = state.board[y][x];
-    if (!piece || !isWhitePiece(piece)) return;
-    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false };
+    const hasOwnPiece = !!piece && isWhitePiece(piece);
+    if (!hasOwnPiece && !selected) return; // nothing here to pick up, and no pending move to complete
+    drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false, hasOwnPiece };
     document.addEventListener("pointermove", onDragMove);
     document.addEventListener("pointerup", onDragEnd, { once: true });
   });
