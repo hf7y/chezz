@@ -4,27 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chezz</title>
-<!-- Only the fairy pieces (Amazon/Chancellor/Archbishop) actually need this --
-     the rest of the game works fully offline with no network at all. Loaded
-     non-blocking (display=swap); if it can't reach the network, those three
-     glyphs fall back to tofu/placeholder boxes rather than breaking anything. -->
+<!-- Only the fairy pieces (Amazon/Chancellor/Archbishop) need this webfont;
+     everything else works offline. Non-blocking (display=swap); falls back
+     to tofu per-glyph if unreachable, rather than breaking anything. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 <style>
-  /* Centers each top-level element on the page; flex rather than
-     text-align so multi-line text (the instructions paragraph) keeps
-     reading left-aligned instead of being centered line-by-line. */
+  /* flex (not text-align) so multi-line text keeps reading left-aligned
+     instead of centering line-by-line. */
   body {
     display: flex;
     flex-direction: column;
     align-items: center;
   }
 
-  /* 9 columns: a row-number header cell, then 8 board squares. font-size
-     is the one responsive quantity -- everything below is sized in em, the
-     ordinary unit for "scales with text," so cells and glyphs shrink
-     together on narrow screens without a separate rule per dimension. */
+  /* font-size is the one responsive quantity -- everything else is in em
+     so cells and glyphs shrink together on narrow screens. */
   table {
     border-collapse: collapse;
     user-select: none; /* stops drag gestures from text-selecting rank numbers/pieces */
@@ -32,8 +28,7 @@
     font-size: 25px;
   }
 
-  /* Narrow phones: shrink the board so 9 columns still fit the screen
-     width instead of overflowing or forcing horizontal scroll. */
+  /* Narrow phones: shrink the board so 9 columns fit without scrolling. */
   @media (max-width: 400px) {
     table { font-size: 18px; }
   }
@@ -46,33 +41,16 @@
     line-height: 1.6em;
   }
 
-  /* Only the fairy pieces actually need Noto Sans Symbols 2 -- the plain
-     chess glyphs already render fine in any system font, and per-glyph
-     fallback means this only ever kicks in for the characters it's needed
-     for, whether or not the webfont link above actually loaded. Scoped to
-     .piece rather than applied broadly to its container: applying it
-     to the whole captured-count display also pulled the <sup> count
-     digits into Noto's own (much wider-spaced) numerals, splaying
-     double-digit counts apart -- e.g. "17" rendering as "1" and "7" with a
-     visible gap. */
+  /* Scoped to .piece, not its container, so it never reaches the <sup>
+     count digits next to it -- Noto's numerals are much wider-spaced,
+     splaying double-digit counts apart. */
   .piece {
     font-family: "Noto Sans Symbols 2", system-ui, sans-serif;
-    /* A table cell's declared height is only a minimum, not a cap -- every
-       glyph (not just the fairy ones) sits on a slightly taller line box
-       than an empty cell at the same font-size, so the whole row visibly
-       grew a couple px whenever a piece moved onto a square. overflow on
-       the *cell* doesn't stop this (still measured the same growth with
-       it); a normal block-level box only obeys an explicit height as a
-       real cap, so moving the cap here -- the one element every occupied
-       square already has -- fixes it for any glyph, not any one piece in
-       particular. inline-block rather than block: this same class is also
-       used in the captured-piece list, where several of these need to sit
-       side by side with their <sup> counts, not stack on their own line.
-       vertical-align can't stay "baseline" once this is a box with its own
-       height rather than plain inline content, though -- that pulled in
-       the same per-glyph metric variance right back in, just measured
-       against the box instead of the cell. "top" sidesteps it: the glyph
-       is still centered *within* the box by line-height alone. */
+    /* height is only a min on the cell but a real cap on a block box --
+       otherwise every glyph grows its row a couple px on arrival.
+       inline-block keeps several sitting beside their <sup> counts in the
+       captured list; "top" (not "baseline") avoids reintroducing the same
+       per-glyph growth, now measured against the box instead. */
     display: inline-block;
     height: 1.6em;
     overflow: hidden;
@@ -89,9 +67,8 @@
   td {
     position: relative;
     cursor: pointer;
-    /* "manipulation" (not "none") lets a touch swipe over the board still
-       scroll the page -- moves are made by tapping now, not dragging, so
-       there's no gesture left here that needs to block panning. */
+    /* "manipulation" (not "none") lets a touch swipe still scroll the page --
+       moves are tapped, not dragged, so no gesture here needs blocking. */
     touch-action: manipulation;
   }
 
@@ -388,49 +365,38 @@
     return { piece, capturedPool };
   }
 
-  // The opponent's mind: alternating minimax with alpha-beta pruning,
-  // iteratively deepened as far as the time budget allows, extended by a
-  // quiescence search through any capture sequence still in progress at
-  // the horizon -- so a sacrifice's real cost shows up on the board
-  // instead of needing a hand-coded bonus to approximate it.
+  // Alternating minimax with alpha-beta pruning, iteratively deepened as far
+  // as the time budget allows, extended by a quiescence search through any
+  // capture sequence still in progress at the horizon -- so a sacrifice's
+  // real cost shows up on the board instead of a hand-coded bonus for it.
   function getBlackMoveRuthless(board, capturedPool, floor) {
     capturedPool = capturedPool || "";
     const MIN_DEPTH = 3; // always completed in full, regardless of the deadline
     const MAX_DEPTH = 8;
 
-    // Depth curves with floor, not time -- a time-based curve would hand
-    // players on faster hardware a stronger AI than players on slower
-    // hardware at the very same floor, which isn't the point. Floor 1-8
-    // stays at MIN_DEPTH (weak, fast on-ramp); every RANKS_PER_FLOOR floors
-    // after that adds one more ply, up to the MAX_DEPTH ceiling -- so the
-    // climb itself is what makes the AI stronger, the same way on any device.
+    // Depth curves with floor, not time, so a faster device doesn't get a
+    // stronger AI at the same floor. Floor 1-8 stays at MIN_DEPTH (weak,
+    // fast on-ramp); every RANKS_PER_FLOOR floors after adds one more ply.
     const TARGET_DEPTH = Math.min(MIN_DEPTH + Math.floor(((floor || 1) - 1) / RANKS_PER_FLOOR), MAX_DEPTH);
 
-    // Time is only a safety valve now -- generous enough that reaching
-    // TARGET_DEPTH ordinarily finishes well within it -- protecting slow
-    // devices (or an unusually dense position) from freezing the tab,
-    // rather than being the thing that decides how strong the AI is.
+    // Just a safety valve now -- generous enough that TARGET_DEPTH usually
+    // finishes well within it, protecting a slow device or dense position
+    // from freezing the tab rather than deciding the AI's strength.
     const SEARCH_DEADLINE_MS = 4000;
     const deadline = Date.now() + SEARCH_DEADLINE_MS;
     let hitDeadline = false;
 
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
-      // fairy pieces: amazon/chancellor/archbishop. Archbishop (bishop+knight,
-      // worth 300+300=600 alone) was priced at 700 -- only +100 for the
-      // combination, which undersold how much stronger it plays on an open
-      // board than either piece alone. Bumped to 780: still under
-      // chancellor's rook+knight, which has more raw mobility.
+      // Archbishop (bishop+knight, 300+300=600 alone) undersold at 700;
+      // bumped to 780, still under chancellor's rook+knight (more mobility).
       'm': 1300, 'c': 800, 'a': 780,
       'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
       'M': -1300, 'C': -800, 'A': -780
     };
 
-    // Kept well below material values (100-900) so a single King step never
-    // outweighs an actual capture -- at 2000 it did, letting White shuffle
-    // the King instead of taking a free recapture. Reaching EXIT_ROW itself
-    // is still covered by WHITE_ESCAPE_PENALTY; this only covers the
-    // gradual approach.
+    // Below material values so a King step never outweighs a real capture --
+    // at 2000 it did, and White shuffled the King instead of recapturing.
     const KING_SAFETY_WEIGHT = 150;
 
     const RANK_1_ADVANCE_BONUS = 50; // black piece one row from EXIT_ROW
@@ -440,10 +406,9 @@
     const SWARM_MAX_DISTANCE = 16; // bigger than any real taxicab distance on this board
 
     const KING_CAPTURED_BONUS = 500000;
-    // Dominant over any realistic material/positional sum (so White escaping
-    // is always treated as catastrophic), but unlike a flat -Infinity it still
-    // has the underlying position's eval added on top -- otherwise every lost
-    // line ties exactly, and the final pick among them becomes arbitrary.
+    // Dominant over any material/positional sum, but with the position's own
+    // eval still added on top -- a flat -Infinity would tie every lost line
+    // exactly, making the final pick among them arbitrary.
     const WHITE_ESCAPE_PENALTY = -500000;
     const DELTA_PRUNING_MARGIN = 150; // cushion added to a victim's value in quiesce's delta pruning
 
@@ -517,17 +482,15 @@
     }
 
     // Quiescence: a static eval at the horizon can misjudge a position
-    // mid-exchange (the "horizon effect"), so keep searching through
-    // captures until it settles. Only recaptures on the SAME square
-    // continue the thread -- unrelated captures get picked up once the
-    // main search reaches them normally -- bounding the cost to however
-    // many pieces attack one square, not the whole board.
+    // mid-exchange, so keep searching captures until it settles. Only
+    // recaptures on the SAME square continue the thread -- unrelated
+    // captures get picked up once the main search reaches them normally --
+    // bounding the cost to however many pieces attack one square.
     function quiesce(b, alpha, beta, whiteToMove, pool, targetSquare) {
       const standPat = evaluateBoard(b);
 
-      // Delta pruning: even winning the single most valuable piece sitting
-      // on the target square couldn't close the gap to alpha/beta, so don't
-      // even bother generating moves.
+      // Delta pruning: even winning the target square's piece outright
+      // couldn't close the gap to alpha/beta, so skip generating moves.
       if (targetSquare) {
         const victim = b[targetSquare.y][targetSquare.x];
         const bestPossibleGain = (victim ? Math.abs(pieceValues[victim]) : 0) + DELTA_PRUNING_MARGIN;
@@ -535,9 +498,9 @@
         if (!whiteToMove && standPat + bestPossibleGain <= alpha) return standPat;
       }
 
-      // Stand pat: settling for the position as-is (no further captures) is
-      // always a legal choice in quiescence, unlike the main search below —
-      // so it seeds the bound before any capture is even considered.
+      // Stand pat: settling for the position as-is is always a legal choice
+      // in quiescence (unlike the main search), so it seeds the bound
+      // before any capture is even considered.
       if (whiteToMove) {
         if (standPat <= alpha) return standPat;
         beta = Math.min(beta, standPat);
@@ -591,26 +554,21 @@
       return best;
     }
 
-    // A window too narrow means most moves fail it and pay for both a
-    // wasted narrow search AND the full-width fallback -- measured at 100,
-    // 65-75% of moves failed on several test positions, making the "optimization"
-    // net slower than no window at all. 400 keeps the fail rate low enough
-    // (~25-60%) that the narrow-search savings outweigh the fallback cost.
+    // Too narrow and most moves fail it, paying for both a wasted narrow
+    // search and the full-width fallback -- measured at 100, 65-75% of moves
+    // failed, net slower than no window at all. 400 keeps the fail rate
+    // (~25-60%) low enough that the narrow-search savings win out.
     const ASPIRATION_WINDOW = 400;
 
     function moveKey(mv) { return mv.fromX + "," + mv.fromY + "," + mv.toX + "," + mv.toY; }
 
-    // Root generation for one depth — evaluated without pruning against
-    // each other so all moves tying for the maximum are collected for the
-    // random pick below. Two speedups so iterative deepening reaches
-    // further in the same time budget, neither changing what gets found:
-    // the prior depth's best move (pvMove) goes first, since a strong
-    // bound found early prunes far more of the tree for every move after
-    // it; and each move's own search is bounded to a narrow window around
-    // its score last depth (prevScores) instead of full width, re-searched
-    // at full width only if that window turns out to be wrong (fail-soft
-    // alpha-beta already signals this: a returned value at or past the
-    // window edge means the true value could be further out still).
+    // Root generation for one depth -- moves aren't pruned against each
+    // other, so every tie for the maximum is collected for the random pick
+    // below. Two speedups that don't change what's found: the prior depth's
+    // best move (pvMove) goes first, since an early strong bound prunes more
+    // of the tree for everything after it; and each move searches a narrow
+    // window around its score last depth (prevScores) instead of full
+    // width, re-searching full width only if that window turns out wrong.
     function searchRoot(depth, pvMove, prevScores) {
       const all = [];
       const candidates = [];
@@ -647,12 +605,10 @@
       return { all, candidates };
     }
 
-    // Iterative deepening: always finish MIN_DEPTH in full (it's cheap and
-    // bounded), then keep going one ply deeper as long as time allows. A
-    // depth attempt that runs into the deadline partway through is a mix of
-    // fully- and partially-searched root moves -- not a fair comparison --
-    // so it's thrown away entirely rather than trusted, falling back to the
-    // last depth that finished clean.
+    // Iterative deepening: finish MIN_DEPTH in full, then go one ply deeper
+    // as long as time allows. A depth that hits the deadline partway through
+    // is a mix of fully- and partially-searched root moves -- not a fair
+    // comparison -- so it's discarded, falling back to the last clean depth.
     let best = searchRoot(MIN_DEPTH, null, null);
     let prevScores = new Map(best.all.map(c => [moveKey(c), c.score]));
     for (let depth = MIN_DEPTH + 1; depth <= TARGET_DEPTH; depth++) {
@@ -667,12 +623,11 @@
     let bestCandidates = best.candidates;
     if (!bestCandidates.length) return null;
 
-    // Once the best root move is already catastrophic, small score gaps
-    // between root moves are mostly search-depth noise, not real tactical
-    // merit. Widen the pool to every move within one pawn's worth of the
-    // best (not just exact ties) and prefer whichever doesn't hang the
-    // moved piece for free. Threshold sits well below any real
-    // material/positional swing, so it never touches a competitive position.
+    // Once the best root move is already catastrophic, small score gaps are
+    // mostly search-depth noise, not real tactical merit. Widen the pool to
+    // every move within one pawn of the best and prefer whichever doesn't
+    // hang the moved piece for free. Threshold sits well below any real
+    // swing, so it never touches a competitive position.
     const CATASTROPHE_THRESHOLD = WHITE_ESCAPE_PENALTY / 2;
     const NOISE_MARGIN = 100; // one pawn's worth
     if (bestCandidates[0].score < CATASTROPHE_THRESHOLD) {
@@ -685,19 +640,17 @@
       if (survivable.length) bestCandidates = survivable;
     }
 
-    // Deterministic tie-break, seeded from the position itself (same LCG
-    // pattern as spawnBlackArmy) rather than Math.random() -- replaying the
-    // exact same position (e.g. from a saved/audited URL) must always pick
-    // the same move among ties.
+    // Deterministic tie-break, seeded from the position (same LCG pattern
+    // as spawnBlackArmy) rather than Math.random() -- replaying the same
+    // saved/audited URL must always pick the same move among ties.
     let seed = hashStr(board.map(row => row.map(c => c || ".").join("")).join("|") + "|" + capturedPool);
     seed = (Math.imul(seed, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
     return bestCandidates[Math.floor((seed / LCG_MODULUS) * bestCandidates.length)];
   }
 
   // The game's live state and the DOM it's painted into.
-  // M/C/A are fairy pieces (Amazon/Chancellor/Archbishop) -- Unicode Chess
-  // Symbols block (U+1FA4E-1FA53). Needs a font with that block to render;
-  // falls back to whatever tofu/placeholder the system shows otherwise.
+  // M/C/A are fairy pieces (Amazon/Chancellor/Archbishop), Unicode Chess
+  // Symbols block -- falls back to tofu without a font for that block.
   const SYMBOLS = {
     K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙", M:"🩎", C:"🩏", A:"🩐",
     k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", m:"🩑", c:"🩒", a:"🩓",
@@ -713,15 +666,13 @@
 
   let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0 };
 
-  // Transient interaction state, read from rendering, dragging, and boot
-  // alike — deliberately kept separate from `state` above since neither
-  // belongs in the saved/shared/audited URL. (drag and promotionResolve are
-  // this same kind of thing too, declared further down next to the one
-  // section that actually touches them.)
+  // Transient interaction state -- kept separate from `state` above since
+  // it doesn't belong in the saved/shared/audited URL (drag and
+  // promotionResolve, declared further down, are this same kind of thing).
   let selected = null, promotion = null;
 
-  // Board <-> compact string conversion, used internally to reshuffle rows
-  // on a floor transition (see newFloor below).
+  // Board <-> compact string conversion, used to reshuffle rows on a floor
+  // transition (see newFloor below).
   function loadFen(fen) {
     const parts = fen.split("_");
     state.turn = parts[1] || "w";
@@ -761,12 +712,10 @@
     return h;
   }
 
-  // Day+month only (no year) -- every player gets the same dice rolls for a
-  // given floor on a given day, so runs are comparable on a daily
-  // leaderboard, and the whole game resets to a fresh daily seed tomorrow.
-  // Leads with a letter so it can never look like a date to Google Sheets
-  // -- a bare "7-13" gets silently auto-converted to an actual date cell,
-  // which then never string-matches this same value again.
+  // Day+month only -- every player rolls the same dice for a given floor on
+  // a given day, so runs are comparable on a daily leaderboard, and the
+  // whole game resets fresh tomorrow. Leads with a letter so Google Sheets
+  // never auto-converts it to a date cell that then can't string-match.
   function todayKey() {
     const d = new Date();
     return "d" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -804,18 +753,16 @@
     if (budget < state.lastSpawnBudget) budget = state.lastSpawnBudget;
     state.lastSpawnBudget = budget;
 
-    // Total value of White's carried-over material (survivors from prior
-    // floors), used below to size a balance bonus when it's snowballed
-    // far past this floor's raw budget.
+    // White's carried-over material, used to size a balance bonus when it's
+    // snowballed far past this floor's raw budget.
     const whiteMaterial = baseline.flat().reduce((sum, p) => {
       if (!p || !isWhitePiece(p) || p === "K") return sum;
       const lower = p.toLowerCase();
       return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || 0));
     }, 0);
-    // Merged into the same budget the per-piece loop below spends, so a
-    // bonus queen/rook/minor still gets tried on the back rank first if
-    // there's room, falling back to pawns only when the normal budget
-    // would too. Capped since White's lead only grows floor over floor.
+    // Merged into the same budget the piece loop below spends, so a bonus
+    // piece still gets tried on the back rank first if there's room. Capped
+    // since White's lead only grows floor over floor.
     const BONUS_FACTOR = 0.2; // fraction of the material gap added to the budget
     const BONUS_CAP = 8;
     const bonus = Math.min(BONUS_CAP, Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_FACTOR)));
@@ -842,10 +789,9 @@
       }
 
       // Could White capture here for free before Black even gets a turn?
-      // Checks the square as occupied rather than empty -- a pawn's
-      // diagonal only counts once there's really a piece there to capture.
-      // Only consulted for non-pawn pieces -- pawns are meant to stand in
-      // the open and screen whatever's behind them.
+      // Checks the square as occupied (not empty) so a pawn's diagonal only
+      // counts once there's really a piece to capture. Only consulted for
+      // non-pawn pieces -- pawns are meant to stand in the open.
       function isSafeSquare(x, y) {
         const occupant = state.board[y][x];
         state.board[y][x] = "p";
@@ -855,27 +801,21 @@
       }
 
       // Black's back rank (row 1) holds the stronger pieces, mirroring
-      // White's row 8; its pawn wall (row 2) sits one row ahead of it,
-      // mirroring White's row 7 -- a real chessboard's pawn rank on both
-      // sides, not a meat shield pressed up against White.
+      // White's row 8; its pawn wall (row 2) sits one row ahead, mirroring
+      // White's row 7 -- a real pawn rank, not a shield pressed against White.
       const BACK_RANK = 1;
       const PAWN_RANK = 2;
 
-      // If the pawn rank doesn't have room for a pawn (every square already
-      // taken), overflow pushes deeper toward White (ranks 6 down to 3,
-      // i.e. rows 3-6) rather than spilling back into the back rank or
-      // White's own carried-over row 8 -- back-rank pieces and pawns should
-      // never end up sharing a row.
+      // If the pawn rank has no room, overflow pushes deeper toward White
+      // (rows 3-6) rather than into the back rank or White's own row 8 --
+      // back-rank pieces and pawns should never share a row.
       const pawnRanks = [PAWN_RANK];
       for (let y = PAWN_RANK + 1; y <= BOARD_ROWS - 3; y++) pawnRanks.push(y);
 
-      // Placement among several equally-safe squares leans toward
-      // whichever covers the most squares this army doesn't already
-      // reach -- one general rule applied to every piece type, not a
-      // bishop-specific one. Two bishops are the clearest case: same-color
-      // overlaps almost entirely, opposite color is disjoint, so
-      // opposite-colored bishops emerge naturally without ever checking
-      // square color.
+      // Among equally-safe squares, lean toward whichever covers the most
+      // squares this army doesn't already reach -- one rule for every piece
+      // type. Two bishops are the clearest case: same-color overlaps almost
+      // entirely, so opposite-colored bishops emerge without checking color.
       const coveredSquares = new Set();
       function markCovered(type, x, y) {
         for (const m of legalMovesForPiece(state.board, type, x, y)) coveredSquares.add(m.x + "," + m.y);
@@ -896,10 +836,9 @@
         return cols[cols.length - 1];
       }
 
-      // Drops one pawn on the first empty square found (columns visited in
-      // random order within each row) -- no safety check, pawns are meant
-      // to stand in the open. Returns false only once there's truly
-      // nowhere left to put one.
+      // Drops one pawn on the first empty square found (columns in random
+      // order per row) -- no safety check, pawns stand in the open. Returns
+      // false only once there's truly nowhere left to put one.
       function placePawn() {
         for (const y of pawnRanks) {
           for (const x of shuffledCols()) {
@@ -911,9 +850,8 @@
 
       function minorType() { return rng() < MINOR_PIECE_CHANCE ? "n" : "b"; }
       function costOf(type) { return type === "p" ? PIECE_SPAWN_COST.p : PIECE_SPAWN_COST[type] || PIECE_SPAWN_COST.minor; }
-      // Descends through every tier by cost -- fairy pieces (amazon 13 >
-      // queen 9 > chancellor 8 > archbishop 7) slot in above rook (5)  --
-      // so a budget shortfall costs exactly one tier of piece, never more.
+      // Descends through every tier by cost -- fairy pieces slot in above
+      // rook -- so a budget shortfall costs exactly one tier, never more.
       function tierBelow(type) {
         if (type === "m") return "q";
         if (type === "q") return "c";
@@ -925,10 +863,9 @@
       }
 
       // One piece at a time, biggest affordable first: try every back-rank
-      // column for a safe one; if none exists, place it anyway and spend
-      // one more budget shielding it with a pawn in front rather than
-      // scrapping the whole piece to loose pawns. Downgrades a tier only
-      // when even the shield isn't affordable.
+      // column for a safe one; failing that, place it anyway and spend one
+      // more budget shielding it with a pawn rather than scrapping it for
+      // loose pawns. Downgrades a tier only when even the shield isn't affordable.
       while (remaining > 0) {
         const skip = rng() < SPAWN_SKIP_CHANCE; // chance to hold out for a cheaper piece, for variety
 
@@ -958,12 +895,9 @@
             break;
           }
 
-          // A shield pawn only blocks a same-file attack -- if the only
-          // way to place this piece leaves it open to a diagonal or
-          // knight-vector threat instead (unblockable by interposition,
-          // since a knight-move component jumps over pieces entirely),
-          // the shield does nothing and it's left hanging anyway. Only
-          // accept a column where shielding it actually clears the threat.
+          // A shield pawn only blocks a same-file attack -- a diagonal or
+          // knight-vector threat jumps or angles past it and leaves the
+          // piece hanging anyway. Only accept a column the shield actually clears.
           const cols = shuffledCols();
           let shieldableCol = -1, anyEmpty = false;
           for (const x of cols) {
@@ -998,12 +932,9 @@
         }
       }
 
-      // Placing this army may have left White's King attacked from more
-      // than one direction at once with no move that saves it -- not
-      // enforced as an actual checkmate rule in this game, but a floor
-      // that's already lost on arrival defeats the point of a fresh floor.
-      // Good enough: done. Otherwise loop around and reshuffle with a
-      // different seed.
+      // Not an enforced checkmate rule, but a floor that's already lost on
+      // arrival defeats the point of a fresh floor -- reshuffle with a
+      // different seed instead.
       if (whiteSurvivesNextMove(state.board)) break placeArmy;
     }
 
@@ -1078,16 +1009,15 @@
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-  // Just long enough to yield back to the browser so White's move actually
-  // paints before this blocks the main thread on Black's (real, not instant)
-  // search.
+  // Just long enough to yield back to the browser so White's move paints
+  // before this blocks the main thread on Black's (real, not instant) search.
   const RENDER_YIELD_MS = 30;
   // Lets Black's move sit on screen for a beat before White can act again.
   const MOVE_PACING_MS = 250;
 
   // The turn loop: apply White's move, handle promotion, check the floor,
-  // then let Black reply — the one function that ties the rules, the AI,
-  // promotion, and floor progression together.
+  // then let Black reply -- ties the rules, the AI, promotion, and floor
+  // progression together.
   async function makeMove(fromX, fromY, toX, toY) {
     if (state.board[toY][toX]) state.captured += state.board[toY][toX];
     state.board[toY][toX] = state.board[fromY][fromX];
@@ -1101,17 +1031,13 @@
     checkFloorProgression();
     const blackWillReply = state.turn === "b";
     // Always push a fresh checkpoint here, right after White's move; if
-    // Black is about to reply, that same entry gets replaced with the
-    // final state rather than pushing a second one -- replacing here
-    // instead would overwrite the *previous* turn's checkpoint, breaking
-    // Undo/back.
+    // Black is about to reply, that entry gets replaced with the final
+    // state instead of pushing a second one, which would otherwise
+    // overwrite the *previous* turn's checkpoint and break Undo/back.
     updateUrl(true); renderBoard();
 
-    if (promoting) {
-      // Black shouldn't get to move while the promotion choice is still pending —
-      // pause here until the player actually picks a piece.
-      await new Promise(resolve => { promotionResolve = resolve; });
-    }
+    // Black shouldn't move while the promotion choice is still pending.
+    if (promoting) await new Promise(resolve => { promotionResolve = resolve; });
 
     if (blackWillReply) {
       await wait(RENDER_YIELD_MS);
@@ -1120,10 +1046,8 @@
         if (state.board[bm.toY][bm.toX]) state.captured += state.board[bm.toY][bm.toX];
         const movedPiece = state.board[bm.fromY][bm.fromX];
         state.board[bm.fromY][bm.fromX] = "";
-        // Mirrors White's own promotion rule above: spend a captured piece
-        // of the matching type rather than a free queen. No UI prompt
-        // needed since Black has no human to ask — always take the
-        // strongest piece available.
+        // Mirrors White's promotion rule above; no UI prompt needed since
+        // Black always takes the strongest piece available.
         const promo = autoPromote(movedPiece, bm.toY, state.captured);
         state.board[bm.toY][bm.toX] = promo.piece;
         state.captured = promo.capturedPool;
@@ -1142,10 +1066,9 @@
   }
 
   const DRAG_THRESHOLD = 6; // px of movement before a mouse/pen press counts as a drag
-  // A touch naturally jitters more between finger-down and finger-up than a mouse
-  // click does -- at the mouse-sized threshold, an ordinary tap-to-select routinely
-  // measured 8+px of incidental movement and got misread as a drag that immediately
-  // failed (dropping the just-made selection instead of registering the tap).
+  // Touch jitters more between finger-down and finger-up than a mouse click
+  // does -- at the mouse threshold, an ordinary tap routinely measured 8+px
+  // and got misread as a drag that immediately failed, dropping the selection.
   const TOUCH_DRAG_THRESHOLD = 16;
   let drag = null;
 
@@ -1250,16 +1173,13 @@
 
   const CAPTURED_DISPLAY_ORDER = ["m", "q", "c", "a", "r", "b", "n", "p"];
 
-  // Leaderboard: fire-and-forget, best-effort -- paste your deployed Apps
-  // Script /exec URL (see leaderboard/Code.gs) here to turn this on. Auto-
-  // submits with no button and no prompt, every time the King's own
-  // high-water-mark rank increases, so the leaderboard always reflects a
-  // player's best progress without any extra interaction.
+  // Leaderboard: fire-and-forget, best-effort (see leaderboard/Code.gs).
+  // Auto-submits with no button/prompt whenever the King's high-water-mark
+  // rank increases, so it always reflects a player's best progress.
   const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec";
 
-  // A 6-hex-digit identifier -- doubles as a #rrggbb color, so a player can
-  // be shown as a swatch instead of a name with no prompt and nothing
-  // personally identifying.
+  // A 6-hex-digit id doubles as a #rrggbb color, so a player shows as a
+  // swatch instead of a name -- no prompt, nothing identifying.
   function getPlayerName() {
     let name = localStorage.getItem("chezzPlayerName");
     if (!name || !/^[0-9a-f]{6}$/.test(name)) {
@@ -1278,16 +1198,15 @@
     }).catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
   }
 
-  // A tester's one-line report, plus whatever position they're looking at
-  // (the URL already encodes fen/floor/budget/captured/maxRank) -- lands in
-  // the same spreadsheet as scores, on its own "BugReports" tab.
+  // A tester's one-line report plus whatever position they're looking at
+  // (the URL already encodes fen/floor/budget/captured/maxRank).
   async function reportBug() {
     if (!LEADERBOARD_URL) { alert("Leaderboard isn't configured, so there's nowhere to send this yet."); return; }
     const description = prompt("What went wrong? (the current position's URL is attached automatically)");
     if (!description) return;
-    // Waits for and checks the actual response rather than firing an
-    // unconditional "Thanks!" -- a tester otherwise has no way to tell a
-    // report actually saved from one that silently failed.
+    // Waits for and checks the response instead of firing an unconditional
+    // "Thanks!" -- otherwise there's no way to tell a report saved from one
+    // that silently failed.
     try {
       const res = await fetch(LEADERBOARD_URL, {
         method: "POST",
@@ -1311,12 +1230,9 @@
     return top || null;
   }
 
-  // <data> pairs a machine-readable value (the rank) with human-readable
-  // text -- textContent (not innerHTML) since name is free text from a
-  // public write endpoint, even though here it's constrained to 6 hex
-  // digits by the sender's own getPlayerName(). The color swatch (::before
-  // in the stylesheet) reads --swatch, so a step colored input never has
-  // to touch the text at all.
+  // <data> pairs a machine-readable rank with human-readable text --
+  // textContent (not innerHTML) since name is free text from a public
+  // write endpoint, even though getPlayerName() constrains it to hex.
   function renderScore(el, entry, emptyMessage) {
     if (!entry) { el.removeAttribute("value"); el.textContent = emptyMessage; el.style.removeProperty("--swatch"); return; }
     el.setAttribute("value", entry.rank);
@@ -1324,13 +1240,11 @@
     el.style.setProperty("--swatch", "#" + entry.name);
   }
 
-  // The player's own best -- purely local, no network round trip, shown
-  // even when the leaderboard itself isn't configured or reachable. Kept in
-  // localStorage rather than read off state.maxRank alone: state.maxRank (and
-  // the URL it's saved in) only track the *current* run, so a page reload
-  // with no query string, or the reset link starting a fresh run, used to
-  // drop "Your best" back to nothing even though the player had climbed
-  // higher in an earlier run.
+  // The player's own best -- purely local, shown even when the leaderboard
+  // isn't configured or reachable. Kept in localStorage, not just
+  // state.maxRank: that (and the URL it's saved in) only track the
+  // *current* run, so a fresh reload or the reset link used to drop
+  // "Your best" back to nothing despite an earlier, higher run.
   const BEST_SCORE_KEY = "chezzBestScore";
 
   function loadBestScore() {
@@ -1406,10 +1320,9 @@
     boardElement.innerHTML = html;
   }
 
-  // Boot, and browser back/forward (popstate) — either way, the board just
-  // needs to reflect whatever the URL says, defaulting to a fresh floor 1
-  // if there's nothing there yet. The URL is the only Undo control: no
-  // on-page button, just the browser's own back button.
+  // Boot, and browser back/forward (popstate) -- the board just reflects
+  // whatever the URL says, defaulting to a fresh floor 1. The URL is the
+  // only Undo control: no on-page button, just the browser's own back button.
   function loadFromUrl() {
     const params = new URLSearchParams(window.location.search);
     state.floor = parseInt(params.get("floor") || "1");
@@ -1430,10 +1343,9 @@
     reportBug();
   });
 
-  // A plain "index1.html" href broke on any deployment that serves this
-  // file under a different name/path (e.g. "/chezz" with no extension) --
-  // going through location.pathname instead resets to floor 1 (by dropping
-  // the query string state lives in) without hard-coding this file's name.
+  // A plain "index1.html" href broke on any deployment serving this file
+  // under a different name/path -- location.pathname resets to floor 1
+  // (by dropping the query string) without hard-coding the filename.
   document.getElementById("resetLink").addEventListener("click", e => {
     e.preventDefault();
     location.href = location.pathname;
