@@ -12,6 +12,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 <style>
+  /* Centers each top-level element on the page; flex rather than
+     text-align so multi-line text (the instructions paragraph) keeps
+     reading left-aligned instead of being centered line-by-line. */
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
   /* 9 columns: a row-number header cell, then 8 board squares. font-size
      is the one responsive quantity -- everything below is sized in em, the
      ordinary unit for "scales with text," so cells and glyphs shrink
@@ -143,7 +152,7 @@
 </head>
 <body>
 
-<h1><a href="index1.html">Chezz</a></h1>
+<h1><a href="#" id="resetLink">Chezz</a></h1>
 
 <p>Captured: <output></output></p>
 <table aria-label="Chess board"></table>
@@ -403,9 +412,14 @@
 
     const pieceValues = {
       'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
-      'm': 1300, 'c': 800, 'a': 700, // fairy pieces: amazon/chancellor/archbishop
+      // fairy pieces: amazon/chancellor/archbishop. Archbishop (bishop+knight,
+      // worth 300+300=600 alone) was priced at 700 -- only +100 for the
+      // combination, which undersold how much stronger it plays on an open
+      // board than either piece alone. Bumped to 780: still under
+      // chancellor's rook+knight, which has more raw mobility.
+      'm': 1300, 'c': 800, 'a': 780,
       'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
-      'M': -1300, 'C': -800, 'A': -700
+      'M': -1300, 'C': -800, 'A': -780
     };
 
     // Kept well below material values (100-900) so a single King step never
@@ -1361,6 +1375,15 @@
   document.getElementById("reportBugLink").addEventListener("click", e => {
     e.preventDefault();
     reportBug();
+  });
+
+  // A plain "index1.html" href broke on any deployment that serves this
+  // file under a different name/path (e.g. "/chezz" with no extension) --
+  // going through location.pathname instead resets to floor 1 (by dropping
+  // the query string state lives in) without hard-coding this file's name.
+  document.getElementById("resetLink").addEventListener("click", e => {
+    e.preventDefault();
+    location.href = location.pathname;
   });
 
   window.addEventListener("popstate", loadFromUrl);
