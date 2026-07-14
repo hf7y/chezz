@@ -73,3 +73,37 @@ test("spawning is deterministic: same floor and day always produces the same boa
 
   expect(first).toBe(second);
 });
+
+// Pins the pawn-supply tuning (PAWN_ALLOWANCE_CHANCE): pawns feed the
+// promotion and captured-pawn-carryover mechanics, and without a deliberate
+// allowance the tiered budget spends almost entirely on stronger pieces at
+// higher floors (measured ~0.7 pawns/floor, >50% of floors with none at
+// all). Same 30x28 sweep as the safety-invariant test above, checking the
+// resulting average lands near the "about one pawn a floor" target instead
+// of drifting back down if the spawn formula changes again later.
+test("pawn supply averages roughly one per floor across floors and days", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const avgPawnsPerFloor = await page.evaluate(([floors, days]) => {
+    let totalPawns = 0, samples = 0;
+    for (const floor of floors) {
+      for (const day of days) {
+        todayKey = () => "dTESTpawns" + day;
+        state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+        state.board[8][4] = "K";
+        state.floor = floor;
+        state.lastSpawnBudget = 0;
+        spawnBlackArmy();
+        for (const row of state.board) for (const c of row) if (c === "p") totalPawns++;
+        samples++;
+      }
+    }
+    return totalPawns / samples;
+  }, [FLOORS, FAKE_DAYS]);
+
+  // "Approximately one" per the original ask, not pinned to exactly 1 --
+  // wide enough to allow re-tuning PAWN_ALLOWANCE_CHANCE without a false
+  // failure, tight enough to catch the allowance being lost entirely.
+  expect(avgPawnsPerFloor).toBeGreaterThan(0.8);
+  expect(avgPawnsPerFloor).toBeLessThan(1.4);
+});

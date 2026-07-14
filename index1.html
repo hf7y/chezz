@@ -726,6 +726,17 @@
   const PIECE_SPAWN_COST = { m: 13, q: 9, c: 8, a: 7, r: 5, minor: 3, p: 1 };
   const MAX_SPAWN_ATTEMPTS = 20; // reshuffle placement if it leaves White dead on arrival (see whiteSurvivesNextMove)
 
+  // Pawns are what feed the promotion and captured-pawn-carryover mechanics --
+  // past the first few floors the tiered budget below spends almost entirely
+  // on stronger pieces, leaving too few pawns for White to ever capture and
+  // cash in (measured: ~0.7 pawns/floor on average, over half of all floors
+  // with none at all). A separate, funded-on-top-of-the-piece-budget roll
+  // for one pawn keeps that supply flowing at roughly one a floor without
+  // pinning it to exactly one every time. Calibrated empirically (see
+  // scratchpad census in project history) to land close to a 1-pawn/floor
+  // average net of what the tiered budget below already contributes.
+  const PAWN_ALLOWANCE_CHANCE = 0.3;
+
   // World generation: populate the floor with a random black army, sized to
   // the floor number so the dungeon gets harder as White climbs.
   function spawnBlackArmy() {
@@ -857,6 +868,11 @@
         if (type === "n" || type === "b") return "p";
         return "p";
       }
+
+      // See PAWN_ALLOWANCE_CHANCE above -- placed before the tiered budget
+      // loop, and not deducted from `remaining`, so it never comes at the
+      // cost of a stronger piece the budget would otherwise have afforded.
+      if (rng() < PAWN_ALLOWANCE_CHANCE) placePawn();
 
       // One piece at a time, biggest affordable first: try every back-rank
       // column for a safe one; failing that, place it anyway and spend one
