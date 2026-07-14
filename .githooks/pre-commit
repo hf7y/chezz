@@ -1,0 +1,8 @@
+#!/bin/sh
+# Local safety net before a commit lands: syntax, size, and the full
+# regression suite. Skips gracefully if devDependencies aren't installed yet.
+if [ ! -d node_modules ]; then
+  echo "pre-commit: node_modules missing -- run 'npm install' once to enable local checks (skipping for now)"
+  exit 0
+fi
+npm run check --silent

@@ -1,0 +1,15 @@
+{
+  "name": "chezz",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "check-syntax": "node scripts/check-syntax.mjs",
+    "check-size": "node scripts/check-size.mjs",
+    "check": "npm run check-syntax && npm run check-size && npm test",
+    "prepare": "node scripts/setup-hooks.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0"
+  }
+}
