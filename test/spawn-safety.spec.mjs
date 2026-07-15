@@ -107,3 +107,39 @@ test("pawn supply averages roughly one per floor across floors and days", async 
   expect(avgPawnsPerFloor).toBeGreaterThan(0.8);
   expect(avgPawnsPerFloor).toBeLessThan(1.4);
 });
+
+// Regression for a reported exploit: a player's own carried-over material
+// used to inflate the same budget the piece-tier loop spends from, so a
+// snowballed carryover could buy Black an extra strong piece -- skewable by
+// reshuffling what White carries between floors. The carryover bonus should
+// only ever buy extra pawns, never change piece-tier composition.
+test("carryover bonus buys extra pawns only, never inflates piece-tier composition", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const { nonPawnPieces, pawnCount } = await page.evaluate(() => {
+    todayKey = () => "dTESTbonus";
+    // Three carried-over Amazons is far more material than floor 1's own
+    // budget -- if the bonus ever leaked into the tier loop, this would
+    // spawn a strong piece despite being floor 1.
+    state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+    state.board[8][4] = "K";
+    state.board[8][0] = "M";
+    state.board[8][1] = "M";
+    state.board[8][2] = "M";
+    state.floor = 1;
+    state.lastSpawnBudget = 0;
+    spawnBlackArmy();
+
+    let nonPawnPieces = 0, pawnCount = 0;
+    for (const row of state.board) {
+      for (const c of row) {
+        if (!c || c === "K" || c === "M") continue; // empty, or White's own carried-over pieces
+        if (c === "p") pawnCount++; else nonPawnPieces++;
+      }
+    }
+    return { nonPawnPieces, pawnCount };
+  });
+
+  expect(nonPawnPieces).toBe(0);
+  expect(pawnCount).toBeGreaterThan(0);
+});

@@ -17,6 +17,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* A finger drifting off the board mid-move onto surrounding text (the
+       heading, "Captured:" line) can start a native text-selection/search
+       gesture on mobile Chrome -- table already blocks this over the board
+       itself; extend it to the rest of the page. */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
   /* font-size is the one responsive quantity -- everything else is in em
@@ -103,7 +110,10 @@
     background: rgba(0, 150, 0, 0.65);
   }
 
-  td[data-selected] { outline: 3px solid yellow; }
+  /* inset box-shadow (not outline) so the highlight draws inside the cell --
+     an outline extends past the border and gets painted over by whichever
+     neighboring cell paints next. */
+  td[data-selected] { box-shadow: 0 0 0 3px yellow inset; }
 
   /* King in check: a red glow on the King and on whatever's attacking it. */
   td[data-threat] { box-shadow: 0 0 0 3px red inset, 0 0 10px 3px red; }
@@ -659,7 +669,7 @@
   const capturedElement = document.querySelector("output");
   const promotionElement = document.querySelector("dialog");
 
-  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0 };
+  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0, dateSeed: "" };
 
   // Transient interaction state -- kept separate from `state` above since
   // it doesn't belong in the saved/shared/audited URL (drag and
@@ -692,7 +702,7 @@
   // audited by just copying the address bar, and (via pushState) gives the
   // browser's own back button a working Undo with no on-page control needed.
   function updateUrl(push = false) {
-    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank });
+    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank, dateSeed: state.dateSeed });
     if (state.captured) params.set("captured", state.captured);
     const url = "?" + params.toString();
     if (push) history.pushState(null, "", url);
@@ -745,7 +755,8 @@
     // dice for a given floor today -- actual placement still adapts to
     // each player's real board, so floors still diverge with play, but
     // the whole game resets fresh each day.
-    const baseSeed = hashStr(todayKey() + ":" + state.floor);
+    state.dateSeed = todayKey();
+    const baseSeed = hashStr(state.dateSeed + ":" + state.floor);
 
     // Budget is derived once, independent of the placement attempts below --
     // a retry should reshuffle where the army goes, never how big it is.
@@ -767,16 +778,19 @@
       const lower = p.toLowerCase();
       return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || 0));
     }, 0);
-    // Merged into the same budget the piece loop below spends, so a bonus
-    // piece still gets tried on the back rank first if there's room. Capped
-    // since White's lead only grows floor over floor.
-    const BONUS_FACTOR = 0.2; // fraction of the material gap added to the budget
+    // Spent on extra pawns only, never merged into the piece-tier budget
+    // below -- otherwise a big carryover lead could buy an extra strong
+    // piece, letting a player skew what spawns by manipulating their own
+    // carried-over composition. Piece-type composition stays a pure
+    // function of `budget` (floor + day); only the pawn count reacts to
+    // carryover. Capped since White's lead only grows floor over floor.
+    const BONUS_FACTOR = 0.2; // fraction of the material gap spent on bonus pawns
     const BONUS_CAP = 8;
     const bonus = Math.min(BONUS_CAP, Math.max(0, Math.floor((whiteMaterial - budget) * BONUS_FACTOR)));
 
     placeArmy: for (let attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
       state.board = baseline.map(row => [...row]);
-      let remaining = budget + bonus;
+      let remaining = budget;
       let h = hashStr(baseSeed + ":" + attempt);
       function rng() {
         h = (Math.imul(h, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
@@ -943,6 +957,9 @@
           type = tierBelow(type);
         }
       }
+
+      // The carryover bonus lands here, as plain pawns -- see `bonus` above.
+      for (let i = 0; i < bonus; i++) placePawn();
 
       // Not an enforced checkmate rule, but a floor that's already lost on
       // arrival defeats the point of a fresh floor -- reshuffle with a
@@ -1207,7 +1224,10 @@
     fetch(LEADERBOARD_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" }, // avoids a CORS preflight
-      body: JSON.stringify({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: todayKey() }),
+      // dateSeed (not a fresh todayKey()) -- attributes the score to whichever
+      // day's seed generated the floor this rank was reached on, so a run
+      // that crosses midnight doesn't get bumped onto tomorrow's board.
+      body: JSON.stringify({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: state.dateSeed }),
     }).catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
   }
 
@@ -1350,6 +1370,10 @@
     state.captured = params.get("captured") || "";
     state.lastSpawnBudget = parseInt(params.get("budget") || "0");
     state.maxRank = parseInt(params.get("maxRank") || "0");
+    // Falls back to today when absent (old bookmarked/shared URLs, or a
+    // fresh boot) -- overwritten below by spawnBlackArmy() itself whenever
+    // this load actually generates a new floor.
+    state.dateSeed = params.get("dateSeed") || todayKey();
     loadFen(params.get("fen") || "8-8-8-8-8-8-8-8-4K3_w");
     selected = null; promotion = null;
     promotionElement.close();
