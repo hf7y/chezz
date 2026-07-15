@@ -179,7 +179,7 @@
   <dd><data id="leaderboardAllTime"></data></dd>
 </dl>
 
-<p><a href="#" id="reportBugLink">Report a bug</a></p>
+<p><a href="#" id="reportBugLink">Report a bug</a> &middot; <a href="#" id="reportFeatureLink">Suggest a feature</a></p>
 
 <script>
   // The rules of the world. Pieces are uppercase for White, lowercase for
@@ -1232,10 +1232,14 @@
   }
 
   // A tester's one-line report plus whatever position they're looking at
-  // (the URL already encodes fen/floor/budget/captured/maxRank).
-  async function reportBug() {
+  // (the URL already encodes fen/floor/budget/captured/maxRank). `kind`
+  // ("bug" or "feature") keeps the two apart at the source instead of
+  // relying on triage to guess intent from free text later.
+  async function reportBug(kind) {
     if (!LEADERBOARD_URL) { alert("Leaderboard isn't configured, so there's nowhere to send this yet."); return; }
-    const description = prompt("What went wrong? (the current position's URL is attached automatically)");
+    const description = prompt(kind === "feature"
+      ? "What's the idea? (the current position's URL is attached automatically)"
+      : "What went wrong? (the current position's URL is attached automatically)");
     if (!description) return;
     // Waits for and checks the response instead of firing an unconditional
     // "Thanks!" -- otherwise there's no way to tell a report saved from one
@@ -1244,7 +1248,7 @@
       const res = await fetch(LEADERBOARD_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ type: "bug", name: getPlayerName(), url: location.href, description }),
+        body: JSON.stringify({ type: "bug", kind, name: getPlayerName(), url: location.href, description }),
       });
       const data = await res.json();
       alert(data && data.ok ? "Thanks, reported!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.");
@@ -1384,7 +1388,12 @@
 
   document.getElementById("reportBugLink").addEventListener("click", e => {
     e.preventDefault();
-    reportBug();
+    reportBug("bug");
+  });
+
+  document.getElementById("reportFeatureLink").addEventListener("click", e => {
+    e.preventDefault();
+    reportBug("feature");
   });
 
   // A plain "index1.html" href broke on any deployment serving this file
