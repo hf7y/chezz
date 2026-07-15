@@ -404,8 +404,18 @@
     // at 2000 it did, and White shuffled the King instead of recapturing.
     const KING_SAFETY_WEIGHT = 150;
 
-    const RANK_1_ADVANCE_BONUS = 50; // black piece one row from EXIT_ROW
-    const RANK_2_ADVANCE_BONUS = 30; // black piece two rows from EXIT_ROW
+    // Same distance-based-falloff shape as `swarm` below (closer is worth
+    // more), just anchored to a fixed row (EXIT_ROW) instead of the King's
+    // live square -- rewards holding the exit regardless of where the King
+    // currently is, which is a different pressure than swarm's "near the
+    // King wherever it is." One row out is worth ADVANCE_BASE, each row
+    // further out drops by ADVANCE_STEP, and it stops counting past
+    // ADVANCE_MAX_ROWS out (measured: rarely the deciding factor between
+    // two moves, but not dead weight either -- keep the falloff, don't
+    // extend its reach).
+    const ADVANCE_BASE = 50;
+    const ADVANCE_STEP = 20;
+    const ADVANCE_MAX_ROWS = 2;
 
     const SWARM_WEIGHT = 5;
     const SWARM_MAX_DISTANCE = 16; // bigger than any real taxicab distance on this board
@@ -436,8 +446,10 @@
           if (piece === "K") wKing = { x, y };
 
           if (!isWhitePiece(piece)) {
-            if (y === EXIT_ROW + 1) advancement += RANK_1_ADVANCE_BONUS;
-            if (y === EXIT_ROW + 2) advancement += RANK_2_ADVANCE_BONUS;
+            const rowsFromExit = y - EXIT_ROW;
+            if (rowsFromExit >= 1 && rowsFromExit <= ADVANCE_MAX_ROWS) {
+              advancement += ADVANCE_BASE - (rowsFromExit - 1) * ADVANCE_STEP;
+            }
             blackPieces.push({ x, y });
           }
         }

@@ -16,11 +16,14 @@ async function bestMove(page, fen, captured, floor) {
 }
 
 test("known-position regression pins", async ({ page }) => {
-  // KNOWN BUG (see project memory: pre-existing QxN-over-QxQ bug, predates
-  // and is unrelated to move-ordering/aspiration-window work). Black has a
-  // choice between capturing a queen or a knight and picks the knight.
-  // Pinned as-is on purpose: if this ever starts picking the queen instead,
-  // that's the bug getting fixed, not a regression -- update the pin.
+  // Sanity pin, not actually a "known bug" despite older comments/memory
+  // calling this position "QxN over QxQ" -- traced by hand and confirmed
+  // with a probe: Black's queen at (0,3) captures the undefended White
+  // King directly at (3,3). Neither White queen is even reachable in this
+  // position (one diagonal is blocked by the White knight, the other file
+  // is blocked by the King itself), so there was never a knight-vs-queen
+  // choice here. Capturing an undefended King outright is obviously
+  // correct, not a bug -- this pin just locks in that (correct) choice.
   expect(await bestMove(page, "8-2Q5-1N6-q2K1Q2-8-8-8-8-8", "", 5))
     .toEqual({ fromX: 0, fromY: 3, toX: 3, toY: 3, score: 497900 });
 
