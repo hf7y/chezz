@@ -700,14 +700,19 @@
   let selected = null, promotion = null;
   let floorJustSpawned = false; // consumed once by the next renderBoard()
 
+  // Expands one FEN row ("12345678" digits are empty-square run-lengths)
+  // into an 8-element array of squares -- shared by loadFen and the
+  // narrative campaign's scripted stage placement below.
+  function parseFenRow(row) {
+    return row.split("").flatMap(char => "12345678".includes(char) ? Array(Number(char)).fill("") : char);
+  }
+
   // Board <-> compact string conversion, used to reshuffle rows on a floor
   // transition (see newFloor below).
   function loadFen(fen) {
     const parts = fen.split("_");
     state.turn = parts[1] || "w";
-    state.board = parts[0].split("-").map(row =>
-      row.split("").flatMap(char => "12345678".includes(char) ? Array(Number(char)).fill("") : char)
-    );
+    state.board = parts[0].split("-").map(parseFenRow);
   }
 
   function boardToFen() {
@@ -782,15 +787,65 @@
   // average net of what the tiered budget below already contributes.
   const PAWN_ALLOWANCE_CHANCE = 0.3;
 
-  // World generation: populate the floor with a random black army, sized to
-  // the floor number so the dungeon gets harder as White climbs.
+  // --- Narrative campaign ---
+  // Early/mid floors are hand-scripted -- a deliberate difficulty curve
+  // (accumulate pawns, then face canonical pieces in isolation or pairs,
+  // then build toward the traditional back rank as a final boss) instead
+  // of a random seed. `rows` is exactly the 6 FEN row-strings for rows
+  // 1-6 (row 0 is the exit row; rows 7-8 are White's own carried-over
+  // army, already placed by the time spawnBlackArmy runs) -- top to
+  // bottom, same "12345678 = run of empties" convention as any other FEN
+  // in this game. Fixed on purpose for now, no RNG, so the curve can be
+  // hand-tuned by playtesting before any randomization comes back.
+  const NARRATIVE_STAGES = [
+    { label: "First blood", rows: ["8", "8", "8", "8", "8", "4p3"] },
+    { label: "Two to take", rows: ["8", "8", "8", "8", "8", "2p2p2"] },
+    { label: "A little further", rows: ["8", "8", "8", "8", "2p2p2", "8"] },
+    { label: "The Knight", rows: ["8", "8", "8", "3n4", "8", "8"] },
+    { label: "The Rook", rows: ["8", "8", "8", "3r4", "8", "8"] },
+    { label: "Two Bishops", rows: ["8", "8", "8", "2b3b2", "8", "8"] },
+    { label: "The Queen", rows: ["8", "8", "8", "3q4", "8", "8"] },
+    { label: "Knights and Bishops", rows: ["8", "1n2b2n1", "1b5", "8", "8", "8"] },
+    { label: "The Rooks Join", rows: ["8", "r2bb2r", "1n4n1", "8", "8", "8"] },
+    { label: "The Back Rank", rows: ["8", "rnbqkbnr", "pppppppp", "8", "8", "8"] },
+  ];
+
+  // Sum of PIECE_SPAWN_COST for every black piece on the board -- used to
+  // keep spawnBlackArmy's ratchet (budget only ever grows) meaningful once
+  // a scripted stage hands off to procedural generation, since a scripted
+  // army's cost has no other relationship to the procedural budget formula.
+  function armyCost(board) {
+    return board.flat().reduce((sum, p) => {
+      if (!p || isWhitePiece(p)) return sum;
+      const lower = p.toLowerCase();
+      return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || PIECE_SPAWN_COST.minor));
+    }, 0);
+  }
+
+  function placeScriptedStage(stage) {
+    stage.rows.forEach((row, i) => { state.board[i + 1] = parseFenRow(row); });
+    state.lastSpawnBudget = Math.max(state.lastSpawnBudget, armyCost(state.board));
+  }
+
+  // World generation: populate the floor with a black army -- a scripted
+  // stage below NARRATIVE_STAGES.length, procedural (random, sized to the
+  // floor number) past it, for an endless post-game once the campaign's
+  // final boss is beaten.
   function spawnBlackArmy() {
+    state.dateSeed = todayKey();
+    const stage = NARRATIVE_STAGES[state.floor - 1];
+    if (stage) {
+      placeScriptedStage(stage);
+      state.spawned = true;
+      floorJustSpawned = true;
+      return;
+    }
+
     const baseline = state.board.map(row => [...row]);
     // Seeded from the date (not the board) so every player rolls the same
     // dice for a given floor today -- actual placement still adapts to
     // each player's real board, so floors still diverge with play, but
     // the whole game resets fresh each day.
-    state.dateSeed = todayKey();
     const baseSeed = hashStr(state.dateSeed + ":" + state.floor);
 
     // Budget is derived once, independent of the placement attempts below --
