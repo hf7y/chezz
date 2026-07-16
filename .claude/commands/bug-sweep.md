@@ -63,6 +63,16 @@ it repeats automatically.
 
 - Locate the relevant code (this is a single-file game in `index1.html`;
   `leaderboard/Code.gs` is the separate tracker backend).
+- If the fix touches `leaderboard/Code.gs`: run `npm run sheet:push` to sync
+  it to the Apps Script project (clasp is configured via the repo-root
+  `.clasp.json`). This updates HEAD only — it does **not** affect the live
+  `/exec` endpoint by itself. Making it live means a human has to open the
+  Apps Script editor → Deploy → Manage deployments → edit the existing Web
+  App deployment → New version → Deploy (a Workspace domain restriction
+  blocks doing this step via clasp/API even with edit access — see
+  `leaderboard/Code.gs`'s own comments for the deployment ID this must
+  target). Tell the user this step is needed rather than assuming it
+  happened; don't consider a Code.gs fix actually live until confirmed.
 - Write or extend a regression test in `test/*.spec.mjs` for the fix.
 - **Verify the test actually catches the bug**: temporarily revert your
   fix, confirm the new test fails, then reapply the fix and confirm it

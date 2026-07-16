@@ -1,0 +1,16 @@
+{
+  "scriptId": "14Nv5ANGIogmlqxB0TfHKcqTvikEATEzypFkVg46xXrTHJBSAVLNgGNUT",
+  "rootDir": "leaderboard",
+  "scriptExtensions": [
+    ".js",
+    ".gs"
+  ],
+  "htmlExtensions": [
+    ".html"
+  ],
+  "jsonExtensions": [
+    ".json"
+  ],
+  "filePushOrder": [],
+  "skipSubdirectories": false
+}

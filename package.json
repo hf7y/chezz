@@ -7,9 +7,12 @@
     "check-syntax": "node scripts/check-syntax.mjs",
     "check-size": "node scripts/check-size.mjs",
     "check": "npm run check-syntax && npm run check-size && npm test",
-    "prepare": "node scripts/setup-hooks.mjs"
+    "prepare": "node scripts/setup-hooks.mjs",
+    "sheet:push": "clasp push --force",
+    "sheet:status": "clasp status"
   },
   "devDependencies": {
+    "@google/clasp": "^3.3.0",
     "@playwright/test": "^1.61.0"
   }
 }
