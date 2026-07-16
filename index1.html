@@ -139,6 +139,18 @@
   #leaderboard dt { font-weight: bold; }
   #leaderboard dd { margin: 0 0 6px; }
 
+  /* Chat-style feature-request box -- bubbles instead of an alert() so a
+     player can see their own submitted ideas (and past ones this session)
+     without the flow feeling like a one-shot form. */
+  #featureChat { width: 280px; max-width: 90vw; margin-top: 4px; font-size: 14px; }
+  #featureChat summary { cursor: pointer; }
+  #featureChatLog:not(:empty) { max-height: 140px; overflow-y: auto; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+  #featureChatLog p { margin: 0; padding: 6px 10px; border-radius: 12px; max-width: 85%; word-break: break-word; }
+  #featureChatLog p[data-from="you"] { align-self: flex-end; background: #cfe0f3; }
+  #featureChatLog p[data-from="team"] { align-self: flex-start; background: #eee; }
+  #featureChatForm { display: flex; gap: 6px; margin-top: 6px; }
+  #featureChatInput { flex: 1; min-width: 0; }
+
   /* Color swatch for a player's 6-hex-digit id, driven by --swatch. */
   #leaderboard data::before {
     content: "";
@@ -179,7 +191,16 @@
   <dd><data id="leaderboardAllTime"></data></dd>
 </dl>
 
-<p><a href="#" id="reportBugLink">Report a bug</a> &middot; <a href="#" id="reportFeatureLink">Suggest a feature</a></p>
+<details id="featureChat">
+  <summary>&#x1F4AC; Got an idea? Tell us as you play</summary>
+  <div id="featureChatLog" aria-live="polite"></div>
+  <form id="featureChatForm">
+    <input id="featureChatInput" type="text" placeholder="Suggest a feature&hellip;" aria-label="Suggest a feature" autocomplete="off">
+    <button type="submit">Send</button>
+  </form>
+</details>
+
+<p><a href="#" id="reportBugLink">Report a bug</a></p>
 
 <script>
   // The rules of the world. Pieces are uppercase for White, lowercase for
@@ -1337,27 +1358,55 @@
       .catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
   }
 
-  // A tester's one-line report plus whatever position they're looking at
-  // (the URL already encodes fen/floor/budget/captured/maxRank). `kind`
-  // ("bug" or "feature") keeps the two apart at the source instead of
-  // relying on triage to guess intent from free text later.
-  async function reportBug(kind) {
+  // A tester's one-line bug report plus whatever position they're looking at
+  // (the URL already encodes fen/floor/budget/captured/maxRank). `kind: "bug"`
+  // keeps this apart from feature requests (see the chat form below) at the
+  // source instead of relying on triage to guess intent from free text later.
+  async function reportBug() {
     if (!LEADERBOARD_URL) { alert("Leaderboard isn't configured, so there's nowhere to send this yet."); return; }
-    const description = prompt(kind === "feature"
-      ? "What's the idea? (the current position's URL is attached automatically)"
-      : "What went wrong? (the current position's URL is attached automatically)");
+    const description = prompt("What went wrong? (the current position's URL is attached automatically)");
     if (!description) return;
     // Waits for and checks the response instead of firing an unconditional
     // "Thanks!" -- otherwise there's no way to tell a report saved from one
     // that silently failed.
     try {
-      const res = await postToLeaderboard({ type: "bug", kind, name: getPlayerName(), url: location.href, description });
+      const res = await postToLeaderboard({ type: "bug", kind: "bug", name: getPlayerName(), url: location.href, description });
       const data = await res.json();
       alert(data && data.ok ? "Thanks, reported!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.");
     } catch (err) {
       alert("Couldn't reach the leaderboard -- report not sent. Check your connection and try again.");
     }
   }
+
+  // Feature requests get a standing chat box instead of a one-shot prompt(),
+  // so a player can suggest something mid-run and see it (and the reply)
+  // logged right there, rather than a modal dialog interrupting play. Posts
+  // through the same endpoint/kind as before -- just a friendlier front end.
+  function appendChatBubble(text, from) {
+    const log = document.getElementById("featureChatLog");
+    const p = document.createElement("p");
+    p.dataset.from = from;
+    p.textContent = text;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  document.getElementById("featureChatForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const input = document.getElementById("featureChatInput");
+    const description = input.value.trim();
+    if (!description) return;
+    input.value = "";
+    appendChatBubble(description, "you");
+    if (!LEADERBOARD_URL) { appendChatBubble("Not configured yet, so this didn't send.", "team"); return; }
+    try {
+      const res = await postToLeaderboard({ type: "bug", kind: "feature", name: getPlayerName(), url: location.href, description });
+      const data = await res.json();
+      appendChatBubble(data && data.ok ? "Thanks, logged!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.", "team");
+    } catch (err) {
+      appendChatBubble("Couldn't reach the server -- try again later.", "team");
+    }
+  });
 
   // Just the single top score per scope -- fetched fresh each time rather
   // than trusting a cached top-N list, so this stays correct even if a
@@ -1490,12 +1539,7 @@
 
   document.getElementById("reportBugLink").addEventListener("click", e => {
     e.preventDefault();
-    reportBug("bug");
-  });
-
-  document.getElementById("reportFeatureLink").addEventListener("click", e => {
-    e.preventDefault();
-    reportBug("feature");
+    reportBug();
   });
 
   // A plain "index1.html" href broke on any deployment serving this file
