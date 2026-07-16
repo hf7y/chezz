@@ -50,6 +50,27 @@ test("a jittery touch tap still selects (regression: ghost-glitch fix)", async (
   expect(selected).toBe(true);
 });
 
+test("selection highlight is an inset box-shadow, not an outline (regression: overlap fix)", async ({ page }) => {
+  // An outline extends past the cell's own box and can get painted over by
+  // a neighboring square; box-shadow inset draws inside it instead. Locks
+  // in the fix rather than just checking data-selected is present.
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-5PPP-7K_w&floor=1&spawned=1&budget=1&maxRank=0");
+
+  const style = await page.evaluate(() => {
+    const el = [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true };
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }));
+    el.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }));
+    const selectedEl = document.querySelector("td[data-selected]");
+    const computed = getComputedStyle(selectedEl);
+    return { boxShadow: computed.boxShadow, outlineStyle: computed.outlineStyle };
+  });
+
+  expect(style.boxShadow).toContain("inset");
+  expect(style.outlineStyle).toBe("none");
+});
+
 test("floor-enter animation plays on spawn/boot, not on an ordinary move", async ({ page }) => {
   await page.goto(GAME_URL);
   expect(await page.$eval("table", el => el.classList.contains("floor-enter"))).toBe(true);
