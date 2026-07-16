@@ -612,7 +612,7 @@
             moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
           }
         }
-        const candidate = { fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
+        const candidate = { piece: mv.piece, fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
         all.push(candidate);
 
         if (moveValue > maxEvaluation) {
@@ -1095,8 +1095,7 @@
         // Reuses the same applyMove the search explores hypothetical lines
         // with -- Black always auto-promotes to the strongest piece
         // available, no UI prompt needed, unlike White's dialog above.
-        const piece = state.board[bm.fromY][bm.fromX];
-        const { nextBoard, pool } = applyMove(state.board, { piece, fromX: bm.fromX, fromY: bm.fromY, toX: bm.toX, toY: bm.toY }, state.captured);
+        const { nextBoard, pool } = applyMove(state.board, bm, state.captured);
         state.board = nextBoard;
         state.captured = pool;
       }

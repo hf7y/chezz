@@ -25,13 +25,13 @@ test("known-position regression pins", async ({ page }) => {
   // choice here. Capturing an undefended King outright is obviously
   // correct, not a bug -- this pin just locks in that (correct) choice.
   expect(await bestMove(page, "8-2Q5-1N6-q2K1Q2-8-8-8-8-8", "", 5))
-    .toEqual({ fromX: 0, fromY: 3, toX: 3, toY: 3, score: 497900 });
+    .toEqual({ piece: "q", fromX: 0, fromY: 3, toX: 3, toY: 3, score: 497900 });
 
   expect(await bestMove(page, "8-r7-8-8-8-8-8-5P2-5K2", "PbP", 4))
-    .toEqual({ fromX: 0, fromY: 1, toX: 2, toY: 1, score: -99650 });
+    .toEqual({ piece: "r", fromX: 0, fromY: 1, toX: 2, toY: 1, score: -99650 });
 
   expect(await bestMove(page, "8-8-6p1-6K1-6PP-8-8-8-b7", "", 3))
-    .toEqual({ fromX: 0, fromY: 8, toX: 3, toY: 5, score: -100540 });
+    .toEqual({ piece: "b", fromX: 0, fromY: 8, toX: 3, toY: 5, score: -100540 });
 });
 
 test("no legal Black move returns null instead of throwing", async ({ page }) => {
