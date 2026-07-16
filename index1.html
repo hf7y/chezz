@@ -158,7 +158,7 @@
 
 <table aria-label="Chess board"></table>
 <p>Captured: <output></output></p>
-<dialog><p>Promote to:</p></dialog>
+<dialog><p>Promote:</p></dialog>
 
 <details id="instructions">
   <summary>How to play</summary>
@@ -1051,7 +1051,7 @@
   const PROMOTION_DIALOG_OFFSET_Y = 40; // px below the promoting square
 
   function renderPromotion() {
-    promotionElement.innerHTML = "<p>Promote to:</p>";
+    promotionElement.innerHTML = "<p>Promote:</p>";
     if (!promotion) return;
     const sq = boardElement.rows[promotion.y].cells[promotion.x + 1];
     const r = sq.getBoundingClientRect();
