@@ -370,6 +370,20 @@
     return { piece, capturedPool };
   }
 
+  // Applies one move to a board, handling capture bookkeeping and
+  // auto-promotion in one place -- shared by the search's hypothetical
+  // exploration (getBlackMoveRuthless below) and the real game's own move
+  // application (makeMove), instead of two copies of the same three steps.
+  function applyMove(b, mv, pool) {
+    const nextBoard = b.map(row => [...row]);
+    const target = nextBoard[mv.toY][mv.toX];
+    if (target) pool += target;
+    nextBoard[mv.fromY][mv.fromX] = "";
+    const promo = autoPromote(mv.piece, mv.toY, pool);
+    nextBoard[mv.toY][mv.toX] = promo.piece;
+    return { nextBoard, pool: promo.capturedPool };
+  }
+
   // Alternating minimax with alpha-beta pruning, iteratively deepened as far
   // as the time budget allows, extended by a quiescence search through any
   // capture sequence still in progress at the horizon -- so a sacrifice's
@@ -486,16 +500,6 @@
         return (ct ? Math.abs(pieceValues[ct]) : -1) - (at ? Math.abs(pieceValues[at]) : -1);
       });
       return moves;
-    }
-
-    function applyMove(b, mv, pool) {
-      const nextBoard = b.map(row => [...row]);
-      const target = nextBoard[mv.toY][mv.toX];
-      if (target) pool += target;
-      nextBoard[mv.fromY][mv.fromX] = "";
-      const promo = autoPromote(mv.piece, mv.toY, pool);
-      nextBoard[mv.toY][mv.toX] = promo.piece;
-      return { nextBoard, pool: promo.capturedPool };
     }
 
     // Quiescence: a static eval at the horizon can misjudge a position
@@ -660,9 +664,8 @@
     // Deterministic tie-break, seeded from the position (same LCG pattern
     // as spawnBlackArmy) rather than Math.random() -- replaying the same
     // saved/audited URL must always pick the same move among ties.
-    let seed = hashStr(board.map(row => row.map(c => c || ".").join("")).join("|") + "|" + capturedPool);
-    seed = (Math.imul(seed, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
-    return bestCandidates[Math.floor((seed / LCG_MODULUS) * bestCandidates.length)];
+    const seed = makeLcg(hashStr(board.map(row => row.map(c => c || ".").join("")).join("|") + "|" + capturedPool))();
+    return bestCandidates[Math.floor(seed * bestCandidates.length)];
   }
 
   // The game's live state and the DOM it's painted into.
@@ -743,6 +746,18 @@
   const LCG_INCREMENT = 1013904223;
   const LCG_MODULUS = 4294967296; // 2^32
 
+  // One step of a Lehmer/LCG PRNG per call, returning a float in [0, 1) --
+  // shared by every seeded random draw in the game (spawn budget, army
+  // placement, and the AI's tie-break) instead of three copies of the same
+  // formula, so there's one place to change the algorithm or constants.
+  function makeLcg(seed) {
+    let h = seed;
+    return () => {
+      h = (Math.imul(h, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
+      return h / LCG_MODULUS;
+    };
+  }
+
   const SPAWN_SKIP_CHANCE = 0.3; // chance to hold out for a cheaper piece instead of the biggest affordable one
   const MINOR_PIECE_CHANCE = 0.5; // knight vs bishop, once a minor piece is chosen
   const PIECE_SPAWN_COST = { m: 13, q: 9, c: 8, a: 7, r: 5, minor: 3, p: 1 };
@@ -772,11 +787,7 @@
 
     // Budget is derived once, independent of the placement attempts below --
     // a retry should reshuffle where the army goes, never how big it is.
-    let budgetH = baseSeed;
-    const budgetRng = () => {
-      budgetH = (Math.imul(budgetH, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
-      return budgetH / LCG_MODULUS;
-    };
+    const budgetRng = makeLcg(baseSeed);
     let budget = state.floor + Math.floor(budgetRng() * 3) - 1;
     if (budget < 1) budget = 1;
     // Spawn material should ratchet up, never down, floor to floor.
@@ -803,11 +814,7 @@
     placeArmy: for (let attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
       state.board = baseline.map(row => [...row]);
       let remaining = budget;
-      let h = hashStr(baseSeed + ":" + attempt);
-      function rng() {
-        h = (Math.imul(h, LCG_MULTIPLIER) + LCG_INCREMENT) >>> 0;
-        return h / LCG_MODULUS;
-      }
+      const rng = makeLcg(hashStr(baseSeed + ":" + attempt));
 
       // Randomize a row's column order so placement isn't left-side heavy —
       // a true random pick out of the 8 columns for the first piece inserted
@@ -1085,14 +1092,13 @@
       await wait(RENDER_YIELD_MS);
       const bm = getBlackMoveRuthless(state.board, state.captured, state.floor);
       if (bm) {
-        if (state.board[bm.toY][bm.toX]) state.captured += state.board[bm.toY][bm.toX];
-        const movedPiece = state.board[bm.fromY][bm.fromX];
-        state.board[bm.fromY][bm.fromX] = "";
-        // Mirrors White's promotion rule above; no UI prompt needed since
-        // Black always takes the strongest piece available.
-        const promo = autoPromote(movedPiece, bm.toY, state.captured);
-        state.board[bm.toY][bm.toX] = promo.piece;
-        state.captured = promo.capturedPool;
+        // Reuses the same applyMove the search explores hypothetical lines
+        // with -- Black always auto-promotes to the strongest piece
+        // available, no UI prompt needed, unlike White's dialog above.
+        const piece = state.board[bm.fromY][bm.fromX];
+        const { nextBoard, pool } = applyMove(state.board, { piece, fromX: bm.fromX, fromY: bm.fromY, toX: bm.toX, toY: bm.toY }, state.captured);
+        state.board = nextBoard;
+        state.captured = pool;
       }
       state.turn = "w";
       checkFloorProgression(); updateUrl(false); renderBoard();
@@ -1231,16 +1237,24 @@
     return name;
   }
 
+  // "text/plain" (not "application/json") avoids a CORS preflight -- shared
+  // by score submission and bug/feature reports, the leaderboard's only two
+  // writes.
+  function postToLeaderboard(body) {
+    return fetch(LEADERBOARD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(body),
+    });
+  }
+
   function submitScore(rank) {
     if (!LEADERBOARD_URL) return;
-    fetch(LEADERBOARD_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" }, // avoids a CORS preflight
-      // dateSeed (not a fresh todayKey()) -- attributes the score to whichever
-      // day's seed generated the floor this rank was reached on, so a run
-      // that crosses midnight doesn't get bumped onto tomorrow's board.
-      body: JSON.stringify({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: state.dateSeed }),
-    }).catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
+    // dateSeed (not a fresh todayKey()) -- attributes the score to whichever
+    // day's seed generated the floor this rank was reached on, so a run
+    // that crosses midnight doesn't get bumped onto tomorrow's board.
+    postToLeaderboard({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: state.dateSeed })
+      .catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
   }
 
   // A tester's one-line report plus whatever position they're looking at
@@ -1257,11 +1271,7 @@
     // "Thanks!" -- otherwise there's no way to tell a report saved from one
     // that silently failed.
     try {
-      const res = await fetch(LEADERBOARD_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ type: "bug", kind, name: getPlayerName(), url: location.href, description }),
-      });
+      const res = await postToLeaderboard({ type: "bug", kind, name: getPlayerName(), url: location.href, description });
       const data = await res.json();
       alert(data && data.ok ? "Thanks, reported!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.");
     } catch (err) {

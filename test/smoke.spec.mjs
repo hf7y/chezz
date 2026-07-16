@@ -4,6 +4,25 @@
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
+test("Black's reply correctly captures and auto-promotes (regression: makeMove/applyMove dedup)", async ({ page }) => {
+  // Single black pawn one step from its promotion row (8), nothing else
+  // black can do -- its only legal move is to push and promote, spending
+  // the one captured White piece available. Locks in that makeMove's
+  // black-reply path (now reusing applyMove instead of a hand-duplicated
+  // capture+promote) still does the same bookkeeping.
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-4p3-K7_w&floor=1&spawned=1&budget=1&maxRank=0&captured=Q");
+
+  await page.evaluate(() => makeMove(0, 8, 0, 7)); // harmless White King step to trigger Black's reply
+
+  const result = await page.evaluate(() => ({
+    promoted: state.board[8][4],
+    vacated: state.board[7][4],
+    captured: state.captured,
+  }));
+
+  expect(result).toEqual({ promoted: "q", vacated: "", captured: "" });
+});
+
 test("loads with no console or page errors", async ({ page }) => {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
