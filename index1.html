@@ -348,6 +348,14 @@
 
   const PROMOTION_PRIORITY = ["m", "q", "c", "a", "r", "b", "n"]; // strongest first
 
+  // Removes one occurrence of `char` from `pool`, or null if it's not there --
+  // shared by autoPromote's "spend a captured piece" below and newFloor's
+  // "spend a captured pawn to backfill a fallen survivor."
+  function spendFromPool(pool, char) {
+    const idx = pool.indexOf(char);
+    return idx === -1 ? null : pool.slice(0, idx) + pool.slice(idx + 1);
+  }
+
   // A pawn reaching its far rank promotes by spending one captured piece
   // of the matching type from the opponent out of `capturedPool` -- never
   // a free promotion. Picks the strongest available type; leaves the pawn
@@ -361,10 +369,10 @@
     // captured (uppercase) White piece — same priority order either way.
     for (const type of PROMOTION_PRIORITY) {
       const spend = isWhite ? type : type.toUpperCase();
-      const idx = capturedPool.indexOf(spend);
-      if (idx !== -1) {
+      const remaining = spendFromPool(capturedPool, spend);
+      if (remaining !== null) {
         const promoted = isWhite ? type.toUpperCase() : type.toLowerCase();
-        return { piece: promoted, capturedPool: capturedPool.slice(0, idx) + capturedPool.slice(idx + 1) };
+        return { piece: promoted, capturedPool: remaining };
       }
     }
     return { piece, capturedPool };
@@ -889,7 +897,10 @@
       }
 
       function minorType() { return rng() < MINOR_PIECE_CHANCE ? "n" : "b"; }
-      function costOf(type) { return type === "p" ? PIECE_SPAWN_COST.p : PIECE_SPAWN_COST[type] || PIECE_SPAWN_COST.minor; }
+      // Only ever called for a non-pawn type (the loop below breaks on "p"
+      // before reaching this) -- minor pieces (n/b) fall through to the
+      // shared "minor" cost since they're not their own key.
+      function costOf(type) { return PIECE_SPAWN_COST[type] || PIECE_SPAWN_COST.minor; }
       // Descends through every tier by cost -- fairy pieces slot in above
       // rook -- so a budget shortfall costs exactly one tier, never more.
       function tierBelow(type) {
@@ -1010,10 +1021,10 @@
         rank2 += "P";
       } else {
         rank1 += c;
-        const pawnIndex = state.captured.indexOf("p");
-        if (pawnIndex !== -1) {
+        const remaining = spendFromPool(state.captured, "p");
+        if (remaining !== null) {
           rank2 += "P";
-          state.captured = state.captured.slice(0, pawnIndex) + state.captured.slice(pawnIndex + 1);
+          state.captured = remaining;
         } else {
           rank2 += "1";
         }
