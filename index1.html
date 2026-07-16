@@ -384,28 +384,6 @@
     return { nextBoard, pool: promo.capturedPool };
   }
 
-  // Transposition table: caches only "exact" search() results (ones that
-  // weren't cut short by alpha-beta pruning), keyed by position, capturedPool
-  // (order-independent -- sorted -- since only which pieces are available
-  // matters, not capture order), and whose-turn. An exact result is reused
-  // whenever the cached depth is >= what's currently needed, even across
-  // different top-level moves -- a deeper search is strictly more informed,
-  // not just a different answer, so this is a real optimization, not an
-  // approximation. The one thing it knowingly gives up: exact reproducing
-  // of *today's* pinned test scores isn't guaranteed, since a shallower
-  // node can now short-circuit using a value computed elsewhere in a deeper
-  // pass -- pins get updated when that happens, not treated as a regression.
-  // Survives across moves within a floor (undo/replaying a position is a
-  // real, intentional feature here -- the browser back button), cleared in
-  // newFloor() since the board fully reshuffles then anyway. Deliberately
-  // NOT part of `state` -- a performance cache, not game state, never
-  // belongs in the saved/shared URL.
-  let transTable = new Map();
-
-  function transKey(b, pool, whiteToMove) {
-    return b.map(row => row.map(c => c || ".").join("")).join("|") + "|" + [...pool].sort().join("") + "|" + whiteToMove;
-  }
-
   // Alternating minimax with alpha-beta pruning, iteratively deepened as far
   // as the time budget allows, extended by a quiescence search through any
   // capture sequence still in progress at the horizon -- so a sacrifice's
@@ -572,10 +550,6 @@
       if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
       if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
-      const key = transKey(b, pool, whiteToMove);
-      const cached = transTable.get(key);
-      if (cached && cached.depth >= depth) return cached.score;
-
       const moves = collectMoves(b, whiteToMove);
       // No legal moves isn't terminal (the real game just skips the turn) --
       // ending the search here made "steer into zero moves" look good, since
@@ -583,7 +557,6 @@
       // a ply and let the other side move instead.
       if (!moves.length) return search(b, depth - 1, alpha, beta, !whiteToMove, pool);
 
-      const entryAlpha = alpha, entryBeta = beta;
       let best = whiteToMove ? Infinity : -Infinity;
       for (const mv of moves) {
         const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
@@ -599,14 +572,6 @@
         }
         if (beta <= alpha) break;
       }
-      // Only a "PV" result -- the true value landing strictly inside the
-      // ORIGINAL (entry) window -- is safe to reuse for a different query
-      // with a different window. A value at or beyond the entry bound only
-      // proves "at least/most this much," not what the value actually is,
-      // even when this node's own loop happened not to break explicitly
-      // (every child can fail low/high internally without this node's own
-      // alpha ever catching up to beta).
-      if (best > entryAlpha && best < entryBeta) transTable.set(key, { depth, score: best });
       return best;
     }
 
@@ -1058,7 +1023,6 @@
     loadFen("8-8-8-8-8-8-8-" + rank2 + "-" + rank1 + "_" + state.turn);
     state.floor++;
     state.spawned = false;
-    transTable.clear(); // the board's fully reshuffling -- nothing cached is relevant past this point
     spawnBlackArmy();
   }
 
