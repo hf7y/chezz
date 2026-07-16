@@ -802,7 +802,16 @@
     { label: "Two to take", rows: ["8", "8", "8", "8", "8", "2p2p2"] },
     { label: "A little further", rows: ["8", "8", "8", "8", "2p2p2", "8"] },
     { label: "The Knight", rows: ["8", "8", "8", "3n4", "8", "8"] },
+    { label: "Building up", rows: ["8", "8", "8", "8", "1p2p2p", "8"] },
     { label: "Two Bishops", rows: ["8", "8", "8", "2b3b2", "8", "8"] },
+    // Playtesting (see test/playtest-campaign.spec.mjs) found a lone Rook
+    // is a genuine structural bottleneck, not a placement/ordering issue --
+    // it can perpetually retreat along its own rank/file to dodge capture
+    // while occasionally checking, with nothing forcing a resolution.
+    // Giving more floor-transitions (each is one more chance for a
+    // surviving piece to backfill a pawn -- see newFloor) before the fight
+    // is the fix being tried first, not yet reverified.
+    { label: "More pawns", rows: ["8", "8", "8", "8", "2p2p2", "8"] },
     { label: "The Rook", rows: ["8", "8", "8", "3r4", "8", "8"] },
     { label: "The Queen", rows: ["8", "8", "8", "3q4", "8", "8"] },
     { label: "Knights and Bishops", rows: ["8", "1n2b2n1", "1b5", "8", "8", "8"] },

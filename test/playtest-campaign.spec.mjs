@@ -5,10 +5,18 @@
 // White AI; the real game expects a human) against the real, unmodified
 // getBlackMoveRuthless. Logs results; meant to be read by a human tuning
 // NARRATIVE_STAGES, not part of CI signal (it always "passes").
+//
+// Caveat, confirmed by observation: this proxy can itself stall on trivially
+// easy floors (seen on the plain 2-pawn "Two to take" floor, at both 60 and
+// 100 plies) -- almost certainly oscillating between two near-equally-scored
+// moves rather than the floor being genuinely hard. Treat a "stalled" result
+// as a real difficulty signal only when it's consistent across a stage that
+// isn't otherwise trivial, not as proof on its own -- cross-check against
+// how much material/plies similar-or-easier stages needed.
 import { test } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
-const RUNS = 10;
+const RUNS = 8;
 const MAX_PLIES_PER_FLOOR = 60; // safety valve against one floor never resolving
 
 test("playtest the full campaign, continuously", async ({ page }) => {
