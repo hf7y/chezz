@@ -1155,6 +1155,11 @@
 
   function onDragMove(e) {
     if (!drag) return;
+    // CSS (user-select/-webkit-touch-callout) alone doesn't stop a mobile
+    // browser's own long-press gesture recognition from racing this drag --
+    // it can still pop a text-selection/search toolbar mid-move. Once we've
+    // committed to handling this pointer ourselves, tell the browser not to.
+    e.preventDefault();
     if (!drag.dragging) {
       if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < drag.threshold) return;
       if (!drag.hasOwnPiece) return; // pointer came down on a bare target square -- nothing to drag, resolved as a tap (or ignored) on release
@@ -1220,6 +1225,7 @@
     const piece = state.board[y][x];
     const hasOwnPiece = !!piece && isWhitePiece(piece);
     if (!hasOwnPiece && !selected) return; // nothing here to pick up, and no pending move to complete
+    e.preventDefault(); // stop the browser from racing this with its own long-press/selection gesture
     const threshold = e.pointerType === "mouse" ? DRAG_THRESHOLD : TOUCH_DRAG_THRESHOLD;
     drag = { x, y, startX: e.clientX, startY: e.clientY, dragging: false, hasOwnPiece, threshold };
     document.addEventListener("pointermove", onDragMove);
