@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: narrative-campaign
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
@@ -43,10 +43,10 @@ jobs:
 
             This is a fully unattended run with no human review step. Once
             npm run check passes and you've committed your fixes, run
-            `git push origin HEAD:narrative-campaign` yourself so the fixes
-            go live immediately. Never resolve or reclassify a report you
-            aren't confident about -- leave it open with a note instead, per
-            the command file's own guidance.
+            `git push origin HEAD:main` yourself so the fixes go live
+            immediately. Never resolve or reclassify a report you aren't
+            confident about -- leave it open with a note instead, per the
+            command file's own guidance.
           claude_args: >-
             --model claude-sonnet-5
             --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
@@ -54,9 +54,9 @@ jobs:
 
       - name: Trigger a Pages redeploy if the sweep pushed new commits
         run: |
-          after=$(git ls-remote origin -h refs/heads/narrative-campaign | cut -f1)
+          after=$(git ls-remote origin -h refs/heads/main | cut -f1)
           if [ "$after" != "${{ steps.before.outputs.sha }}" ]; then
-            gh workflow run deploy-narrative-pages.yml --ref narrative-campaign
+            gh workflow run deploy-narrative-pages.yml --ref main
           else
             echo "No new commits from this sweep -- skipping redeploy."
           fi

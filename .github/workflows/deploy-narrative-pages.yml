@@ -1,10 +1,10 @@
-name: Deploy narrative-campaign to Pages
+name: Deploy to Pages
 
-# Only this branch, since it's the one being showcased as a live build --
-# other branches keep pushing without triggering a redeploy.
+# narrative-campaign was fast-forwarded into main and retired -- main is now
+# the live build, so this triggers on it instead.
 on:
   push:
-    branches: ["narrative-campaign"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
