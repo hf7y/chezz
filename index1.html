@@ -321,6 +321,7 @@
 </details>
 
 <p><a href="#" id="reportBugLink">Report a bug</a></p>
+<p id="sweepStatus"></p>
 
 <script>
   // The rules of the world. Pieces are uppercase for White, lowercase for
@@ -1582,6 +1583,35 @@
     }
   }
 
+  // Coarse "Xm/h/d ago" -- this is a proof-of-life readout, not a precise
+  // clock, so minute/hour/day granularity is all it needs.
+  function timeAgo(isoString) {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  }
+
+  // Proof-of-life readout for the unattended bug-sweep automation -- every
+  // /bug-sweep run posts its outcome here (even "0 fixed"), so a stalled or
+  // silently-broken sweep is visible on the page itself instead of only in
+  // a log nobody's watching.
+  async function refreshSweepStatus() {
+    const el = document.getElementById("sweepStatus");
+    if (!el || !LEADERBOARD_URL) return;
+    try {
+      const res = await fetch(`${LEADERBOARD_URL}?scope=sweep-status`);
+      const status = await res.json();
+      if (!status) { el.textContent = "Bug sweep: no runs recorded yet."; return; }
+      el.textContent = `Bug sweep last ran ${timeAgo(status.timestamp)} · ${status.fixed} fixed`;
+    } catch (err) {
+      // best-effort -- offline or unreachable just leaves whatever was shown last
+    }
+  }
+
   function currentKingRank() {
     const king = findWhiteKing(state.board);
     if (!king) return state.maxRank;
@@ -1677,6 +1707,7 @@
   window.addEventListener("popstate", loadFromUrl);
   loadFromUrl();
   refreshLeaderboards();
+  refreshSweepStatus();
 </script>
 </body>
 </html>

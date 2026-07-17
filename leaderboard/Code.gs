@@ -58,6 +58,24 @@
 //   &type=bug|feature|all (default "bug" -- a routine bug sweep should see
 //   defects to fix, not the feature backlog; pass type=feature to read
 //   ideas instead, or type=all for everything regardless of kind).
+//
+// Record a sweep run (every /bug-sweep run posts this once, at the end,
+// even when it fixed nothing -- the game UI reads it back to show "last
+// swept" proof of life). A single overwritten record, not an appended row:
+// nothing ever needs sweep *history*, just the latest one, so this lives in
+// Script Properties instead of growing its own sheet:
+//   fetch(WEB_APP_URL, {
+//     method: "POST",
+//     headers: { "Content-Type": "text/plain" },
+//     body: JSON.stringify({ type: "sweep-status", fetched, fixed, reclassified, leftOpen }),
+//   });
+//   `timestamp` is stamped server-side (not client-supplied) so it can't
+//   drift from whatever clock the sweep runner happens to have.
+//
+// Read the last sweep status:
+//   fetch(WEB_APP_URL + "?scope=sweep-status")
+//   Response: { timestamp, fetched, fixed, reclassified, leftOpen } or
+//   null if no sweep has ever reported in.
 //   Response: [{ timestamp, name, url, description, status, note, type }, ...]
 
 const SCORES_SHEET_NAME = "Scores";
@@ -73,6 +91,7 @@ const DEFAULT_BUG_TYPE = "bug";
 const MAX_NAME_LENGTH = 40;
 const MAX_TEXT_LENGTH = 2000; // bug report url/description/note
 const DEFAULT_LIMIT = 20;
+const SWEEP_STATUS_KEY = "sweepStatus";
 
 function getOrCreateSheet_(name, headers) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -112,6 +131,7 @@ function doPost(e) {
   const body = JSON.parse(e.postData.contents);
   if (body.type === "bug") return submitBugReport_(body);
   if (body.type === "resolve") return resolveBugReport_(body);
+  if (body.type === "sweep-status") return recordSweepStatus_(body);
   return submitScore_(body);
 }
 
@@ -139,6 +159,26 @@ function submitBugReport_(body) {
   sheet.appendRow([new Date(), name, url, description, DEFAULT_BUG_STATUS, "", kind]);
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function recordSweepStatus_(body) {
+  const status = {
+    timestamp: new Date().toISOString(),
+    fetched: Number(body.fetched) || 0,
+    fixed: Number(body.fixed) || 0,
+    reclassified: Number(body.reclassified) || 0,
+    leftOpen: Number(body.leftOpen) || 0,
+  };
+  PropertiesService.getScriptProperties().setProperty(SWEEP_STATUS_KEY, JSON.stringify(status));
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getSweepStatus_() {
+  const raw = PropertiesService.getScriptProperties().getProperty(SWEEP_STATUS_KEY);
+  return ContentService.createTextOutput(raw || "null")
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -178,6 +218,7 @@ function doGet(e) {
   const limit = Number(e.parameter.limit) || DEFAULT_LIMIT;
 
   if (scope === "bugs") return getBugReports_(limit, e.parameter.status || DEFAULT_BUG_STATUS, e.parameter.type || DEFAULT_BUG_TYPE);
+  if (scope === "sweep-status") return getSweepStatus_();
 
   const sheet = getScoresSheet_();
   const rows = sheet.getDataRange().getValues();

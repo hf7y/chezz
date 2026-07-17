@@ -122,7 +122,22 @@ from a POST here. Always confirm by re-fetching `?scope=bugs&status=open`
 afterward and checking the report no longer appears (or does, if you
 reopened one).
 
-## 6. Report a summary
+## 6. Record this sweep's status
+
+Every run posts this, even a run that fixed nothing -- it's how the live
+page shows proof that the sweep is still running instead of only a log
+nobody's watching:
+
+```
+curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
+  --data-raw '{"type":"sweep-status","fetched":<N>,"fixed":<F>,"reclassified":<R>,"leftOpen":<L>}'
+```
+
+Use the same counts as the summary line below. This overwrites the single
+stored status (there's no history to preserve), and the timestamp is
+stamped server-side, not sent by you.
+
+## 7. Report a summary
 
 Start with the exact heading `## Summary` (not a variant like "Sweep
 summary" -- this run is logged alongside every other run, unattended, and a
