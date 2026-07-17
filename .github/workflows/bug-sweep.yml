@@ -1,0 +1,64 @@
+name: Bug Sweep
+
+# Runs the /bug-sweep custom command unattended -- see .claude/commands/bug-sweep.md
+# for the full triage/fix/commit/tracker-update procedure it follows. Daily,
+# 9am America/Chicago (14:00 UTC).
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  # Needed only to nudge deploy-narrative-pages.yml afterward -- a push made
+  # with the default GITHUB_TOKEN doesn't cascade-trigger other workflows'
+  # `on: push` listeners, so a fresh commit here wouldn't otherwise redeploy.
+  actions: write
+
+jobs:
+  bug-sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: narrative-campaign
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Record starting commit
+        id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: >-
+            /bug-sweep
+
+            This is a fully unattended run with no human review step. Once
+            npm run check passes and you've committed your fixes, run
+            `git push origin HEAD:narrative-campaign` yourself so the fixes
+            go live immediately. Never resolve or reclassify a report you
+            aren't confident about -- leave it open with a note instead, per
+            the command file's own guidance.
+          claude_args: >-
+            --model claude-sonnet-5
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+            --max-turns 40
+
+      - name: Trigger a Pages redeploy if the sweep pushed new commits
+        run: |
+          after=$(git ls-remote origin -h refs/heads/narrative-campaign | cut -f1)
+          if [ "$after" != "${{ steps.before.outputs.sha }}" ]; then
+            gh workflow run deploy-narrative-pages.yml --ref narrative-campaign
+          else
+            echo "No new commits from this sweep -- skipping redeploy."
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
