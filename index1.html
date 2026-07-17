@@ -9,14 +9,34 @@
      to tofu per-glyph if unreachable, rather than breaking anything. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
+<!-- Press Start 2P is the arcade-cabinet display font (headers/labels/buttons
+     only -- too dense to read as body copy, same reasoning as the piece
+     webfont below). -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
+  /* Arcade-cabinet palette, reused across every panel below instead of
+     scattering literal hex values. */
+  :root {
+    --ink: #0c0814;      /* borders, deep shadows */
+    --felt: #1a1025;     /* page background */
+    --panel: #2b2140;    /* card backgrounds */
+    --cream: #f4ecd8;    /* body text, input backgrounds */
+    --gold: #ffd23f;     /* primary accent */
+    --pink: #ff4d8d;     /* secondary accent */
+  }
+
   /* flex (not text-align) so multi-line text keeps reading left-aligned
      instead of centering line-by-line. */
   body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin: 0;
+    padding: 28px 16px 48px;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at top, var(--panel) 0%, var(--felt) 65%);
+    color: var(--cream);
+    font-family: system-ui, sans-serif;
     /* A finger drifting off the board mid-move onto surrounding text (the
        heading, "Captured:" line) can start a native text-selection/search
        gesture on mobile Chrome -- table already blocks this over the board
@@ -26,6 +46,16 @@
     -webkit-touch-callout: none;
   }
 
+  h1 { margin: 0 0 10px; }
+  h1 a {
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 28px;
+    color: var(--gold);
+    text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 var(--ink);
+    letter-spacing: 1px;
+    text-decoration: none;
+  }
+
   /* font-size is the one responsive quantity -- everything else is in em
      so cells and glyphs shrink together on narrow screens. */
   table {
@@ -33,6 +63,14 @@
     user-select: none; /* stops drag gestures from text-selecting rank numbers/pieces */
     -webkit-user-select: none;
     font-size: 25px;
+    /* The cabinet frame around the board. No padding here -- the collapsing
+       border model (border-collapse: collapse) ignores padding on the table
+       element itself, so it'd be silently dropped; the border sits flush
+       against the outer cells instead, which reads as a tighter, more
+       arcade-authentic frame anyway. */
+    border: 6px solid var(--ink);
+    border-radius: 6px;
+    box-shadow: 0 6px 0 var(--ink), 0 10px 20px rgba(0, 0, 0, 0.45);
   }
 
   /* Narrow phones: shrink the board so 9 columns fit without scrolling. */
@@ -72,9 +110,11 @@
 
   th {
     text-align: right;
-    padding-right: 8px;
-    font-size: 0.56em; /* rank-number label, smaller than the board glyphs */
-    color: #666;
+    padding-right: 6px;
+    font-size: 0.32em; /* rank-number label, smaller than the board glyphs -- Press Start 2P runs wide */
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    color: var(--gold);
+    background: var(--ink); /* a dark rank-label gutter instead of an unstyled hole against the felt */
   }
 
   td {
@@ -85,18 +125,24 @@
     touch-action: manipulation;
   }
 
-  /* Checkerboard: same tr/td nth-child parity is one color, opposite is the other. */
+  /* Checkerboard: same tr/td nth-child parity is one color, opposite is the other.
+     Punchier saturation than a real wood board on purpose -- this is the one
+     part of the arcade reskin that still has to stay readable as a chessboard
+     at speed, so contrast matters more here than anywhere else on the page. */
   tr:nth-child(odd) td:nth-child(odd),
   tr:nth-child(even) td:nth-child(even) {
-    background: hsl(var(--hue, 30) 45% 55%);
+    background: hsl(var(--hue, 30) 65% 40%);
   }
   tr:nth-child(odd) td:nth-child(even),
   tr:nth-child(even) td:nth-child(odd) {
-    background: hsl(var(--hue, 30) 45% 78%);
+    background: hsl(var(--hue, 30) 70% 68%);
   }
 
-  /* Row 0 is the exit row (reach it with your King to clear the floor). */
-  tr:first-child > * { border-bottom: solid; opacity: 0.3; }
+  /* Row 0 is the exit row (reach it with your King to clear the floor).
+     0.3 opacity read as pale-but-visible against the old white page bg;
+     against the new dark felt it needs more to still read as "dimmed",
+     not "broken". */
+  tr:first-child > * { border-bottom: 3px solid var(--gold); opacity: 0.5; }
 
   /* A legal destination for the currently-selected piece. */
   td[data-legal]::after {
@@ -107,16 +153,17 @@
     height: 12px;
     margin: -6px 0 0 -6px;
     border-radius: 50%;
-    background: rgba(0, 150, 0, 0.65);
+    background: rgba(70, 255, 145, 0.9);
+    box-shadow: 0 0 8px 2px rgba(70, 255, 145, 0.75);
   }
 
   /* inset box-shadow (not outline) so the highlight draws inside the cell --
      an outline extends past the border and gets painted over by whichever
      neighboring cell paints next. */
-  td[data-selected] { box-shadow: 0 0 0 3px yellow inset; }
+  td[data-selected] { box-shadow: 0 0 0 3px var(--gold) inset, 0 0 10px 2px rgba(255, 210, 63, 0.7); }
 
   /* King in check: a red glow on the King and on whatever's attacking it. */
-  td[data-threat] { box-shadow: 0 0 0 3px red inset, 0 0 10px 3px red; }
+  td[data-threat] { box-shadow: 0 0 0 3px #ff3860 inset, 0 0 14px 4px rgba(255, 56, 96, 0.8); }
 
   td[data-dragging] { opacity: 0.35; }
 
@@ -128,16 +175,24 @@
 
   output { font-size: 20px; }
 
+  p { max-width: 380px; }
+
+  a { color: var(--gold); }
+
   /* Flags this build as the scripted narrative campaign (vs. the plain
      procedural game) and doubles as a progress readout -- stage label while
-     one of NARRATIVE_STAGES is active, "Endless" past it. */
+     one of NARRATIVE_STAGES is active, "Endless" past it. Pill-badge instead
+     of plain text so it reads as a HUD element, not stray copy. */
   #campaignBanner {
-    margin: -6px 0 6px;
-    font-size: 12px;
-    font-weight: bold;
+    margin: 4px 0 14px;
+    padding: 5px 12px;
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 9px;
     letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #7a4de8;
+    color: var(--gold);
+    background: var(--ink);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
   }
   #campaignBanner:empty { display: none; }
 
@@ -147,7 +202,27 @@
     padding: 4px;
   }
 
-  #instructions { max-width: 380px; font-size: 14px; }
+  /* Shared card look for every collapsible/list panel below -- a thick dark
+     outline plus a hard offset shadow (no blur) is the Balatro/card-table
+     silhouette this reskin is going for, reused instead of repeated per rule. */
+  #instructions, #leaderboard, #featureChat {
+    max-width: 380px;
+    width: 280px;
+    margin: 14px 0 0;
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 3px solid var(--ink);
+    border-radius: 10px;
+    box-shadow: 0 4px 0 var(--ink);
+  }
+
+  #instructions { font-size: 14px; }
+  #instructions summary, #featureChat summary {
+    cursor: pointer;
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 10px;
+    color: var(--gold);
+  }
 
   #leaderboard dt { font-weight: bold; }
   #leaderboard dd { margin: 0 0 6px; }
@@ -155,14 +230,45 @@
   /* Chat-style feature-request box -- bubbles instead of an alert() so a
      player can see their own submitted ideas (and past ones this session)
      without the flow feeling like a one-shot form. */
-  #featureChat { width: 280px; max-width: 90vw; margin-top: 4px; font-size: 14px; }
-  #featureChat summary { cursor: pointer; }
+  #featureChat { font-size: 14px; }
   #featureChatLog:not(:empty) { max-height: 140px; overflow-y: auto; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
   #featureChatLog p { margin: 0; padding: 6px 10px; border-radius: 12px; max-width: 85%; word-break: break-word; }
-  #featureChatLog p[data-from="you"] { align-self: flex-end; background: #cfe0f3; }
-  #featureChatLog p[data-from="team"] { align-self: flex-start; background: #eee; }
+  #featureChatLog p[data-from="you"] { align-self: flex-end; background: var(--gold); color: var(--ink); }
+  #featureChatLog p[data-from="team"] { align-self: flex-start; background: #4a3b66; }
   #featureChatForm { display: flex; gap: 6px; margin-top: 6px; }
-  #featureChatInput { flex: 1; min-width: 0; }
+  #featureChatInput {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    padding: 6px 8px;
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    background: var(--cream);
+    color: var(--ink);
+  }
+
+  /* Chunky arcade button: a hard offset shadow that collapses on press,
+     instead of a hover-only affordance, so it reads as physically pressable. */
+  #featureChatForm button, #reportBugLink {
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 10px;
+    cursor: pointer;
+    color: var(--ink);
+    background: var(--gold);
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    box-shadow: 0 3px 0 var(--ink);
+  }
+  #featureChatForm button { padding: 8px 12px; }
+  #reportBugLink {
+    display: inline-block;
+    padding: 8px 12px;
+    text-decoration: none;
+  }
+  #featureChatForm button:active, #reportBugLink:active {
+    box-shadow: none;
+    transform: translateY(3px);
+  }
 
   /* Color swatch for a player's 6-hex-digit id, driven by --swatch. */
   #leaderboard data::before {
