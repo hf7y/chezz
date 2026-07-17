@@ -124,8 +124,17 @@ reopened one).
 
 ## 6. Report a summary
 
-List: what got fixed and committed, what got reclassified as a feature (and
-why), what got a note-only bug left open, and how many new reports came in
-since last sweep. Don't resolve or reclassify more than a handful of
-reports in one sweep without flagging anything that felt like a judgment
-call in the summary, even if you didn't block on it.
+Start with the exact heading `## Summary` (not a variant like "Sweep
+summary" -- this run is logged alongside every other run, unattended, and a
+consistent heading is what makes the log grep-able later) and one compact
+result line directly under it:
+
+```
+Fetched: N (M new) · Fixed & pushed: F · Reclassified: R · Left open: L
+```
+
+Below that, in prose: what got fixed and committed, what got reclassified
+as a feature (and why), what got a note-only bug left open, and how many
+new reports came in since last sweep. Don't resolve or reclassify more than
+a handful of reports in one sweep without flagging anything that felt like
+a judgment call in the summary, even if you didn't block on it.
