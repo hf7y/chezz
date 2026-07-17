@@ -1605,7 +1605,10 @@
     try {
       const res = await fetch(`${LEADERBOARD_URL}?scope=sweep-status`);
       const status = await res.json();
-      if (!status) { el.textContent = "Bug sweep: no runs recorded yet."; return; }
+      if (!status || typeof status.timestamp !== "string" || typeof status.fixed !== "number") {
+        el.textContent = "Bug sweep: no runs recorded yet.";
+        return;
+      }
       el.textContent = `Bug sweep last ran ${timeAgo(status.timestamp)} · ${status.fixed} fixed`;
     } catch (err) {
       // best-effort -- offline or unreachable just leaves whatever was shown last

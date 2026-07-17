@@ -28,3 +28,14 @@ test("handles no sweep having run yet", async ({ page }) => {
   await page.goto(GAME_URL);
   await expect(page.locator("#sweepStatus")).toContainText("no runs recorded");
 });
+
+// A stale deployment can fall through to an unrelated endpoint (e.g. the
+// scores leaderboard) instead of the {timestamp,fetched,fixed,...} shape --
+// this pins that malformed/wrong-shaped data falls back cleanly instead of
+// rendering "Bug sweep last ran NaNd ago".
+test("handles a malformed/wrong-shaped status response", async ({ page }) => {
+  await routeSweepStatus(page, [{ timestamp: new Date().toISOString(), dateKey: "d7-13", name: "7a5e1b", floor: 44, rank: 350 }]);
+  await page.goto(GAME_URL);
+  await expect(page.locator("#sweepStatus")).toContainText("no runs recorded");
+  await expect(page.locator("#sweepStatus")).not.toContainText("NaN");
+});
