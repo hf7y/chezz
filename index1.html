@@ -128,6 +128,19 @@
 
   output { font-size: 20px; }
 
+  /* Flags this build as the scripted narrative campaign (vs. the plain
+     procedural game) and doubles as a progress readout -- stage label while
+     one of NARRATIVE_STAGES is active, "Endless" past it. */
+  #campaignBanner {
+    margin: -6px 0 6px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #7a4de8;
+  }
+  #campaignBanner:empty { display: none; }
+
   dialog {
     position: absolute;
     margin: 0;
@@ -167,6 +180,7 @@
 <body>
 
 <h1><a href="#" id="resetLink">Chezz</a></h1>
+<div id="campaignBanner"></div>
 
 <table aria-label="Chess board"></table>
 <p>Captured: <output></output></p>
@@ -1473,6 +1487,10 @@
   function renderBoard() {
     const rank = currentKingRank();
     if (rank > state.maxRank) { state.maxRank = rank; renderMyBest(); submitScore(rank); }
+
+    const stage = NARRATIVE_STAGES[state.floor - 1];
+    const banner = document.getElementById("campaignBanner");
+    if (banner) banner.textContent = "Narrative campaign — " + (stage ? stage.label : "Endless");
 
     const capturedCounts = {};
     for (const c of state.captured) {
