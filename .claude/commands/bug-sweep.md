@@ -55,9 +55,11 @@ description anyway, since a reporter can still misjudge their own report.
   relevant logic and `test/*.spec.mjs` first).
 
 Don't resolve balance/design/feature-idea reports as "fixed" on your own
-judgment, and don't implement a feature idea without the user weighing in
-first — past sessions confirmed this scope explicitly rather than assuming
-it repeats automatically.
+judgment, and don't implement a feature idea here in the Tier 1 sweep —
+that's deliberately not this tier's job even now that autopilot is on
+(see `.claude/FOCUS.md`): reclassifying into the feature backlog is what
+hands it to the nightly Tier 2 run (`.claude/commands/nightly-batch.md`),
+which is where feature implementation actually happens.
 
 ## 3. Implement each mechanical fix
 

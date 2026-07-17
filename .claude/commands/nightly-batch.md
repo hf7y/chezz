@@ -26,15 +26,28 @@ Do not trust a prior run's own claims about what works -- run `npm run
 check` (syntax + size + full Playwright suite) and confirm independently
 before building further on top of it.
 
-## 3. Push forward on whatever IS in scope per FOCUS.md
+## 3. Work the feature backlog first, then backup work
 
-Real implementation work, not just analysis -- this tier exists for bugs
-substantial enough that the fast/frequent bug sweeper (real mobile-device
-or WebKit-only repros it can't verify alone, deeper investigation) isn't
-the right tool for. Commit as you complete meaningful chunks; do not save
-it all for one giant commit at the end. Per FOCUS.md: do not implement
-feature-backlog (`type=feature`) ideas without the user weighing in first
--- analyze and summarize them in the report instead.
+Per FOCUS.md (autopilot mode, confirmed 2026-07-17): fetch
+`&status=open&type=feature`. For each report, implement it, defer it with
+a real reason, or skip it as a duplicate/mis-filed/too-vague -- see
+FOCUS.md for exactly what distinguishes those three outcomes. For
+anything implemented: extend `test/*.spec.mjs`, commit referencing what
+was built, then mark it resolved on the tracker the same way `/bug-sweep`
+resolves bug reports:
+
+```
+curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
+  --data-raw '{"type":"resolve","timestamp":"<exact timestamp>","status":"resolved","note":"Shipped in <hash>: <one-line summary>"}'
+```
+
+For anything deferred or skipped, the same endpoint with `"status":"open"`
+plus a note (deferred) -- or leave it as-is and just explain why in the
+report (skipped as duplicate/mis-filed). Commit as you complete each
+feature, not all in one giant commit at the end. Once the backlog is
+empty or everything in it this round was resolved/deferred/skipped, move
+to FOCUS.md's backup work (the two standing open engineering questions,
+or bug reports Tier 1 left open needing a human call).
 
 ## 4. Stress-test what you built
 
@@ -45,12 +58,12 @@ note what's genuinely out of scope for tonight.
 ## 5. Write the report
 
 `~/reports/chezz/$(date +%Y-%m-%d).md`, and update `~/reports/chezz/LATEST.md`
-to match it. Cover exactly: what shipped (with commit references), what
-broke and got fixed, what was deliberately deferred and why (per
-FOCUS.md), a summary of any new feature-backlog ideas seen since the last
-report, and any open questions that need a human decision. This is read
-once, quickly, the next time this machine boots up -- write for that, not
-for completeness's own sake.
+to match it. Cover exactly: which feature-backlog reports got
+implemented tonight (with commit references) vs. deferred (with the
+blocking reason) vs. skipped (with why), what broke and got fixed, any
+backup work done once the backlog was clear, and any open questions that
+need a human decision. This is read once, quickly, the next time this
+machine boots up -- write for that, not for completeness's own sake.
 
 ## 6. Before finishing
 
