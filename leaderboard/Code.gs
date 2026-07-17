@@ -58,6 +58,7 @@
 //   &type=bug|feature|all (default "bug" -- a routine bug sweep should see
 //   defects to fix, not the feature backlog; pass type=feature to read
 //   ideas instead, or type=all for everything regardless of kind).
+//   Response: [{ timestamp, name, url, description, status, note, type }, ...]
 //
 // Record a sweep run (every /bug-sweep run posts this once, at the end,
 // even when it fixed nothing -- the game UI reads it back to show "last
@@ -76,7 +77,6 @@
 //   fetch(WEB_APP_URL + "?scope=sweep-status")
 //   Response: { timestamp, fetched, fixed, reclassified, leftOpen } or
 //   null if no sweep has ever reported in.
-//   Response: [{ timestamp, name, url, description, status, note, type }, ...]
 
 const SCORES_SHEET_NAME = "Scores";
 const SCORES_HEADERS = ["timestamp", "dateKey", "name", "floor", "rank", "history"];
