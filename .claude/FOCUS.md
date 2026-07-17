@@ -13,8 +13,19 @@ never implement them without the user weighing in first -- they have now
 weighed in, project-wide, standing until they say otherwise).
 
 **Primary job, every night**: fetch the feature backlog
-(`&status=open&type=feature`, see `leaderboard/Code.gs`'s doc comment),
-and for each report, pick one of three outcomes:
+(`&status=open&type=feature`, see `leaderboard/Code.gs`'s doc comment) --
+as of 2026-07-17 this is already ~45 open reports and growing daily, so
+one night will not clear it. That's fine: work oldest-first (fairness --
+nothing should silently sit forever just because newer, easier stuff
+keeps landing on top), commit each one as it's done, and stop by the
+report-writing step whenever the time/turn budget runs low. A handful of
+real, tested, shipped features per night beats rushing all of them.
+Check each report against the recent backlog dump in the previous
+night's report (or the bug-tracker-backlog memory if this is the first
+run) before starting, so a report already resolved/deferred last time
+doesn't get redone from scratch.
+
+For each report, pick one of four outcomes:
 
 1. **Implement it.** The common case for anything reasonably scoped
    (a concrete UI/gameplay/UX addition or tweak with a clear, single
@@ -22,20 +33,31 @@ and for each report, pick one of three outcomes:
    and mark it resolved on the tracker referencing the commit
    (`{"type":"resolve","timestamp":"...","status":"resolved","note":"Shipped in <hash>: ..."}`)
    -- same mechanism `/bug-sweep` already uses for bug reports.
-2. **Defer it, with a real reason.** Genuinely ambiguous requests (two
+2. **It's actually a bug, not a feature.** Several reports filed/
+   reclassified as `type=feature` are concrete defects in their own
+   text (e.g. "pawn on b44 can't advance, highlighted yellow not
+   green" reads as a real move-generation bug, not a design ask). Fix
+   these directly with the same rigor as Tier 1 would (regression test
+   included) rather than treating "it's in the feature queue" as a
+   reason to only analyze it -- nightly-batch has the same tools and a
+   much bigger turn budget than the bug sweeper does.
+3. **Defer it, with a real reason.** Genuinely ambiguous requests (two
    plausible, conflicting interpretations), requests that would blow the
-   50KB soft target further without a clear trim elsewhere, or anything
+   50KB soft target further without a clear trim elsewhere, anything
    that reads as more of a redesign than a feature (touches core game
-   rules, scoring, or the AI's search behavior) -- leave it open, add a
-   note explaining what's blocking it and what would resolve the
-   ambiguity, and write it up in the report. Deferring should be the
-   exception, not the default outcome -- a request only needs a fully
-   worked-out spec from the user if it's genuinely unclear what "done"
-   means, not just because it takes real effort.
-3. **Skip it.** Requests that are actually bug reports mis-filed as
-   features, duplicates of something already shipped or already
-   deferred, or too vague to act on even with reasonable judgment calls
-   (leave a short note either way).
+   rules, scoring, or the AI's search behavior), or anything that would
+   require adding a NEW external service dependency (e.g. calling an
+   image-generation API for sprites) -- that last category always needs
+   the user's own sign-off first (new credentials/cost/attack surface),
+   no exception. Leave it open, add a note explaining what's blocking it,
+   and write it up in the report. Deferring should be the exception for
+   ordinary requests, not the default outcome -- a request only needs a
+   fully worked-out spec from the user if it's genuinely unclear what
+   "done" means, not just because it takes real effort.
+4. **Skip it.** Duplicates of something already shipped or already
+   deferred/consolidated (several already are, e.g. the AI move-quality
+   cluster under the 2026-07-15 dev-note), or too vague to act on even
+   with reasonable judgment calls (leave a short note either way).
 
 Backup work, when the feature backlog is empty or everything in it was
 just resolved/deferred: the two standing open engineering questions --

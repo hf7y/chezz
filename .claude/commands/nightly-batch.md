@@ -29,12 +29,15 @@ before building further on top of it.
 ## 3. Work the feature backlog first, then backup work
 
 Per FOCUS.md (autopilot mode, confirmed 2026-07-17): fetch
-`&status=open&type=feature`. For each report, implement it, defer it with
-a real reason, or skip it as a duplicate/mis-filed/too-vague -- see
-FOCUS.md for exactly what distinguishes those three outcomes. For
-anything implemented: extend `test/*.spec.mjs`, commit referencing what
-was built, then mark it resolved on the tracker the same way `/bug-sweep`
-resolves bug reports:
+`&status=open&type=feature`, oldest first. The backlog is large (~45+
+open as of 2026-07-17) -- work through it until the turn/time budget
+runs low, then move to step 5; do not rush every report just to reach
+zero in one night. For each report: implement it, fix it directly if
+it's actually a mis-filed bug, defer it with a real reason, or skip it as
+a duplicate/too-vague -- see FOCUS.md for exactly what distinguishes
+those four outcomes. For anything implemented or bug-fixed: extend
+`test/*.spec.mjs`, commit referencing what was built, then mark it
+resolved on the tracker the same way `/bug-sweep` resolves bug reports:
 
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
