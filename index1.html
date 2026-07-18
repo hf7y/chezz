@@ -205,7 +205,7 @@
   /* Shared card look for every collapsible/list panel below -- a thick dark
      outline plus a hard offset shadow (no blur) is the Balatro/card-table
      silhouette this reskin is going for, reused instead of repeated per rule. */
-  #instructions, #leaderboard, #featureChat {
+  #instructions, #leaderboard, #featureChat, #changelog {
     max-width: 380px;
     width: 280px;
     margin: 14px 0 0;
@@ -217,12 +217,30 @@
   }
 
   #instructions { font-size: 14px; }
-  #instructions summary, #featureChat summary {
+  #instructions summary, #featureChat summary, #changelog summary {
     cursor: pointer;
     font-family: "Press Start 2P", system-ui, sans-serif;
     font-size: 10px;
     color: var(--gold);
   }
+
+  /* Auditable changelog of what the unattended automation actually shipped
+     -- every resolved bug/feature report carries a note (usually a
+     "Fixed/Shipped in <hash>: ..." line), so this turns the tracker into a
+     public, legible record on the page itself rather than a sheet nobody
+     opens. All text here is free-form from a public write endpoint, so it's
+     rendered with textContent only (never innerHTML). */
+  #changelog { font-size: 14px; }
+  #changelog .changelog-summary-line { margin: 8px 0 4px; opacity: 0.85; font-size: 12px; }
+  #changelog ol { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+  #changelog li { margin: 0 0 10px; padding: 0 0 8px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+  #changelog li:last-child { border-bottom: 0; margin-bottom: 0; }
+  #changelog .cl-meta { font-size: 11px; opacity: 0.7; display: flex; gap: 6px; flex-wrap: wrap; }
+  #changelog .cl-kind { text-transform: uppercase; letter-spacing: 0.04em; font-weight: bold; }
+  #changelog .cl-kind[data-kind="feature"] { color: var(--gold); }
+  #changelog .cl-desc { margin: 2px 0; word-break: break-word; }
+  #changelog .cl-note { margin: 2px 0 0; font-size: 12px; opacity: 0.85; word-break: break-word; }
+  #changelog .cl-foot { margin: 8px 0 0; font-size: 12px; }
 
   #leaderboard dt { font-weight: bold; }
   #leaderboard dd { margin: 0 0 6px; }
@@ -322,6 +340,13 @@
 
 <p><a href="#" id="reportBugLink">Report a bug</a></p>
 <p id="sweepStatus"></p>
+
+<details id="changelog">
+  <summary>&#x1F6E0;&#xFE0F; What's been shipped</summary>
+  <p class="changelog-summary-line" id="changelogSummary"></p>
+  <ol id="changelogList"></ol>
+  <p class="cl-foot"><a id="changelogSource" href="#" target="_blank" rel="noopener">View the full tracker &#x2197;</a></p>
+</details>
 
 <script>
   // The rules of the world. Pieces are uppercase for White, lowercase for
@@ -1615,6 +1640,64 @@
     }
   }
 
+  // Auditable changelog: the tracker already records every resolved bug and
+  // shipped feature with a note (usually "Fixed/Shipped in <hash>: ..."), so
+  // this surfaces that record on the page itself -- the nightly/sweep output
+  // becomes legible and self-auditing, with a link out to the raw tracker for
+  // anyone who wants the whole thing. All fields come from a public write
+  // endpoint, so everything is rendered with textContent, never innerHTML.
+  async function refreshChangelog() {
+    const list = document.getElementById("changelogList");
+    const summary = document.getElementById("changelogSummary");
+    const source = document.getElementById("changelogSource");
+    if (!list || !summary || !LEADERBOARD_URL) return;
+    // The "view the full tracker" link always works, even if the fetch below
+    // fails -- it points at the same public read the automation itself uses.
+    if (source) source.href = `${LEADERBOARD_URL}?scope=bugs&status=all&type=all`;
+    summary.textContent = "Loading recent updates…";
+    try {
+      const res = await fetch(`${LEADERBOARD_URL}?scope=bugs&status=resolved&type=all&limit=20`);
+      const reports = await res.json();
+      if (!Array.isArray(reports) || reports.length === 0) {
+        summary.textContent = "No shipped updates recorded yet.";
+        list.replaceChildren();
+        return;
+      }
+      reports.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+      summary.textContent = `The ${reports.length} most recently resolved reports:`;
+      const trim = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+      const frag = document.createDocumentFragment();
+      for (const r of reports) {
+        const li = document.createElement("li");
+        const meta = document.createElement("div");
+        meta.className = "cl-meta";
+        const kind = document.createElement("span");
+        kind.className = "cl-kind";
+        const isFeature = r.type === "feature";
+        kind.dataset.kind = isFeature ? "feature" : "bug";
+        kind.textContent = isFeature ? "Feature" : "Fix";
+        const when = document.createElement("span");
+        when.textContent = typeof r.timestamp === "string" ? r.timestamp.slice(0, 10) : "";
+        meta.append(kind, when);
+        const desc = document.createElement("p");
+        desc.className = "cl-desc";
+        desc.textContent = trim(r.description, 140) || "(no description)";
+        li.append(meta, desc);
+        if (r.note) {
+          const note = document.createElement("p");
+          note.className = "cl-note";
+          note.textContent = trim(r.note, 240);
+          li.append(note);
+        }
+        frag.append(li);
+      }
+      list.replaceChildren(frag);
+    } catch (err) {
+      // best-effort -- keep whatever's shown; the tracker link still works
+      if (!list.hasChildNodes()) summary.textContent = "Couldn't load recent updates right now.";
+    }
+  }
+
   function currentKingRank() {
     const king = findWhiteKing(state.board);
     if (!king) return state.maxRank;
@@ -1711,6 +1794,7 @@
   loadFromUrl();
   refreshLeaderboards();
   refreshSweepStatus();
+  refreshChangelog();
 </script>
 </body>
 </html>
