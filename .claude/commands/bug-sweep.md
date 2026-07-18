@@ -155,3 +155,21 @@ as a feature (and why), what got a note-only bug left open, and how many
 new reports came in since last sweep. Don't resolve or reclassify more than
 a handful of reports in one sweep without flagging anything that felt like
 a judgment call in the summary, even if you didn't block on it.
+
+## 8. Flag a genuine judgment call in QUESTIONS.md (rare)
+
+If the sweep surfaces something bigger than a routine tracker note — an
+ambiguous policy question, a real tradeoff, a "which of these two
+directions" fork — append it to `.claude/QUESTIONS.md` at the repo root
+(create it with a one-line header if it somehow doesn't exist). Append
+only; never overwrite or trim existing entries (including any `> ` answers
+the user has written). Format: `- **YYYY-MM-DD (bug-sweep): <question>**`
+followed by short context, then a `  > (answer inline here)` placeholder
+line so the reply slot is obvious. Most sweeps add nothing here — don't
+manufacture a question.
+
+Answer processing is the **nightly's** job, not this sweep's: the user
+replies inline under a question with a `> ` line (QUESTIONS.md's header
+documents the convention), and `/nightly-batch` reads those answers, acts
+on them, and clears them. This fast sweep must NOT act on or delete a
+`> ` answer itself — leave answered questions in place for the nightly.

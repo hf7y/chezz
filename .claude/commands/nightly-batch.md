@@ -9,7 +9,8 @@ just because it is easy or already sitting there.
 
 This command is designed to run unattended overnight, with no human
 review step until the morning. When something needs a human call, defer
-it with a clear note in the report rather than guessing.
+it with a clear note in the report AND append it to `.claude/QUESTIONS.md`
+(see step 1 and step 5) rather than guessing.
 
 ## 1. Orient
 
@@ -19,6 +20,17 @@ and `.claude/FOCUS.md`. If the previous nightly run left work in progress
 rather than starting over. Also fetch the full tracker backlog with
 `&status=all&type=all` (see `leaderboard/Code.gs`'s doc comment) so
 nothing already resolved gets re-investigated.
+
+**Read `.claude/QUESTIONS.md` and process any answers.** The user replies
+to a question inline, on a line starting with `> ` (a Markdown blockquote)
+directly under it — that file's own header documents the convention. For
+every question that now has a `> ` answer, treat it as authoritative human
+direction (same standing as `FOCUS.md`): act on it as part of tonight's
+work, and if it's a standing scope/policy decision, also fold it into
+`FOCUS.md` so it persists. Once you have acted on an answered question,
+remove that question+answer block from `QUESTIONS.md` — git history and
+tonight's report keep the record. Leave unanswered questions untouched;
+never re-ask or duplicate one.
 
 ## 2. Re-verify anything a previous run touched, from scratch
 
@@ -58,7 +70,7 @@ Look for the scenarios a first pass typically misses -- edge cases, empty
 states, deeper nesting/scale than the happy-path case. Fix what breaks;
 note what's genuinely out of scope for tonight.
 
-## 5. Write the report
+## 5. Write the report, and flag anything needing a human call
 
 `~/reports/chezz/$(date +%Y-%m-%d).md`, and update `~/reports/chezz/LATEST.md`
 to match it. Cover exactly: which feature-backlog reports got
@@ -67,6 +79,17 @@ blocking reason) vs. skipped (with why), what broke and got fixed, any
 backup work done once the backlog was clear, and any open questions that
 need a human decision. This is read once, quickly, the next time this
 machine boots up -- write for that, not for completeness's own sake.
+
+For anything that genuinely needs the user to decide — an ambiguous
+policy question, a real tradeoff, a "which of these two directions" fork,
+a feature you deferred pending direction — **append it to
+`.claude/QUESTIONS.md`**, not just the report. Append only; never
+overwrite or trim existing entries (including any `> ` answers). Format:
+`- **YYYY-MM-DD (nightly): <question>**` followed by a short context
+paragraph, then a `  > (answer inline here)` placeholder line so the
+user's reply slot is obvious. The report should point at QUESTIONS.md for
+these, not duplicate their full text. Don't manufacture a question just to
+have an entry — a quiet night adds nothing here.
 
 ## 6. Before finishing
 
