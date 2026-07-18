@@ -3,6 +3,20 @@
      touching anything else, to decide what's actually in scope tonight.
      Keep it short; update by hand whenever the actual priority shifts. -->
 
+<!-- TONIGHT (set 2026-07-18, human design calls now resolved via QUESTIONS.md).
+     These three were deferred in the 2026-07-18 report pending a human call.
+     The calls are made — QUESTIONS.md carries the authoritative answers.
+     Prioritize these tonight, before resuming the oldest-first feature backlog:
+       1. Stalemate -> reset the CURRENT floor fresh, run stays alive. Also fix
+          the White-side (player) zero-legal-moves deadlock, which is currently
+          unhandled (makeMove hands the turn back to White unconditionally).
+          This is a STANDING rule now, not a one-off.
+       2. Scripted narrative bosses must not be capturable on move 1 — make
+          placeScriptedStage capture-aware against the carried army (shift
+          columns, preserve stage shape/balance). Add a regression test.
+       3. Color -> revert to monochrome (explicit reporter ask). Screenshot-
+          verify readability in both light and dark before committing. -->
+
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project
 again unless they want to -- players submit ideas through the in-game

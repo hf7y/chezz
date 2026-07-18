@@ -31,7 +31,10 @@ delete its line by hand — that still works.
   whole run? There's a real underlying asymmetry too: `makeMove` hands the
   turn back to White even when Black has zero legal moves, and a White-side
   deadlock has no handling at all.
-  > (answer inline here)
+  > Reset the current floor fresh, keep the run alive (do NOT end the run,
+  > do NOT reset the whole run). While you're there, fix the underlying
+  > asymmetry: handle the White-side (player) zero-legal-moves deadlock too,
+  > not just Black's. Standing direction — fold into FOCUS.md.
 
 - **2026-07-18 (nightly): Scripted bosses can be captured for a free instant win — fix or accept?**
   Scripted `NARRATIVE_STAGES` bosses bypass the procedural spawner's
@@ -39,7 +42,9 @@ delete its line by hand — that still works.
   so e.g. the floor-9 queen on the d-file can be taken on move 1 by a
   carried rook/bishop/queen with a clear line. Make placement capture-aware,
   or accept it as variance in hand-tuned stages?
-  > (answer inline here)
+  > Make placement capture-aware: scripted stages must check the carried
+  > army and ensure no boss/piece is capturable on move 1 (shift columns as
+  > needed, keep the stage's intended shape/balance otherwise).
 
 - **2026-07-18 (nightly): Color scheme — several reporters want "revert to monochrome." Confirm direction?**
   A cluster of color/readability complaints (incl. explicit "revert to
@@ -47,7 +52,8 @@ delete its line by hand — that still works.
   under correctness work. Worth a screenshot pass, but the automation wants
   your direction before touching it: full monochrome, a readability-focused
   recolor, or leave as-is?
-  > (answer inline here)
+  > Revert to monochrome (the explicit reporter ask). Screenshot-verify the
+  > result reads clearly in both light and dark before committing.
 
 - **2026-07-17 (scheduler migration):** checked before writing this --
   chezz already has its own "autopilot mode" policy in `FOCUS.md`
