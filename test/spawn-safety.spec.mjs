@@ -87,6 +87,57 @@ test("spawning is deterministic: same floor and day always produces the same boa
   expect(first).toBe(second);
 });
 
+// Regression for a reported gameplay bug ("pawn on b44 can't advance,
+// highlighted yellow no green dot", floor 6): a scripted NARRATIVE_STAGES row
+// that doesn't sum to exactly BOARD_COLS silently corrupts the board. Rows are
+// laid down with parseFenRow, which only treats digits 1-8 as empty runs, so
+// an over-wide row (e.g. "2b3b2" = 9 cells) makes state.board[y] longer than 8
+// and boardToFen later re-emits a "9" run that parseFenRow reads back as a
+// bogus one-cell "9" piece -- squares ahead of a pawn read as neither empty
+// nor enemy, so it has no legal move. An under-wide row leaves a trailing
+// column undefined, with the same effect. Pin every stage row to 8 columns so
+// this whole class can't recur; floors 6 and 10 had three such rows.
+test("every scripted narrative stage row is exactly BOARD_COLS wide", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const badRows = await page.evaluate(() => {
+    const bad = [];
+    NARRATIVE_STAGES.forEach((stage, si) => {
+      stage.rows.forEach((row, ri) => {
+        const width = parseFenRow(row).length;
+        if (width !== BOARD_COLS) bad.push({ stage: stage.label, si, ri, row, width });
+      });
+    });
+    return bad;
+  });
+
+  expect(badRows).toEqual([]);
+});
+
+// Directly exercises the above through the real spawn path: placing any
+// scripted stage on a fresh board must leave every row exactly BOARD_COLS
+// wide, since a wider/narrower row is what strands a pawn behind it.
+test("placing each scripted stage leaves every board row BOARD_COLS wide", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const badFloors = await page.evaluate(() => {
+    const bad = [];
+    for (let floor = 1; floor <= NARRATIVE_STAGES.length; floor++) {
+      state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+      state.board[8][4] = "K";
+      state.floor = floor;
+      state.spawned = false;
+      state.lastSpawnBudget = 0;
+      spawnBlackArmy();
+      const widths = state.board.map(row => row.length);
+      if (widths.some(w => w !== BOARD_COLS)) bad.push({ floor, widths });
+    }
+    return bad;
+  });
+
+  expect(badFloors).toEqual([]);
+});
+
 // Pins the pawn-supply tuning (PAWN_ALLOWANCE_CHANCE): pawns feed the
 // promotion and captured-pawn-carryover mechanics, and without a deliberate
 // allowance the tiered budget spends almost entirely on stronger pieces at
