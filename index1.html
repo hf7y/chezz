@@ -1035,8 +1035,29 @@
     }, 0);
   }
 
+  // Capture-aware placement (human call, 2026-07-19, see .claude/QUESTIONS.md):
+  // a scripted stage is hand-tuned for shape/balance, not for whatever White
+  // army happens to be carried in, so a fixed column can land a boss on a
+  // file/diagonal a carried rook/bishop/queen already rakes -- a free
+  // move-1 capture. Cyclically shifting every row by the same amount keeps
+  // the stage's shape and relative spacing exactly intact while moving it
+  // off whatever line White's survivors threaten; tries shift 0 (the
+  // authored layout, unchanged) first, and only rotates if that's unsafe.
   function placeScriptedStage(stage) {
-    stage.rows.forEach((row, i) => { state.board[i + 1] = parseFenRow(row); });
+    const rows = stage.rows.map(parseFenRow);
+    let fallback = null;
+    for (let shift = 0; shift < BOARD_COLS; shift++) {
+      const shifted = rows.map(row => {
+        const out = Array(BOARD_COLS).fill("");
+        row.forEach((c, x) => { if (c) out[(x + shift) % BOARD_COLS] = c; });
+        return out;
+      });
+      shifted.forEach((row, i) => { state.board[i + 1] = row; });
+      if (!fallback) fallback = shifted;
+      const allSafe = shifted.every((row, i) => row.every((c, x) => !c || c === "p" || isSafeSquare(x, i + 1)));
+      if (allSafe) { fallback = shifted; break; }
+    }
+    fallback.forEach((row, i) => { state.board[i + 1] = row; });
     state.lastSpawnBudget = Math.max(state.lastSpawnBudget, armyCost(state.board));
   }
 
@@ -1051,6 +1072,7 @@
       placeScriptedStage(stage);
       state.spawned = true;
       floorJustSpawned = true;
+      floorStart = boardToFen();
       return;
     }
 

@@ -219,3 +219,64 @@ test("carryover bonus buys extra pawns only, never inflates piece-tier compositi
   expect(nonPawnPieces).toBe(0);
   expect(pawnCount).toBeGreaterThan(0);
 });
+
+// Regression for a reported exploit ("queen auto-capture for instant win",
+// floor 9): scripted NARRATIVE_STAGES bosses used to be dropped at their
+// fixed authored columns with no capture check at all, unlike the procedural
+// spawner's isSafeSquare gate -- a carried rook/bishop/queen with a clear
+// line to that fixed file/diagonal could take the boss for free on move 1.
+// placeScriptedStage now cyclically shifts the whole stage (preserving its
+// authored shape/spacing) until no scripted *non-pawn* piece is capturable --
+// same convention the procedural spawner already uses (pawns are meant to
+// stand in the open, see isSafeSquare's own comment; a stage's front pawn
+// wall facing a clear file is normal chess exposure, not the reported bug).
+// Sweeps every *lone-boss* scripted stage (a single piece dropped on an
+// otherwise empty board -- the exact shape of the reported floor-9 exploit,
+// and the one case a pure column-shift can always resolve, since there's
+// only one piece's line to dodge) against several plausible carried-army
+// shapes (a lone rook, bishop, or queen on each file) likely to line up with
+// a fixed-column boss by construction. Dense multi-piece stages (a packed
+// back rank, e.g. "The Rooks Join"/"The Back Rank") are deliberately excluded:
+// with several pieces already occupying most columns, some piece is exposed
+// to *some* carried file no matter the shift -- that's an inherent property
+// of a full back rank facing a queen, the same as real chess, not the
+// reported bug.
+const LONE_BOSS_STAGES = ["The Knight", "Two Bishops", "The Rook", "The Queen"];
+
+test("scripted lone-boss stages are never capturable on move 1 by a plausible carried army", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const failures = await page.evaluate((loneBossLabels) => {
+    const bad = [];
+    const carries = [
+      "R", "B", "Q", // one piece on file/rank 0, tested against every stage below
+    ];
+    const stageIndices = NARRATIVE_STAGES
+      .map((s, i) => (loneBossLabels.includes(s.label) ? i : -1))
+      .filter(i => i !== -1);
+    for (const stageIdx of stageIndices) {
+      for (const piece of carries) {
+        for (let col = 0; col < BOARD_COLS; col++) {
+          state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+          state.board[8][4] = "K";
+          state.board[7][col] = piece; // a carried piece on every possible file
+          state.floor = stageIdx + 1;
+          state.spawned = false;
+          state.lastSpawnBudget = 0;
+          spawnBlackArmy();
+          for (let y = 1; y <= 6; y++) {
+            for (let x = 0; x < BOARD_COLS; x++) {
+              const occupant = state.board[y][x];
+              if (occupant && occupant !== "p" && attackersOf(state.board, x, y, true).length > 0) {
+                bad.push({ stage: NARRATIVE_STAGES[stageIdx].label, piece, col, x, y, occupant });
+              }
+            }
+          }
+        }
+      }
+    }
+    return bad;
+  }, LONE_BOSS_STAGES);
+
+  expect(failures).toEqual([]);
+});
