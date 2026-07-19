@@ -490,6 +490,33 @@
     return attackers;
   }
 
+  // Does `isWhite`'s side have any move at all -- pseudo-legal, matching
+  // legalMovesForPiece elsewhere in this game (no check/checkmate rule
+  // exists here, see whiteSurvivesNextMove's comment above). Used to detect
+  // a full deadlock (see checkStalemate), not just danger to the king.
+  function hasAnyLegalMove(board, isWhite) {
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        const piece = board[y][x];
+        if (piece && isWhitePiece(piece) === isWhite && legalMovesForPiece(board, piece, x, y).length) return true;
+      }
+    }
+    return false;
+  }
+
+  // Could White capture here for free before Black even gets a turn?
+  // Checks the square as occupied (not empty) so a pawn's diagonal only
+  // counts once there's really a piece to capture. Used both by the
+  // procedural spawner (non-pawn pieces only -- pawns are meant to stand in
+  // the open) and by placeScriptedStage (every scripted piece).
+  function isSafeSquare(x, y) {
+    const occupant = state.board[y][x];
+    state.board[y][x] = "p";
+    const attackers = attackersOf(state.board, x, y, true);
+    state.board[y][x] = occupant;
+    return attackers.length === 0;
+  }
+
   function findWhiteKing(board) {
     for (let y = 0; y < BOARD_ROWS; y++)
       for (let x = 0; x < BOARD_COLS; x++)
@@ -872,6 +899,10 @@
   // promotionResolve, declared further down, are this same kind of thing).
   let selected = null, promotion = null;
   let floorJustSpawned = false; // consumed once by the next renderBoard()
+  // Snapshot of boardToFen() taken the instant a floor finishes spawning --
+  // the reset target for a White-side deadlock (see checkStalemate below).
+  // Null across a page load until this floor (re)spawns in this session.
+  let floorStart = null;
 
   // Expands one FEN row ("12345678" digits are empty-square run-lengths)
   // into an 8-element array of squares -- shared by loadFen and the
@@ -1073,18 +1104,6 @@
         return cols;
       }
 
-      // Could White capture here for free before Black even gets a turn?
-      // Checks the square as occupied (not empty) so a pawn's diagonal only
-      // counts once there's really a piece to capture. Only consulted for
-      // non-pawn pieces -- pawns are meant to stand in the open.
-      function isSafeSquare(x, y) {
-        const occupant = state.board[y][x];
-        state.board[y][x] = "p";
-        const attackers = attackersOf(state.board, x, y, true);
-        state.board[y][x] = occupant;
-        return attackers.length === 0;
-      }
-
       // Black's back rank (row 1) holds the stronger pieces, mirroring
       // White's row 8; its pawn wall (row 2) sits one row ahead, mirroring
       // White's row 7 -- a real pawn rank, not a shield pressed against White.
@@ -1236,6 +1255,29 @@
 
     state.spawned = true;
     floorJustSpawned = true;
+    floorStart = boardToFen();
+  }
+
+  // A deadlock is only ever checked/fixed for White (the human) -- Black
+  // having no moves is fine and common (nothing forces the AI to reply, see
+  // makeMove's `if (bm)` guard) and just leaves White free to keep marching.
+  // A White deadlock is a dead end with no such fallback, so it resets this
+  // floor fresh: to floorStart if this session spawned it, or by clearing
+  // the black rows and respawning from White's current survivors otherwise
+  // (e.g. right after a page load where floorStart hasn't been set yet).
+  // Standing rule (human call, 2026-07-19, see .claude/QUESTIONS.md): the
+  // run itself always stays alive -- never ends, never restarts floor 1.
+  function checkStalemate() {
+    if (state.turn !== "w" || hasAnyLegalMove(state.board, true)) return;
+    if (floorStart) {
+      loadFen(floorStart);
+      state.turn = "w";
+    } else {
+      for (let y = 1; y <= 6; y++) state.board[y] = Array(BOARD_COLS).fill("");
+      state.spawned = false;
+      spawnBlackArmy();
+      state.turn = "w";
+    }
   }
 
   // Floor progression.
@@ -1348,7 +1390,7 @@
         state.captured = pool;
       }
       state.turn = "w";
-      checkFloorProgression(); updateUrl(false); renderBoard();
+      checkFloorProgression(); checkStalemate(); updateUrl(false); renderBoard();
       await wait(MOVE_PACING_MS);
     }
   }
@@ -1779,6 +1821,7 @@
     selected = null; promotion = null;
     promotionElement.close();
     if (!state.spawned) spawnBlackArmy();
+    checkStalemate();
     updateUrl();
     renderBoard();
   }
