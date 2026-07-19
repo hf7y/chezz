@@ -14,15 +14,21 @@
      webfont below). -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-  /* Arcade-cabinet palette, reused across every panel below instead of
-     scattering literal hex values. */
+  /* Monochrome palette (reverted 2026-07-19 -- explicit, repeated reporter
+     ask; see .claude/QUESTIONS.md), reused across every panel below instead
+     of scattering literal hex values. Variable names kept as-is (--gold,
+     --pink) even though neither is gold or pink anymore -- renaming them
+     would touch every rule below for no reader benefit; the values are what
+     matters. Functional move/threat highlighting (the green legal-move dot,
+     the red check glow) is untouched: those are semantic signal colors, not
+     part of the decorative reskin reporters were reacting to. */
   :root {
-    --ink: #0c0814;      /* borders, deep shadows */
-    --felt: #1a1025;     /* page background */
-    --panel: #2b2140;    /* card backgrounds */
-    --cream: #f4ecd8;    /* body text, input backgrounds */
-    --gold: #ffd23f;     /* primary accent */
-    --pink: #ff4d8d;     /* secondary accent */
+    --ink: #0a0a0a;      /* borders, deep shadows */
+    --felt: #1c1c1c;     /* page background */
+    --panel: #2e2e2e;    /* card backgrounds */
+    --cream: #f2f2f2;    /* body text, input backgrounds */
+    --gold: #e8e8e8;     /* primary accent */
+    --pink: #8a8a8a;     /* secondary accent */
   }
 
   /* flex (not text-align) so multi-line text keeps reading left-aligned
@@ -131,11 +137,11 @@
      at speed, so contrast matters more here than anywhere else on the page. */
   tr:nth-child(odd) td:nth-child(odd),
   tr:nth-child(even) td:nth-child(even) {
-    background: hsl(var(--hue, 30) 65% 40%);
+    background: hsl(0, 0%, 38%);
   }
   tr:nth-child(odd) td:nth-child(even),
   tr:nth-child(even) td:nth-child(odd) {
-    background: hsl(var(--hue, 30) 70% 68%);
+    background: hsl(0, 0%, 74%);
   }
 
   /* Row 0 is the exit row (reach it with your King to clear the floor).
@@ -160,7 +166,7 @@
   /* inset box-shadow (not outline) so the highlight draws inside the cell --
      an outline extends past the border and gets painted over by whichever
      neighboring cell paints next. */
-  td[data-selected] { box-shadow: 0 0 0 3px var(--gold) inset, 0 0 10px 2px rgba(255, 210, 63, 0.7); }
+  td[data-selected] { box-shadow: 0 0 0 3px var(--gold) inset, 0 0 10px 2px rgba(232, 232, 232, 0.7); }
 
   /* King in check: a red glow on the King and on whatever's attacking it. */
   td[data-threat] { box-shadow: 0 0 0 3px #ff3860 inset, 0 0 14px 4px rgba(255, 56, 96, 0.8); }
@@ -252,7 +258,7 @@
   #featureChatLog:not(:empty) { max-height: 140px; overflow-y: auto; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
   #featureChatLog p { margin: 0; padding: 6px 10px; border-radius: 12px; max-width: 85%; word-break: break-word; }
   #featureChatLog p[data-from="you"] { align-self: flex-end; background: var(--gold); color: var(--ink); }
-  #featureChatLog p[data-from="team"] { align-self: flex-start; background: #4a3b66; }
+  #featureChatLog p[data-from="team"] { align-self: flex-start; background: #454545; }
   #featureChatForm { display: flex; gap: 6px; margin-top: 6px; }
   #featureChatInput {
     flex: 1;
