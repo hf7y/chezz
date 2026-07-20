@@ -66,3 +66,29 @@ delete its line by hand — that still works.
   > (should route through the existing stalemate/checkmate-adjacent
   > handling, not silently strand the player).
 
+- **2026-07-20 ("Chezz Classic" scope): where does this codebase actually
+  live, and what does "its own production stream" mean?**
+  You asked for an older version of chezz -- still live at
+  `hf7y.com/chezz.html` (not this repo's own `hf7y.github.io/chezz/`) --
+  to be developed as its own production stream (custom fairy-piece font
+  is explicitly tied to this version, not the current arcade-cabinet
+  build). Checked before asking: no `hf7y.com` reference exists anywhere
+  in this repo's git history, and no `main-classic` branch exists in this
+  checkout despite an earlier session's note claiming one was created --
+  either it never got pushed, lived only in a different clone, or that
+  note was wrong. `readable-html`/`simplify-and-polish`, or an older
+  commit on `main` before the arcade reskin (`f99415d`), are guesses at
+  best, not a confirmed match. Full investigation notes in
+  `DESIGN-NOTES.md`'s "Chezz Classic" section. Three things needed:
+  1. Where the code actually lives (a specific commit/branch here, an
+     untracked local copy, or deployed-only files on `hf7y.com` with no
+     git history at all).
+  2. Whether `hf7y.com` is deployable-to from this machine/an unattended
+     run, or publishing there is always a manual step.
+  3. What "its own production stream" means concretely -- a full new
+     `scheduler` registration (own repo/branch/FOCUS.md/nightly cadence,
+     sharing the same constrained account budget every other project
+     already competes for) vs. something lighter (occasional interactive
+     sessions, no unattended cron).
+  > (answer inline here)
+

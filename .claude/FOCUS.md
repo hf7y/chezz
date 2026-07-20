@@ -70,10 +70,22 @@
        2. Move-into-check (King-only illegal-to-hang) + the `.scheduler/`
           migration -- already fully specified above, smaller in scope
           than what follows, do these first.
-       3. Auto-march: King auto-marches toward the exit row, surviving
-          pieces follow in formation, player can still drag to override.
+       3. Auto-march -- REFINED 2026-07-20, later same session: NOT an
+          automatic system-driven march. It's a drag interaction: dragging
+          a piece auto-steps it one square at a time toward the drag
+          direction (King first; generalizes to other pieces -- Knight's
+          L-shaped moves make "closest legal move to hover point" a real
+          pathing problem, flagged as a follow-up, not a blocker).
+          Formation-follow (pieces rank up alongside the King, strongest
+          closest, naive for now) falls out of this naturally -- it is
+          NOT a separate system to build. See DESIGN-NOTES.md's "Auto-march
+          -- REFINED" note for the full mechanic before implementing.
        4. Terrain: build walls (boss-gated) + holes (impassable) together,
-          sequenced after 3 since it wants a stable post-combat flow.
+          sequenced after 3 since it wants a stable post-combat flow. Wall/
+          hole COUNT is also an intentional carry-over-gate difficulty
+          lever (e.g. a gate only the King can fit through, forcing a
+          King+pawns-vs-Knight floor to actually require the capture) --
+          see DESIGN-NOTES.md.
        5. Material-sufficiency: strengthen the tuning proxy (deeper
           search, real king-safety/tactical eval, not just material) --
           pure engineering, no playtesting needed from the user. Can run
@@ -83,7 +95,25 @@
           (what changes, what stays, exit-row win condition, spawn/threat
           balance implications) and surface it via `QUESTIONS.md` for a
           human checkpoint before writing any game code against it --
-          lowest urgency of the six, least reversible if rushed. -->
+          lowest urgency of the six, least reversible if rushed.
+
+     NOT queued above, recorded in DESIGN-NOTES.md for a future pass --
+     don't start building these without re-reading that file first: a
+     neutral evasive flavor piece whose capture grants a knight-upgrade
+     (Archbishop/Chancellor/Amazon/Knightrider chain), and a two-track
+     graphics idea (autonomous Gemini-sprite pipeline shared with
+     vkv-inventory -- NEW external dependency, needs sign-off like the
+     existing sprite-replacement tracker report already deferred behind
+     this gate -- vs. a custom fairy-piece font, no such gate). Also see
+     QUESTIONS.md for an open "Chezz Classic" question that needs a human
+     answer before any related work starts. -->
+
+<!-- OPEN, awaiting a human answer (2026-07-20) -- see QUESTIONS.md:
+     "Chezz Classic" (an older version live at hf7y.com/chezz.html, NOT
+     this repo's own hf7y.github.io/chezz/ site) -- no trace of it exists
+     in this repo's git history, so its actual location/scope needs the
+     user to answer before any scheduler registration or automation
+     starts. Full detail in DESIGN-NOTES.md. -->
 
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project

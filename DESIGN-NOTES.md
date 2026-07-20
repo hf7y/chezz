@@ -116,20 +116,50 @@ Four vision questions, asked directly, answered directly — recording the
 decision and reasoning so a later autonomous run doesn't have to re-derive
 or re-ask:
 
-1. **Auto-march: King auto-marches, pieces follow in formation.** Not full
-   free-drag auto-march for every piece (too little player control) and
-   not manual-assist-only (doesn't address what reporters actually asked
-   for). The King advances toward the exit row on its own; surviving
-   pieces line up beside/behind automatically, matching the reports that
-   describe pieces "getting behind king." Player can still intervene
-   (drag overrides), per the reports asking for a "back button is undo"
-   safety valve.
+1. **Auto-march — REFINED 2026-07-20, later same session; this supersedes
+   the "King auto-marches on its own after level clear" framing below.**
+   The King does **not** start marching automatically on level clear.
+   Instead, the interaction model is drag-driven and generalizes to every
+   piece, not just the King:
+   - **Click-and-drag stepping**: dragging a piece auto-steps it one
+     square at a time in the dragged direction, rather than requiring a
+     precise drop on the destination square. For the King this is the
+     whole mechanic — no separate "auto-march mode" exists, it's just how
+     dragging the King already works.
+   - **Formation-follow is an emergent consequence, not a separate
+     system**: once the King can be stepped this way, surviving pieces
+     naturally "rank up" alongside it. For now, formation logic is naive —
+     strongest pieces closest to the King — with the explicit long-term
+     goal of custom-tuned positioning so the end formation resembles a
+     classic chess back-rank arrangement. Don't over-invest in the tuning
+     the first time; ship the naive version, leave it improvable.
+   - **Generalizes to other pieces (e.g. Knight)**: the same drag-to-step
+     interaction should work for any piece — on drag, find the legal move
+     closest to the hover/drop spot and step there. Sliding pieces
+     (Rook/Bishop/Queen) and the King have a natural "closest point along
+     a line" answer; the **Knight's L-shaped, discontinuous move set makes
+     "closest legal move to an arbitrary hover point" a real pathing
+     problem, not a trivial one** — flagged explicitly as needing special
+     treatment, worth solving as a distinct, smaller follow-up rather than
+     blocking the King/sliding-piece version on it.
+   - Player can still fully override (this was already true in the
+     original framing and still holds): the drag itself IS the control,
+     there's no separate autonomous system fighting the player for input.
 2. **Terrain: build walls + holes together, not staged.** Full system in
    one pass — holes as impassable squares, boss-gated walls that drop
    when that floor's mini-boss is captured. Sequence after auto-march
    (shares the post-combat/floor-progression surface, wants that flow
    stable first) — not explicitly bundled into the same implementation
    pass, just ordered second.
+   - **Refined 2026-07-20: wall/hole COUNT as an intentional carry-over
+     gate**, tunable per floor's difficulty design, enabling deliberate
+     "dramatic showdown" set-pieces. Worked example from the user: a floor
+     with King + pawns vs. a lone Knight, where the gate is narrow enough
+     that only the King can pass through it — the pawns literally cannot
+     follow, so capturing the Knight before advancing becomes mandatory,
+     not optional. This means terrain isn't purely an obstacle/flavor
+     layer — floor design should treat gate width as a lever alongside
+     material composition when tuning a floor's difficulty curve.
 3. **Material sufficiency: strengthen the tuning proxy.** Pure
    engineering (deeper search, real king-safety/tactical eval instead of
    material-only), no playtesting asked of the user. This can run as
@@ -149,6 +179,84 @@ or re-ask:
    surface it via `QUESTIONS.md` for a checkpoint — not to start writing
    game code against a redesign this size without one.
 
+## Deep feature ideas (recorded 2026-07-20, NOT scoped for implementation)
+
+User-originated ideas, deliberately captured here rather than left to
+verbal memory, but explicitly not queued for nightly-batch yet — each
+needs its own scoping pass before it's implementation-ready. Treat this
+section as a seed list a future vision session picks from, not a to-do
+list nightly-batch should start executing against.
+
+- **Neutral evasive flavor piece + knight-upgrade-by-capture chain.** A
+  neutral (half-white/half-black) horse-shaped piece that always tries to
+  evade capture, appearing as flavor content on the pawn-fodder/terrain
+  levels. Capturing it grants the capturing piece a permanent "+knight"
+  upgrade — merges knight movement onto whatever piece took it:
+  Bishop→Archbishop, Rook→Chancellor, Queen→Amazon. A piece that's already
+  knight-combined (i.e. would become knight+knight) becomes a
+  **Knightrider** instead — a fairy piece that repeats knight-move steps
+  in a straight line — with a proposed graphic treatment of an
+  upside-down knight glyph to visually distinguish it. Needs: capture
+  logic for a non-aligned/neutral third side, an evasion AI for the
+  neutral piece, upgrade-application logic per piece type, and a
+  Knightrider move-generator (doesn't exist in the current fairy-piece
+  set — Archbishop/Chancellor/Amazon are simple move-set unions, a
+  knightrider's repeated-knight-step movement is a different shape of
+  rule entirely).
+- **Graphics pipeline — two independent tracks, not mutually exclusive:**
+  1. **Autonomous AI-generated sprites**, extracting and adapting the
+     pixel-art Gemini API workflow already built in the `vkv-inventory`
+     project, made autonomous for chezz. **This is a NEW external service
+     dependency** (an image-generation API call) — FOCUS.md's own gate
+     already reserves this for explicit user sign-off, no autopilot
+     exception (this is the same gate the tracker's existing
+     `2026-07-17T07:25:16.315Z` sprite-replacement report is deferred
+     behind). Cross-project too: would need coordinating with whatever
+     `vkv-inventory`'s workflow actually looks like today, not something
+     to build blind from a one-line description.
+  2. **A custom font file with real typography for the fairy pieces**
+     (Archbishop/Chancellor/Amazon/Knightrider etc., which today lean on
+     Unicode knight-combo glyphs). No new external service dependency in
+     the same sense — an asset-creation project, not an API integration.
+     Explicitly associated with "Chezz Classic" below, not the current
+     arcade-cabinet-reskinned build.
+
+## Open question: "Chezz Classic" — needs a human answer, not a guess
+
+Raised 2026-07-20: the user wants an older version of chezz — still live
+at `hf7y.com/chezz.html` (note: **not** `hf7y.github.io/chezz/`, the
+current live site this repo's automation deploys) — developed as **"its
+own production stream."** Investigated before writing this down rather
+than guessing: there is no `hf7y.com` reference anywhere in this repo's
+git history (`git log --all -p | grep hf7y.com` — nothing), and no
+`main-classic` branch exists in this checkout despite an earlier session's
+note (see [[project-chezz-automation]] memory) claiming one was created
+when `narrative-campaign` fast-forwarded into `main` on 2026-07-17 — it
+either never got pushed, lived only in a different clone, or the claim
+was wrong. The closest candidates by description ("nice font," "a few
+branches back") are the `readable-html` or `simplify-and-polish` branches,
+or simply an earlier commit on `main` before the arcade-cabinet reskin
+(`f99415d`) — but this is a guess, not a confirmed match, and picking
+wrong would mean building automation against the wrong codebase entirely.
+
+**Genuinely needs the user to answer before any scheduler registration or
+automation work starts:**
+1. Where does the code actually live — a specific commit/branch in this
+   repo, a separate untracked local copy, or something that only exists
+   as deployed files on the `hf7y.com` host with no git history at all?
+2. Is `hf7y.com` itself under version control / deployable-to anywhere
+   this session or an unattended run has access, or is publishing there
+   a manual step regardless of what automation does?
+3. What does "its own production stream" mean concretely — a new
+   registered project in the `scheduler` ecosystem (its own repo/branch,
+   `FOCUS.md`, nightly cadence, sharing the same constrained account
+   budget every other registered project already competes for — see
+   [[project-chezz-automation]]'s spend-limit note), or something lighter
+   (e.g. an occasional manual/interactive session, not unattended cron)?
+
+Not acted on further until this is answered — recorded here so it isn't
+lost, not guessed into an infrastructure decision.
+
 ## Priority order this unlocks (see `.claude/FOCUS.md` for the live queue)
 
 Nightly-batch's ordinary job (oldest-first through the tracker, four-
@@ -165,8 +273,11 @@ same account-wide usage budget both projects share).
 2. Already-queued near-term (decided earlier the same day, smaller in
    scope than the vision items below): move-into-check King-only
    legality, the `.scheduler/` layout migration.
-3. Auto-march (King auto-marches, pieces follow in formation).
-4. Terrain (walls + holes together).
+3. Auto-march: drag-to-step interaction (King first, then generalize to
+   sliding pieces; Knight's pathing is a flagged follow-up, not a blocker
+   for the rest), formation-follow as the natural consequence.
+4. Terrain (walls + holes together, including the carry-over-gate
+   difficulty lever).
 5. Material-sufficiency tuning-proxy strengthening (parallel/backup —
    doesn't block 3/4).
 6. King→Queen design spec (write-up + `QUESTIONS.md` checkpoint, not
