@@ -69,6 +69,20 @@ re-confirmed):
   Exception: something explicitly urgent and small the user asks you to
   just fix right now -- that's a normal request, treat it normally.
 
+## 4.5. Watch for "vision debt" — the queue growing faster than it drains
+
+Named 2026-07-20 (cross-project pattern, via scheduler's own repo): the
+user generates ideas faster than any implementation cadence can stabilize
+them, so a priority queue that only ever grows is not a sign this command
+is failing — it's the expected shape of the problem. What *would* be a
+failure: letting that gap stay invisible. When updating the PRIORITY
+QUEUE block, if it's been growing for a while without much draining,
+**say so explicitly** in this session's summary (step 6) — oldest
+un-started item's age, rough queue depth trend — rather than silently
+folding another item in. The user's own call whether that's fine (a
+backlog is often healthy) or a sign to re-scope; this command's job is
+just to make the gap visible, not to solve it unilaterally.
+
 ## 5. Cross-project proposals go through the front door
 
 If something learned here is really about the `scheduler` project itself

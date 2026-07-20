@@ -221,41 +221,52 @@ list nightly-batch should start executing against.
      Explicitly associated with "Chezz Classic" below, not the current
      arcade-cabinet-reskinned build.
 
-## Open question: "Chezz Classic" — needs a human answer, not a guess
+## "Chezz Classic" — question 1 resolved 2026-07-20, questions 2/3 still open
 
-Raised 2026-07-20: the user wants an older version of chezz — still live
-at `hf7y.com/chezz.html` (note: **not** `hf7y.github.io/chezz/`, the
-current live site this repo's automation deploys) — developed as **"its
-own production stream."** Investigated before writing this down rather
-than guessing: there is no `hf7y.com` reference anywhere in this repo's
-git history (`git log --all -p | grep hf7y.com` — nothing), and no
-`main-classic` branch exists in this checkout despite an earlier session's
-note (see [[project-chezz-automation]] memory) claiming one was created
-when `narrative-campaign` fast-forwarded into `main` on 2026-07-17 — it
-either never got pushed, lived only in a different clone, or the claim
-was wrong. The closest candidates by description ("nice font," "a few
-branches back") are the `readable-html` or `simplify-and-polish` branches,
-or simply an earlier commit on `main` before the arcade-cabinet reskin
-(`f99415d`) — but this is a guess, not a confirmed match, and picking
-wrong would mean building automation against the wrong codebase entirely.
+Raised 2026-07-20: the user wants an older version of chezz — live at
+`hf7y.com/chezz.html`, which redirects to an OCF Berkeley-hosted copy
+(note: **not** `hf7y.github.io/chezz/`, the current live site this repo's
+automation deploys) — developed as **"its own production stream."** The
+user confirmed directly: the code lived on `main`, and narrative-campaign
+work eventually overwrote it there (file content, not git history — the
+commits themselves were never destroyed).
 
-**Genuinely needs the user to answer before any scheduler registration or
-automation work starts:**
-1. Where does the code actually live — a specific commit/branch in this
-   repo, a separate untracked local copy, or something that only exists
-   as deployed files on the `hf7y.com` host with no git history at all?
-2. Is `hf7y.com` itself under version control / deployable-to anywhere
-   this session or an unattended run has access, or is publishing there
-   a manual step regardless of what automation does?
+**Resolved by git archaeology, not guesswork**: `readable-html` (an
+already-existing branch, still pushed to `origin`) is the **exact
+merge-base** between itself and current `main` — `git merge-base
+readable-html main` returns `readable-html`'s own tip (`6815336`,
+2026-07-16, "Merge simplify-and-polish: dedup pass, mobile touch-drag
+fix, promotion dialog fix"), and `git log --oneline readable-html..main`
+starts with `c13e228 Add a scripted narrative campaign` as the very first
+commit past it. That's a clean, unambiguous boundary — no divergent
+history to reconcile, no guessing between candidate branches. **Action
+taken**: created and pushed a clearly-named `chezz-classic` branch
+pointing at that same commit (`git branch chezz-classic readable-html`),
+so it's a discoverable, purpose-named reference going forward instead of
+an ambiguous old branch name — `readable-html` itself was left alone
+(unchanged), `chezz-classic` is a second ref to the same commit.
+**Not independently verified against the live `hf7y.com/chezz.html`
+page** — this sandbox's network egress to `hf7y.com` times out (DNS
+resolves fine, TCP connect hangs; looks like a sandbox network
+restriction, not the site being down) — worth a real diff against the
+live page next time someone has working access, but the git-side evidence
+alone is solid enough to act on.
+
+**Still open, still needs the user (not a guess):**
+2. Is `hf7y.com`/the OCF-Berkeley host deployable-to from this machine or
+   any unattended run, or is publishing there always a manual step
+   regardless of what automation does?
 3. What does "its own production stream" mean concretely — a new
    registered project in the `scheduler` ecosystem (its own repo/branch,
    `FOCUS.md`, nightly cadence, sharing the same constrained account
    budget every other registered project already competes for — see
    [[project-chezz-automation]]'s spend-limit note), or something lighter
-   (e.g. an occasional manual/interactive session, not unattended cron)?
+   (e.g. occasional manual/interactive sessions against the new
+   `chezz-classic` branch, no unattended cron)?
 
-Not acted on further until this is answered — recorded here so it isn't
-lost, not guessed into an infrastructure decision.
+Not acted on further until 2/3 are answered — the branch now exists and
+is safe either way, but registering it into the scheduler ecosystem is a
+real recurring-budget commitment that shouldn't be guessed into.
 
 ## Priority order this unlocks (see `.claude/FOCUS.md` for the live queue)
 

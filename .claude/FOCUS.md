@@ -108,12 +108,15 @@
      QUESTIONS.md for an open "Chezz Classic" question that needs a human
      answer before any related work starts. -->
 
-<!-- OPEN, awaiting a human answer (2026-07-20) -- see QUESTIONS.md:
-     "Chezz Classic" (an older version live at hf7y.com/chezz.html, NOT
-     this repo's own hf7y.github.io/chezz/ site) -- no trace of it exists
-     in this repo's git history, so its actual location/scope needs the
-     user to answer before any scheduler registration or automation
-     starts. Full detail in DESIGN-NOTES.md. -->
+<!-- "Chezz Classic" -- part 1 RESOLVED 2026-07-20: it's the pre-
+     narrative-campaign state of `main`, now pinned at a dedicated
+     `chezz-classic` branch (pushed to origin, points at readable-html's
+     tip, 6815336). Parts 2 (is hf7y.com/OCF-Berkeley deployable-to from
+     automation) and 3 (what "own production stream" means -- full
+     scheduler registration vs. lighter interactive-only work) are still
+     OPEN, awaiting a human answer -- see QUESTIONS.md. Don't register
+     anything with `scheduler` for this until those land. Full detail in
+     DESIGN-NOTES.md. -->
 
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project
