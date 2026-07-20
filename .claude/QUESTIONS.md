@@ -66,16 +66,3 @@ delete its line by hand — that still works.
   > (should route through the existing stalemate/checkmate-adjacent
   > handling, not silently strand the player).
 
-- **2026-07-20 (nightly): Automate `/bug-sweep` on a recurring schedule?**
-  `2026-07-15T18:28:53.334Z` asks to run `/bug-sweep` on a cron instead of
-  manual/nightly triggering, using Claude Code's scheduled cloud routines.
-  This needs a repo-access story worked out first -- push credentials for
-  a cloud environment reachable outside this machine -- which is a new
-  external dependency / credentials-and-cost decision FOCUS.md's own gate
-  says always needs the user's sign-off, no exception. Left open on the
-  tracker; not attempted.
-  > Deferred -- user wants the cost/security/reliability tradeoffs spelled
-  > out before deciding. Do NOT implement or add credentials yet. Leave
-  > this question in place (don't remove it) until a real decision lands;
-  > tradeoffs writeup owed back to the user separately, not something to
-  > guess into an implementation.
