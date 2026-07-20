@@ -41,6 +41,8 @@ delete its line by hand — that still works.
   and `nightly-batch.md.template` for both conventions to copy in --
   worth doing the reverse too, backporting chezz's own good ideas above
   into vkv-inventory's `FOCUS.md` and the scheduler templates.
+  > Bug sweeps should punt large bug to Nightly. Nightly should gain the
+  > power to address bugs.
 
 - **2026-07-20 (nightly): Should moving into check (hanging the King) be disallowed?**
   A recurring reporter cluster (`2026-07-15T18:17:33.709Z`, `2026-07-17T05:18:31.007Z`,
@@ -56,7 +58,13 @@ delete its line by hand — that still works.
   curve) and was flagged, not guessed at, per FOCUS.md's redesign-defer
   criterion. First raised in the 2026-07-19 report; re-flagging here since
   it was never actually appended to this file that night.
-  > (answer inline here)
+  > Disallow hanging the King only (real chess-style legality: a move that
+  > leaves the King capturable next turn becomes illegal). Pawns/other
+  > pieces stay hangable -- risk/reward on those is unchanged. Standing
+  > rule once shipped -- fold into FOCUS.md. Add a regression test
+  > covering the case where the King has zero non-hanging legal moves
+  > (should route through the existing stalemate/checkmate-adjacent
+  > handling, not silently strand the player).
 
 - **2026-07-20 (nightly): Automate `/bug-sweep` on a recurring schedule?**
   `2026-07-15T18:28:53.334Z` asks to run `/bug-sweep` on a cron instead of
@@ -66,4 +74,8 @@ delete its line by hand — that still works.
   external dependency / credentials-and-cost decision FOCUS.md's own gate
   says always needs the user's sign-off, no exception. Left open on the
   tracker; not attempted.
-  > (answer inline here)
+  > Deferred -- user wants the cost/security/reliability tradeoffs spelled
+  > out before deciding. Do NOT implement or add credentials yet. Leave
+  > this question in place (don't remove it) until a real decision lands;
+  > tradeoffs writeup owed back to the user separately, not something to
+  > guess into an implementation.
