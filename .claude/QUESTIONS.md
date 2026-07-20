@@ -41,3 +41,29 @@ delete its line by hand — that still works.
   and `nightly-batch.md.template` for both conventions to copy in --
   worth doing the reverse too, backporting chezz's own good ideas above
   into vkv-inventory's `FOCUS.md` and the scheduler templates.
+
+- **2026-07-20 (nightly): Should moving into check (hanging the King) be disallowed?**
+  A recurring reporter cluster (`2026-07-15T18:17:33.709Z`, `2026-07-17T05:18:31.007Z`,
+  `2026-07-16T11:51:25.998Z`, `2026-07-18T07:28:51.299Z` for the pawn-specific
+  variant) keeps asking for real chess "can't move into check" -- White
+  shouldn't be able to select a move that leaves the King (or, per one
+  report, a pawn) capturable next turn. Tonight shipped the informational
+  half of this (legal-move dots now color red/orange by threat, see
+  `f7d0d0d`) without touching legality -- hanging the King is currently
+  full risk/reward by design (`whiteSurvivesNextMove`'s own comment: "no
+  check/checkmate rule exists here"). Actually disallowing it is a real
+  rules change (bigger than a UI tweak, changes the game's difficulty
+  curve) and was flagged, not guessed at, per FOCUS.md's redesign-defer
+  criterion. First raised in the 2026-07-19 report; re-flagging here since
+  it was never actually appended to this file that night.
+  > (answer inline here)
+
+- **2026-07-20 (nightly): Automate `/bug-sweep` on a recurring schedule?**
+  `2026-07-15T18:28:53.334Z` asks to run `/bug-sweep` on a cron instead of
+  manual/nightly triggering, using Claude Code's scheduled cloud routines.
+  This needs a repo-access story worked out first -- push credentials for
+  a cloud environment reachable outside this machine -- which is a new
+  external dependency / credentials-and-cost decision FOCUS.md's own gate
+  says always needs the user's sign-off, no exception. Left open on the
+  tracker; not attempted.
+  > (answer inline here)
