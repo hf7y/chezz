@@ -52,6 +52,39 @@
      see scheduler's `.scheduler/FOCUS.md`, "Consolidation roadmap" axis 3,
      which already names chezz as one of the pending projects). -->
 
+<!-- PRIORITY QUEUE (2026-07-20, human-directed vision session). Full
+     rationale, tracker cluster analysis, and the reasoning behind each
+     decision lives in `DESIGN-NOTES.md` (repo root) -- read that first if
+     picking up any item below, this is deliberately just the ordered list.
+     This OVERRIDES oldest-first triage until worked through; ordinary
+     tracker triage (below) resumes for everything not covered here, and
+     should keep running in parallel for reports that don't touch any of
+     these items -- don't let this list starve routine mechanical fixes.
+       1. Urgent, small: white pieces are likely near-invisible on light
+          squares (hollow glyphs, no CSS color distinction from Black's
+          solid glyphs, both inherit --cream on a light-grey square) --
+          screenshot-verify and fix. Also fold bug-reporting into the
+          existing feature-chat box (prompt() is blocked by Chrome's
+          popup blocker for a real chunk of players -- several 2026-07-20
+          reports confirm it).
+       2. Move-into-check (King-only illegal-to-hang) + the `.scheduler/`
+          migration -- already fully specified above, smaller in scope
+          than what follows, do these first.
+       3. Auto-march: King auto-marches toward the exit row, surviving
+          pieces follow in formation, player can still drag to override.
+       4. Terrain: build walls (boss-gated) + holes (impassable) together,
+          sequenced after 3 since it wants a stable post-combat flow.
+       5. Material-sufficiency: strengthen the tuning proxy (deeper
+          search, real king-safety/tactical eval, not just material) --
+          pure engineering, no playtesting needed from the user. Can run
+          as backup/parallel work, doesn't block or get blocked by 3/4.
+       6. King->Queen: this is a design-spec-first item, NOT
+          implementation scope yet. Write the spec into `DESIGN-NOTES.md`
+          (what changes, what stays, exit-row win condition, spawn/threat
+          balance implications) and surface it via `QUESTIONS.md` for a
+          human checkpoint before writing any game code against it --
+          lowest urgency of the six, least reversible if rushed. -->
+
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project
 again unless they want to -- players submit ideas through the in-game
@@ -109,11 +142,12 @@ For each report, pick one of four outcomes:
    with reasonable judgment calls (leave a short note either way).
 
 Backup work, when the feature backlog is empty or everything in it was
-just resolved/deferred: the two standing open engineering questions --
-Rook/Queen material-sufficiency (needs playtesting + some analytical
-solvability work) and the index1.html size budget (currently ~74KB
-against a 50KB soft target -- worth actually investigating what's
-bloating it, not just raising the target) -- plus any bug reports Tier 1
-left open with "needs a human call" notes (real mobile-device or
-WebKit-only repros this sandbox lacks are still genuinely out of reach
-here; don't force those).
+just resolved/deferred: Rook/Queen material-sufficiency (see priority
+queue item 5 above -- decided direction is strengthening the tuning
+proxy, not playtesting) and the index1.html size budget (currently
+~84.7KB against a 50KB soft target, 100KB hard cap -- worth actually
+investigating what's bloating it, not just raising the target; still the
+user's 2026-07-14 standing call to stop and revisit rather than cut
+deeper into comments) -- plus any bug reports Tier 1 left open with
+"needs a human call" notes (real mobile-device or WebKit-only repros this
+sandbox lacks are still genuinely out of reach here; don't force those).
