@@ -1,8 +1,24 @@
 #!/bin/sh
-# Local safety net before a commit lands: syntax, size, and the full
-# regression suite. Skips gracefully if devDependencies aren't installed yet.
+# Local safety net before a commit lands: syntax, size, and (if game code
+# actually changed) the full regression suite. Skips gracefully if
+# devDependencies aren't installed yet.
 if [ ! -d node_modules ]; then
   echo "pre-commit: node_modules missing -- run 'npm install' once to enable local checks (skipping for now)"
   exit 0
 fi
-npm run check --silent
+
+npm run check-syntax --silent && npm run check-size --silent || exit 1
+
+# The full Playwright suite (3+ min) only needs to run when something that
+# could affect gameplay actually changed. A commit touching only .claude/
+# (commands, FOCUS.md, QUESTIONS.md), README.md, DESIGN-NOTES.md, or repo
+# plumbing (.githooks/, .gitignore) can't have broken gameplay it never
+# touched -- added 2026-07-20 after a docs-only commit paid the full 3.4min
+# cost for zero reason. Any staged file OUTSIDE that safe set still runs
+# the full suite, unconditionally.
+non_docs="$(git diff --cached --name-only | grep -vE '^(\.claude/|README\.md$|DESIGN-NOTES\.md$|\.githooks/|\.gitignore$)')"
+if [ -n "$non_docs" ]; then
+  npm test --silent
+else
+  echo "pre-commit: only docs/.claude files staged -- skipping the full Playwright suite"
+fi
