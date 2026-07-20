@@ -150,7 +150,12 @@
      not "broken". */
   tr:first-child > * { border-bottom: 3px solid var(--gold); opacity: 0.5; }
 
-  /* A legal destination for the currently-selected piece. */
+  /* A legal destination for the currently-selected piece, colored by threat
+     level (repeatedly requested "fire emblem"-style hint): green when
+     nothing can take it back, amber when Black could capture there but
+     White could recapture, red when it would hang for free. Same signal-
+     color exemption as the check-glow red -- not part of the monochrome
+     decorative palette. */
   td[data-legal]::after {
     content: "";
     position: absolute;
@@ -161,6 +166,14 @@
     border-radius: 50%;
     background: rgba(70, 255, 145, 0.9);
     box-shadow: 0 0 8px 2px rgba(70, 255, 145, 0.75);
+  }
+  td[data-legal="covered"]::after {
+    background: rgba(255, 179, 71, 0.9);
+    box-shadow: 0 0 8px 2px rgba(255, 179, 71, 0.75);
+  }
+  td[data-legal="hanging"]::after {
+    background: rgba(255, 56, 96, 0.9);
+    box-shadow: 0 0 8px 2px rgba(255, 56, 96, 0.75);
   }
 
   /* inset box-shadow (not outline) so the highlight draws inside the cell --
@@ -515,6 +528,25 @@
     const attackers = attackersOf(state.board, x, y, true);
     state.board[y][x] = occupant;
     return attackers.length === 0;
+  }
+
+  // Threat level of a legal destination, for coloring the move dot (a
+  // repeatedly reported ask -- players wanted "fire emblem"-style hints
+  // instead of plain green for every legal square). Purely informational:
+  // doesn't restrict any move, just simulates it one ply deep against
+  // Black's strongest reply-square and checks whether White could
+  // recapture there.
+  function moveDangerLevel(board, piece, fromX, fromY, toX, toY) {
+    const next = board.map(row => [...row]);
+    next[toY][toX] = piece;
+    next[fromY][fromX] = "";
+    const blackAttackers = attackersOf(next, toX, toY, false);
+    if (!blackAttackers.length) return "safe";
+    const a = blackAttackers[0];
+    const captureBoard = next.map(row => [...row]);
+    captureBoard[toY][toX] = captureBoard[a.y][a.x];
+    captureBoard[a.y][a.x] = "";
+    return attackersOf(captureBoard, toX, toY, true).length ? "covered" : "hanging";
   }
 
   function findWhiteKing(board) {
@@ -1793,9 +1825,13 @@
       .map(c => pieceGlyphHtml(c) + (capturedCounts[c] > 1 ? `<sup>${capturedCounts[c]}</sup>` : ""))
       .join(" ");
 
-    const legalTargets = new Set(
-      (selected ? legalMovesFrom(state.board, selected.x, selected.y) : []).map(m => `${m.x},${m.y}`)
-    );
+    const legalTargets = new Map();
+    if (selected) {
+      const piece = state.board[selected.y][selected.x];
+      for (const m of legalMovesFrom(state.board, selected.x, selected.y)) {
+        legalTargets.set(`${m.x},${m.y}`, moveDangerLevel(state.board, piece, selected.x, selected.y, m.x, m.y));
+      }
+    }
 
     // King-in-check indicator: a red glow on the King and on each piece attacking it.
     const king = findWhiteKing(state.board);
@@ -1810,7 +1846,8 @@
       for (let x = 0; x < BOARD_COLS; x++) {
         const sel = selected && selected.x === x && selected.y === y ? " data-selected" : "";
         const threat = threats.has(`${x},${y}`) ? " data-threat" : "";
-        const legal = legalTargets.has(`${x},${y}`) ? " data-legal" : "";
+        const dangerLevel = legalTargets.get(`${x},${y}`);
+        const legal = dangerLevel ? ` data-legal="${dangerLevel}"` : "";
         html += `<td${sel}${threat}${legal}>${pieceGlyphHtml(state.board[y][x])}</td>`;
       }
       html += `</tr>`;
