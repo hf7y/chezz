@@ -188,3 +188,7 @@ sandbox lacks are still genuinely out of reach here; don't force those).
 ## Ideas (added via `scheduler -i`)
 
 - **2026-07-22 14:57 (via `scheduler -i`):** scheduler flagged (2026-07-22): this FOCUS.md is prose/HTML-comment heavy with no structured Current-focus/Backlog bullet list, so `scheduler status chezz`'s 'next up' section can't parse it. Reformat is realisateur's job (already flagged there, .idea dropped 2026-07-22) -- don't restructure this file's format from within chezz's own nightly-batch/bug-sweep; wait for realisateur's pass or Zach's direction.
+
+## Ideas (added via `scheduler -i`)
+
+- **2026-07-22 15:09 (via `scheduler -i`):** look into developments in Documents/Projects/realisateur and Documents/Project Archive/scheduler, including generalizations of chezz's own findings about ideate and vision debt. move towards the general project scaffold design rather than bespoke chezz implementations if straightforward, file questions if not
