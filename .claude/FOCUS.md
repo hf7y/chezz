@@ -118,6 +118,32 @@
      anything with `scheduler` for this until those land. Full detail in
      DESIGN-NOTES.md. -->
 
+## Priority queue
+
+(realisateur, 2026-07-24: pulled out of the HTML-comment-only "PRIORITY
+QUEUE" block above into a real top-level list so `scheduler status
+chezz`'s next-up parser can see it -- see realisateur's `FOCUS-FORMAT.md`
+for the spec this satisfies. Full rationale for each item stays in the
+comment above and in `DESIGN-NOTES.md`; this is deliberately just the
+short list.)
+
+1. Urgent, small: white-piece visibility on light squares + bug-report
+   popup blocked by Chrome's popup blocker -- screenshot-verify and fix.
+2. Move-into-check (King-only illegal-to-hang) + the `.scheduler/`
+   migration.
+3. Auto-march drag interaction (King first, formation-follow falls out
+   of it) -- see DESIGN-NOTES.md before implementing.
+4. Terrain: walls (boss-gated) + holes (impassable), sequenced after 3.
+5. Material-sufficiency: strengthen the tuning proxy (deeper search,
+   real king-safety/tactical eval) -- can run in parallel with 3/4.
+6. King->Queen: design-spec-first, not implementation scope yet -- write
+   the spec into `DESIGN-NOTES.md`, surface via `QUESTIONS.md` for a
+   human checkpoint before any game code.
+
+Backup work when the feature backlog (below) is empty: Rook/Queen
+material-sufficiency (item 5) and the index1.html size budget
+investigation (~84.7KB against a 50KB soft target).
+
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project
 again unless they want to -- players submit ideas through the in-game
@@ -187,7 +213,7 @@ sandbox lacks are still genuinely out of reach here; don't force those).
 
 ## Ideas (added via `scheduler -i`)
 
-- **2026-07-22 14:57 (via `scheduler -i`):** scheduler flagged (2026-07-22): this FOCUS.md is prose/HTML-comment heavy with no structured Current-focus/Backlog bullet list, so `scheduler status chezz`'s 'next up' section can't parse it. Reformat is realisateur's job (already flagged there, .idea dropped 2026-07-22) -- don't restructure this file's format from within chezz's own nightly-batch/bug-sweep; wait for realisateur's pass or Zach's direction.
+- **2026-07-22 14:57 (via `scheduler -i`): RESOLVED 2026-07-24 (realisateur).** Added a real `## Priority queue` section above so `scheduler status chezz`'s next-up parser can see it -- existing comment content untouched.
 
 ## Ideas (added via `scheduler -i`)
 
