@@ -51,6 +51,25 @@ test("a Black pawn still promotes normally when a matching captured piece is ava
   expect(result).toEqual({ landedSquare: "q", pool: "" });
 });
 
+test("a \"Black is thinking\" indicator shows while the search runs and clears once Black replies (regression: repeated tracker asks for a thinking cue, 2026-07-15/16)", async ({ page }) => {
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-4p3-K7_w&floor=1&spawned=1&budget=1&maxRank=0&captured=Q");
+
+  const result = await page.evaluate(async () => {
+    const original = getBlackMoveRuthless;
+    let textDuringSearch = null;
+    getBlackMoveRuthless = (...args) => {
+      textDuringSearch = document.getElementById("thinkingIndicator").textContent;
+      return original(...args);
+    };
+    await makeMove(0, 8, 0, 7); // harmless White King step to trigger Black's reply
+    getBlackMoveRuthless = original;
+    return { textDuringSearch, textAfter: document.getElementById("thinkingIndicator").textContent };
+  });
+
+  expect(result.textDuringSearch).toBe("Black is thinking…");
+  expect(result.textAfter).toBe("");
+});
+
 test("loads with no console or page errors", async ({ page }) => {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));

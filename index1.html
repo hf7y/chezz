@@ -240,6 +240,19 @@
   }
   #campaignBanner:empty { display: none; }
 
+  /* Deeper floors' search can take a real, visible chunk of a second
+     (2026-07-15/07-16 tracker reports: "ai taking a long time... some
+     animation to show thinking?", "some kind of thinking animation for
+     black? brain emoji?") -- a plain text cue so the frozen board reads
+     as "computing," not "stuck." Empty and invisible the rest of the time. */
+  #thinkingIndicator {
+    margin: -8px 0 10px;
+    font-size: 12px;
+    color: var(--gold);
+    min-height: 0;
+  }
+  #thinkingIndicator:empty { display: none; }
+
   dialog {
     position: absolute;
     margin: 0;
@@ -345,6 +358,7 @@
 
 <h1><a href="#" id="resetLink">Chezz</a></h1>
 <div id="campaignBanner"></div>
+<div id="thinkingIndicator" aria-live="polite"></div>
 
 <table aria-label="Chess board"></table>
 <p>Captured: <output></output></p>
@@ -1587,8 +1601,11 @@
     if (promoting) await new Promise(resolve => { promotionResolve = resolve; });
 
     if (blackWillReply) {
-      await wait(RENDER_YIELD_MS);
+      const thinkingEl = document.getElementById("thinkingIndicator");
+      if (thinkingEl) thinkingEl.textContent = "Black is thinking…";
+      await wait(RENDER_YIELD_MS); // lets that paint land before the search blocks the main thread
       const bm = getBlackMoveRuthless(state.board, state.captured, state.floor);
+      if (thinkingEl) thinkingEl.textContent = "";
       if (bm) {
         // Reuses the same applyMove the search explores hypothetical lines
         // with -- Black always auto-promotes to the strongest piece
