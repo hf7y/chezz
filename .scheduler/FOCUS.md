@@ -16,12 +16,12 @@
 <!-- Resolved human design call (2026-07-20, via QUESTIONS.md):
        - Move-into-check: disallow hanging the KING ONLY (real chess-style
          legality -- a move leaving the King capturable next turn becomes
-         illegal). Other pieces stay hangable, unchanged risk/reward. NOT
-         implemented yet -- this is scope for the next nightly-batch run:
-         implement the legality check, add a regression test for the case
-         where the King has zero non-hanging legal moves (route through the
-         existing stalemate/checkmate-adjacent handling, don't strand the
-         player), ship it, then this note can drop the "NOT implemented yet".
+         illegal). Other pieces stay hangable, unchanged risk/reward.
+         DONE 2026-07-24 (nightly-batch, `2783c357`) -- isLegalMove/
+         legalMovesFrom filter through kingSafeAfterMove, and
+         hasAnyLegalMove(board, true) routes through legalMovesFrom so an
+         all-hanging position falls through to the existing stalemate/
+         floor-reset handling instead of stranding the player.
        - Cloud `/bug-sweep` (Claude Code scheduled cloud routine): PARKED
          INDEFINITELY, decided 2026-07-20. Local paced automation already
          covers this reliably; a cloud routine would need its own repo-push
@@ -29,6 +29,16 @@
          on the same account-wide spend budget that's already the live
          constraint (see the 2026-07-20 report). Do not implement, do not
          re-ask unless something material changes. -->
+
+<!-- Resolved human design call (2026-07-24, via QUESTIONS.md, originally
+     asked 2026-07-17): bug sweeps should punt large-but-unambiguous bugs
+     to the nightly run instead of leaving them as vague "needs a human
+     call" notes; nightly should gain the power to address them. Standing
+     convention as of `2026-07-24`: `/bug-sweep` triage now has a "real,
+     unambiguous bug, too big for this sweep" bucket that leaves a
+     `NIGHTLY:`-prefixed tracker note, and `/nightly-batch`'s backup-work
+     step (step 3) fetches `&type=bug&status=open` and implements any
+     `NIGHTLY:`-prefixed report with the same rigor as a feature. -->
 
 <!-- DONE 2026-07-24 (nightly-batch): migrated off `.claude/` for
      FOCUS.md/QUESTIONS.md, mirroring the scheduler project's own fix --
@@ -142,8 +152,9 @@ short list.)
 
 1. Urgent, small: white-piece visibility on light squares + bug-report
    popup blocked by Chrome's popup blocker -- screenshot-verify and fix.
-2. Move-into-check (King-only illegal-to-hang) + the `.scheduler/`
-   migration.
+2. **DONE 2026-07-24 (nightly-batch, `2783c357`).** Move-into-check
+   (King-only illegal-to-hang) + the `.scheduler/` migration (also done,
+   see the DONE note above).
 3. **DONE 2026-07-24 (nightly-batch, `1f51a1e`).** Auto-march drag
    interaction: dragging a piece snaps to whichever legal move is
    geometrically closest to the release point (works for every piece,

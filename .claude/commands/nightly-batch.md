@@ -64,6 +64,15 @@ empty or everything in it this round was resolved/deferred/skipped, move
 to FOCUS.md's backup work (the two standing open engineering questions,
 or bug reports Tier 1 left open needing a human call).
 
+**Also check the bug queue for `NIGHTLY:`-prefixed notes** (human-directed
+2026-07-24: bug sweeps punt real-but-too-big bugs here instead of leaving
+them as vague human-call items -- see `/bug-sweep`'s triage step). These
+are unambiguous defects, not policy questions -- fetch `&type=bug&status=open`,
+find any with a `NIGHTLY:`-prefixed note, and implement them with the same
+rigor as a feature (regression test, commit, resolve on the tracker). Treat
+this as part of the same backup-work tier as the feature backlog's
+overflow, not a lower priority than it.
+
 ## 4. Stress-test what you built
 
 Look for the scenarios a first pass typically misses -- edge cases, empty

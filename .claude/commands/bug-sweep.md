@@ -50,6 +50,18 @@ description anyway, since a reporter can still misjudge their own report.
   real mobile-browser touch behavior, no WebKit available here). Stays in
   the bug queue, open, with a note — rare in practice; most non-mechanical
   reports turn out to be the previous bucket instead.
+- **Real, unambiguous bug, but too big for this fast sweep** — a genuine
+  defect (clear correct behavior, no human judgment call needed) that
+  nonetheless needs more implementation depth than a quick sweep budget
+  covers (e.g. touches move-generation/legality core logic, spans several
+  functions, needs new test scaffolding beyond a one-off regression case).
+  Punt it to the nightly run (human-directed 2026-07-24, via
+  QUESTIONS.md: "bug sweeps should punt large bugs to nightly; nightly
+  should gain the power to address bugs") rather than leaving it as a
+  vague "needs a human call" note — prefix the tracker note with
+  `NIGHTLY:` (see step 5) so `/nightly-batch`'s backup-work pass picks it
+  up and actually implements the fix, no human call required unless the
+  fix itself turns out to be ambiguous.
 - **Duplicate of an already-tracked issue** — matches something covered by
   an existing code comment/regression-test pin (check comments near
   relevant logic and `test/*.spec.mjs` first).
@@ -115,6 +127,16 @@ but leave it in the bug queue, status open:
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
   --data-raw '{"type":"resolve","timestamp":"<exact timestamp string>","status":"open","note":"Needs: <what a real fix/decision would require>"}'
+```
+
+For a genuine bug that's unambiguous but too big for this sweep, same
+call, but prefix the note with `NIGHTLY:` so `/nightly-batch`'s backup-work
+pass recognizes it as a punted implementation task rather than a stalled
+human-call item:
+
+```
+curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
+  --data-raw '{"type":"resolve","timestamp":"<exact timestamp string>","status":"open","note":"NIGHTLY: <what the real fix needs -- scope, affected functions>"}'
 ```
 
 **Gotcha**: the POST response through Apps Script's redirect chain is
