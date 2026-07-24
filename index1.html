@@ -485,16 +485,36 @@
     return isWhite ? moves : moves.filter(m => m.y !== EXIT_ROW);
   }
 
+  // Would White's King be capturable next turn if `piece` made this move?
+  // Real chess-style legality, but King-only (human call, 2026-07-20, see
+  // .claude/QUESTIONS.md): other White pieces stay hangable on purpose, so
+  // this only ever restricts a move that leaves the King itself attacked --
+  // including a "pin" case, where moving some other piece exposes the King,
+  // since the check re-simulates the whole board either way. Black has no
+  // king on this board and no equivalent rule (see hasAnyLegalMove's own
+  // comment on the asymmetry).
+  function kingSafeAfterMove(board, piece, fromX, fromY, toX, toY) {
+    const next = board.map(row => [...row]);
+    next[toY][toX] = piece;
+    next[fromY][fromX] = "";
+    const king = piece === "K" ? { x: toX, y: toY } : findWhiteKing(next);
+    if (!king) return true; // no king on the board, nothing to protect
+    return attackersOf(next, king.x, king.y, false).length === 0;
+  }
+
   // Derived queries, all built on top of legalMovesForPiece.
   function isLegalMove(board, fromX, fromY, toX, toY) {
     const piece = board[fromY][fromX];
     if (!piece) return false;
-    return legalMovesForPiece(board, piece, fromX, fromY).some(m => m.x === toX && m.y === toY);
+    if (!legalMovesForPiece(board, piece, fromX, fromY).some(m => m.x === toX && m.y === toY)) return false;
+    return isWhitePiece(piece) ? kingSafeAfterMove(board, piece, fromX, fromY, toX, toY) : true;
   }
 
   function legalMovesFrom(board, fromX, fromY) {
     const piece = board[fromY][fromX];
-    return piece ? legalMovesForPiece(board, piece, fromX, fromY) : [];
+    if (!piece) return [];
+    const moves = legalMovesForPiece(board, piece, fromX, fromY);
+    return isWhitePiece(piece) ? moves.filter(m => kingSafeAfterMove(board, piece, fromX, fromY, m.x, m.y)) : moves;
   }
 
   // Squares of every byWhite-colored piece that can legally move onto (x, y)
@@ -512,15 +532,23 @@
     return attackers;
   }
 
-  // Does `isWhite`'s side have any move at all -- pseudo-legal, matching
-  // legalMovesForPiece elsewhere in this game (no check/checkmate rule
-  // exists here, see whiteSurvivesNextMove's comment above). Used to detect
-  // a full deadlock (see checkStalemate), not just danger to the king.
+  // Does `isWhite`'s side have any move at all? For Black this stays
+  // pseudo-legal (no check/checkmate rule exists for Black -- there's no
+  // Black king on this board to protect). For White, this now goes through
+  // legalMovesFrom (King-only hang restriction, 2026-07-20 QUESTIONS.md
+  // answer) rather than the raw legalMovesForPiece -- otherwise a position
+  // where every one of White's pseudo-legal moves hangs the King would
+  // read as "has a move" here while every one of those moves is actually
+  // illegal, silently stranding the player with nothing they can click.
+  // Routing through here means that case now correctly falls through to
+  // checkStalemate's existing floor-reset instead.
   function hasAnyLegalMove(board, isWhite) {
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
         const piece = board[y][x];
-        if (piece && isWhitePiece(piece) === isWhite && legalMovesForPiece(board, piece, x, y).length) return true;
+        if (!piece || isWhitePiece(piece) !== isWhite) continue;
+        const moves = isWhite ? legalMovesFrom(board, x, y) : legalMovesForPiece(board, piece, x, y);
+        if (moves.length) return true;
       }
     }
     return false;
