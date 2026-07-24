@@ -1379,6 +1379,42 @@
     }
   }
 
+  function hasBlackPieces(board) {
+    return board.some(row => row.some(p => p && !isWhitePiece(p)));
+  }
+
+  // Ranking for "highest material in front" -- deliberately not the search
+  // engine's own pieceValues (that one's tuned for move ordering/eval, this
+  // is just a same-rank tie-break for which piece follows the King first).
+  const FORMATION_VALUE = { q: 9, m: 8, c: 7, a: 6, r: 5, b: 3, n: 3, p: 1 };
+
+  // Naive formation-follow: every surviving White piece other than the King
+  // itself, strongest first, takes one legal move onto the King's new rank
+  // if it has one -- closest to the King's file, so the formation clusters
+  // around the King rather than piling up wherever iteration happened to
+  // reach first. A piece with no legal move onto that rank just stays put;
+  // nothing here forces or fakes a move that isn't real.
+  function formationFollow(kingRow) {
+    const pieces = [];
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        const p = state.board[y][x];
+        if (p && p !== "K" && isWhitePiece(p) && y !== kingRow) pieces.push({ x, y, p });
+      }
+    }
+    pieces.sort((a, b) => (FORMATION_VALUE[b.p.toLowerCase()] || 0) - (FORMATION_VALUE[a.p.toLowerCase()] || 0));
+
+    for (const { x, y, p } of pieces) {
+      const kingX = state.board[kingRow].indexOf("K");
+      const moves = legalMovesFrom(state.board, x, y).filter(m => m.y === kingRow && state.board[m.y][m.x] === "");
+      if (!moves.length) continue;
+      moves.sort((m1, m2) => Math.abs(m1.x - kingX) - Math.abs(m2.x - kingX));
+      const dest = moves[0];
+      state.board[dest.y][dest.x] = p;
+      state.board[y][x] = "";
+    }
+  }
+
   // Floor progression.
   function checkFloorProgression() {
     const exitRow = state.board[EXIT_ROW];
@@ -1457,10 +1493,18 @@
   // then let Black reply -- ties the rules, the AI, promotion, and floor
   // progression together.
   async function makeMove(fromX, fromY, toX, toY) {
+    const movingPiece = state.board[fromY][fromX];
     if (state.board[toY][toX]) state.captured += state.board[toY][toX];
-    state.board[toY][toX] = state.board[fromY][fromX];
+    state.board[toY][toX] = movingPiece;
     state.board[fromY][fromX] = "";
     state.turn = "b";
+
+    // Formation-follow (DESIGN-NOTES.md, "Auto-march -- REFINED"): once the
+    // King steps somewhere and no Black pieces remain on the board (the
+    // post-encounter phase), surviving White pieces naturally rank up
+    // alongside it rather than needing to be walked there one at a time.
+    // Naive by design (strongest closest) -- ship this, leave it improvable.
+    if (movingPiece === "K" && !hasBlackPieces(state.board)) formationFollow(toY);
 
     const promoting = state.board[toY][toX] === "P" && toY === WHITE_PROMOTION_ROW && state.captured.split("").some(c => PROMOTION_PRIORITY.includes(c));
     if (promoting) {
@@ -1499,6 +1543,21 @@
   // table — row 0 is the label column (<th>), so x is one less than cellIndex.
   function cellCoords(cell) {
     return { x: cell.cellIndex - 1, y: cell.parentElement.rowIndex };
+  }
+
+  // Among the legal moves for the piece at (fromX, fromY), which one's
+  // destination cell sits closest (by on-screen pixel distance) to
+  // (clientX, clientY)? Returns null if the piece has no legal move at all.
+  function nearestLegalMove(fromX, fromY, clientX, clientY) {
+    const moves = legalMovesFrom(state.board, fromX, fromY);
+    if (!moves.length) return null;
+    let best = null, bestDist = Infinity;
+    for (const m of moves) {
+      const rect = boardElement.rows[m.y].cells[m.x + 1].getBoundingClientRect();
+      const dist = Math.hypot(clientX - (rect.left + rect.width / 2), clientY - (rect.top + rect.height / 2));
+      if (dist < bestDist) { bestDist = dist; best = m; }
+    }
+    return best;
   }
 
   const DRAG_THRESHOLD = 6; // px of movement before a mouse/pen press counts as a drag
@@ -1557,13 +1616,21 @@
       delete boardElement.rows[y].cells[x + 1].dataset.dragging;
       selected = null;
 
-      const dropCell = document.elementFromPoint(e.clientX, e.clientY)?.closest("td");
-      if (dropCell) {
-        const { x: toX, y: toY } = cellCoords(dropCell);
-        if ((toX !== x || toY !== y) && isLegalMove(state.board, x, y, toX, toY)) {
-          makeMove(x, y, toX, toY);
-          return;
-        }
+      // Auto-march drag-to-step (DESIGN-NOTES.md, "Auto-march -- REFINED"):
+      // a drop doesn't have to land exactly on a legal square. Instead we
+      // snap to whichever legal move for this piece is geometrically
+      // closest to wherever the pointer actually let go, so a drag "toward"
+      // a square counts even if the release point overshoots or undershoots
+      // it by a cell or two. Works the same way for every piece type --
+      // sliding pieces naturally resolve to "closest point along the line",
+      // and this also happens to answer the Knight's flagged L-shaped
+      // pathing problem for free (nearest jump target by pixel distance),
+      // though an animated "step toward it" walk stays a follow-up polish
+      // item, not implemented here.
+      const nearest = nearestLegalMove(x, y, e.clientX, e.clientY);
+      if (nearest) {
+        makeMove(x, y, nearest.x, nearest.y);
+        return;
       }
       renderBoard();
       return;
