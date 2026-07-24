@@ -23,6 +23,19 @@ test("Black's reply correctly captures and auto-promotes (regression: makeMove/a
   expect(result).toEqual({ promoted: "q", vacated: "", captured: "" });
 });
 
+test("the build version shows in the footer and travels with the URL (regression: 2026-07-15T18:14:58.557Z, no way to tell which deployment is live)", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const version = await page.evaluate(() => APP_VERSION);
+  expect(version.length).toBeGreaterThan(0);
+
+  await expect(page.locator("#appVersion")).toHaveText("v" + version);
+
+  await page.evaluate(() => makeMove(4, 8, 4, 7)); // any harmless White move to trigger a URL rewrite
+  const url = new URL(page.url());
+  expect(url.searchParams.get("v")).toBe(version);
+});
+
 test("a Black pawn reaching rank 1 with nothing to promote into marches off the board instead of sticking (regression: repeated tracker reports of pawn-only stalemate, 2026-07-20)", async ({ page }) => {
   await page.goto(GAME_URL);
 
