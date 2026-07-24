@@ -114,6 +114,19 @@
     vertical-align: top;
   }
 
+  /* White pieces render as hollow-outline Unicode glyphs (e.g. King "♔"),
+     while Black's are solid-filled ("♚") -- both painted in the same pale
+     --cream, so White's thin outline nearly disappeared against the light
+     half of the checkerboard (hsl(0,0%,74%)) where there wasn't enough
+     tonal gap to see it. A dark halo behind the outline reads as a solid
+     shape regardless of square shade, without touching the monochrome
+     palette itself. Black's already-solid glyphs need no change. */
+  .piece[data-side="w"] {
+    text-shadow:
+      1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 1px 0 var(--ink), 0 -1px 0 var(--ink),
+      1px 1px 0 var(--ink), -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink);
+  }
+
   th {
     text-align: right;
     padding-right: 6px;
@@ -272,7 +285,8 @@
   #featureChatLog p { margin: 0; padding: 6px 10px; border-radius: 12px; max-width: 85%; word-break: break-word; }
   #featureChatLog p[data-from="you"] { align-self: flex-end; background: var(--gold); color: var(--ink); }
   #featureChatLog p[data-from="team"] { align-self: flex-start; background: #454545; }
-  #featureChatForm { display: flex; gap: 6px; margin-top: 6px; }
+  #featureChatForm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+  .chatKindLabel { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
   #featureChatInput {
     flex: 1;
     min-width: 0;
@@ -286,7 +300,7 @@
 
   /* Chunky arcade button: a hard offset shadow that collapses on press,
      instead of a hover-only affordance, so it reads as physically pressable. */
-  #featureChatForm button, #reportBugLink {
+  #featureChatForm button {
     font-family: "Press Start 2P", system-ui, sans-serif;
     font-size: 10px;
     cursor: pointer;
@@ -295,14 +309,9 @@
     border: 2px solid var(--ink);
     border-radius: 6px;
     box-shadow: 0 3px 0 var(--ink);
-  }
-  #featureChatForm button { padding: 8px 12px; }
-  #reportBugLink {
-    display: inline-block;
     padding: 8px 12px;
-    text-decoration: none;
   }
-  #featureChatForm button:active, #reportBugLink:active {
+  #featureChatForm button:active {
     box-shadow: none;
     transform: translateY(3px);
   }
@@ -349,15 +358,15 @@
 </dl>
 
 <details id="featureChat">
-  <summary>&#x1F4AC; Got an idea? Tell us as you play</summary>
+  <summary>&#x1F4AC; Got an idea or found a bug? Tell us as you play</summary>
   <div id="featureChatLog" aria-live="polite"></div>
   <form id="featureChatForm">
-    <input id="featureChatInput" type="text" placeholder="Suggest a feature&hellip;" aria-label="Suggest a feature" autocomplete="off">
+    <label class="chatKindLabel"><input type="radio" name="chatKind" value="feature" checked> Idea</label>
+    <label class="chatKindLabel"><input type="radio" name="chatKind" value="bug"> Bug</label>
+    <input id="featureChatInput" type="text" placeholder="Suggest a feature or describe a bug&hellip;" aria-label="Suggest a feature or describe a bug" autocomplete="off">
     <button type="submit">Send</button>
   </form>
 </details>
-
-<p><a href="#" id="reportBugLink">Report a bug</a></p>
 <p id="sweepStatus"></p>
 
 <details id="changelog">
@@ -918,7 +927,15 @@
 
   function pieceGlyphHtml(piece) {
     if (!piece) return "";
-    return `<span class="piece">${SYMBOLS[piece] || ""}</span>`;
+    // Unicode's "white" pieces (K/Q/R/B/N/P) are hollow-outline glyphs --
+    // rendered in the same pale --cream as everything else, that thin
+    // outline nearly vanished against the light squares (hsl(0,0%,74%)),
+    // reported by several players independently. data-side="w" gets a dark
+    // halo below (see .piece[data-side="w"]) so the hollow shape reads as a
+    // solid piece regardless of square shade; solid "black" glyphs already
+    // have enough fill to read fine unchanged.
+    const side = isWhitePiece(piece) ? "w" : "b";
+    return `<span class="piece" data-side="${side}">${SYMBOLS[piece] || ""}</span>`;
   }
   const boardElement = document.querySelector("table");
   const capturedElement = document.querySelector("output");
@@ -1606,30 +1623,12 @@
       .catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
   }
 
-  // A tester's one-line bug report plus whatever position they're looking at
-  // (the URL already encodes fen/floor/budget/captured/maxRank). `kind: "bug"`
-  // keeps this apart from feature requests (see the chat form below) at the
-  // source instead of relying on triage to guess intent from free text later.
-  async function reportBug() {
-    if (!LEADERBOARD_URL) { alert("Leaderboard isn't configured, so there's nowhere to send this yet."); return; }
-    const description = prompt("What went wrong? (the current position's URL is attached automatically)");
-    if (!description) return;
-    // Waits for and checks the response instead of firing an unconditional
-    // "Thanks!" -- otherwise there's no way to tell a report saved from one
-    // that silently failed.
-    try {
-      const res = await postToLeaderboard({ type: "bug", kind: "bug", name: getPlayerName(), url: location.href, description });
-      const data = await res.json();
-      alert(data && data.ok ? "Thanks, reported!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.");
-    } catch (err) {
-      alert("Couldn't reach the leaderboard -- report not sent. Check your connection and try again.");
-    }
-  }
-
-  // Feature requests get a standing chat box instead of a one-shot prompt(),
-  // so a player can suggest something mid-run and see it (and the reply)
-  // logged right there, rather than a modal dialog interrupting play. Posts
-  // through the same endpoint/kind as before -- just a friendlier front end.
+  // A single chat box handles both feature ideas and bug reports (the
+  // "Idea"/"Bug" radio picks `kind`) -- a one-shot prompt() used to cover
+  // bugs separately, but Chrome's popup blocker silently ate it for enough
+  // players that several bug reports were filed *about* the bug-report
+  // button itself. The chat form was already popup-blocker-safe, so bugs
+  // just needed the same front end feature requests already had.
   function appendChatBubble(text, from) {
     const log = document.getElementById("featureChatLog");
     const p = document.createElement("p");
@@ -1644,11 +1643,12 @@
     const input = document.getElementById("featureChatInput");
     const description = input.value.trim();
     if (!description) return;
+    const kind = document.querySelector('input[name="chatKind"]:checked').value;
     input.value = "";
     appendChatBubble(description, "you");
     if (!LEADERBOARD_URL) { appendChatBubble("Not configured yet, so this didn't send.", "team"); return; }
     try {
-      const res = await postToLeaderboard({ type: "bug", kind: "feature", name: getPlayerName(), url: location.href, description });
+      const res = await postToLeaderboard({ type: "bug", kind, name: getPlayerName(), url: location.href, description });
       const data = await res.json();
       appendChatBubble(data && data.ok ? "Thanks, logged!" : "Sent, but didn't get a clear confirmation back -- it may not have saved.", "team");
     } catch (err) {
@@ -1884,11 +1884,6 @@
     updateUrl();
     renderBoard();
   }
-
-  document.getElementById("reportBugLink").addEventListener("click", e => {
-    e.preventDefault();
-    reportBug();
-  });
 
   // A plain "index1.html" href broke on any deployment serving this file
   // under a different name/path -- location.pathname resets to floor 1

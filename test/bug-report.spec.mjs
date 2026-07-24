@@ -1,8 +1,11 @@
-// "Report a bug" (a prompt()) and the feature-request chat box both post
-// through the same endpoint, parameterized by kind -- pins that each actually
-// sends the kind its UI promises, since a copy/paste slip between the two
-// would silently misfile every feature idea as a bug (or vice versa) with no
-// error anywhere.
+// Bug reports and feature requests share one chat box (a "Bug"/"Idea" radio
+// picks `kind`) -- both post through the same endpoint, parameterized by
+// kind. A one-shot prompt() used to handle bugs separately, but Chrome's
+// popup blocker silently ate it for enough players that it generated its own
+// bug reports; folded into the chat form since that was already
+// popup-blocker-safe. Pins that each radio choice actually sends the kind
+// its UI promises, since a copy/paste slip between the two would silently
+// misfile every feature idea as a bug (or vice versa) with no error anywhere.
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
@@ -20,11 +23,13 @@ async function routePosts(page) {
   return posted;
 }
 
-test("\"Report a bug\" link posts kind: bug", async ({ page }) => {
+test("chat box posts kind: bug when the Bug radio is selected", async ({ page }) => {
   const posted = await routePosts(page);
   await page.goto(GAME_URL);
-  await page.evaluate(answer => { window.prompt = () => answer; }, "it broke");
-  await page.click("#reportBugLink");
+  await page.click("#featureChat summary"); // open the <details>
+  await page.check('input[name="chatKind"][value="bug"]');
+  await page.fill("#featureChatInput", "it broke");
+  await page.click("#featureChatForm button[type=submit]");
   await page.waitForTimeout(200);
   const post = posted.find(p => p.type === "bug");
   expect(post).toBeTruthy();
@@ -32,7 +37,7 @@ test("\"Report a bug\" link posts kind: bug", async ({ page }) => {
   expect(post.description).toBe("it broke");
 });
 
-test("feature-request chat box posts kind: feature and echoes both bubbles", async ({ page }) => {
+test("feature-request chat box posts kind: feature (default) and echoes both bubbles", async ({ page }) => {
   const posted = await routePosts(page);
   await page.goto(GAME_URL);
   await page.click("#featureChat summary"); // open the <details>
