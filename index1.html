@@ -658,7 +658,13 @@
   // A pawn reaching its far rank promotes by spending one captured piece
   // of the matching type from the opponent out of `capturedPool` -- never
   // a free promotion. Picks the strongest available type; leaves the pawn
-  // a pawn if nothing promotable has been captured yet.
+  // a pawn if nothing promotable has been captured yet -- EXCEPT a Black
+  // pawn with nothing to promote into, which instead marches off the board
+  // (piece: "") rather than sitting on rank 1 forever as a stuck blocker
+  // (repeated tracker reports, e.g. 2026-07-20T17:52/17:53 -- a stalemate
+  // that comes purely from pawns feels like a dead end, not a puzzle).
+  // White's own promotion is never auto-resolved here (see makeMove's
+  // manual dialog), so this only ever fires for Black's own moves.
   function autoPromote(piece, toY, capturedPool) {
     const isWhite = isWhitePiece(piece);
     const promotionRow = isWhite ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
@@ -674,7 +680,7 @@
         return { piece: promoted, capturedPool: remaining };
       }
     }
-    return { piece, capturedPool };
+    return isWhite ? { piece, capturedPool } : { piece: "", capturedPool };
   }
 
   // Applies one move to a board, handling capture bookkeeping and

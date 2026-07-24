@@ -23,6 +23,34 @@ test("Black's reply correctly captures and auto-promotes (regression: makeMove/a
   expect(result).toEqual({ promoted: "q", vacated: "", captured: "" });
 });
 
+test("a Black pawn reaching rank 1 with nothing to promote into marches off the board instead of sticking (regression: repeated tracker reports of pawn-only stalemate, 2026-07-20)", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const result = await page.evaluate(() => {
+    const board = Array.from({ length: 9 }, () => Array(8).fill(""));
+    board[7][4] = "p"; // one step from Black's promotion row (8)
+    board[8][0] = "K";
+    const { nextBoard, pool } = applyMove(board, { piece: "p", fromX: 4, fromY: 7, toX: 4, toY: 8 }, "");
+    return { landedSquare: nextBoard[8][4], pool };
+  });
+
+  expect(result).toEqual({ landedSquare: "", pool: "" }); // vanished, not stuck as a pawn
+});
+
+test("a Black pawn still promotes normally when a matching captured piece is available", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const result = await page.evaluate(() => {
+    const board = Array.from({ length: 9 }, () => Array(8).fill(""));
+    board[7][4] = "p";
+    board[8][0] = "K";
+    const { nextBoard, pool } = applyMove(board, { piece: "p", fromX: 4, fromY: 7, toX: 4, toY: 8 }, "Q");
+    return { landedSquare: nextBoard[8][4], pool };
+  });
+
+  expect(result).toEqual({ landedSquare: "q", pool: "" });
+});
+
 test("loads with no console or page errors", async ({ page }) => {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
