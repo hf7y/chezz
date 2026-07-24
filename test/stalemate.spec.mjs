@@ -84,6 +84,39 @@ test("with no snapshot, a deadlock still resolves by respawning from survivors",
   expect(hasMoveAfter).toBe(true); // survivor respawn guarantees a playable start
 });
 
+test("checkStalemate reports whether it reset, and the UI surfaces that as a message (regression: 2026-07-16T11:51:25.998Z, silent reset read as a free move)", async ({ page }) => {
+  await page.goto(GAME_URL);
+
+  const result = await page.evaluate(([boxedBoard]) => {
+    // No reset: a normal position returns false and leaves the message empty.
+    state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+    state.board[8][4] = "K";
+    state.turn = "w";
+    const noResetReturn = checkStalemate();
+
+    // Now force an actual reset and drive it through the same call site the
+    // Black-move loop uses.
+    floorStart = null;
+    state.board = boxedBoard;
+    state.floor = 2;
+    state.captured = "";
+    state.lastSpawnBudget = 0;
+    state.turn = "w";
+    const resetReturn = checkStalemate();
+    if (resetReturn) announceStalemateReset();
+
+    return {
+      noResetReturn,
+      resetReturn,
+      message: document.getElementById("floorMessage").textContent,
+    };
+  }, [BOXED_WHITE()]);
+
+  expect(result.noResetReturn).toBe(false);
+  expect(result.resetReturn).toBe(true);
+  expect(result.message.length).toBeGreaterThan(0);
+});
+
 test("Black having no moves does NOT reset the floor -- only a White deadlock does", async ({ page }) => {
   await page.goto(GAME_URL);
 

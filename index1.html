@@ -253,6 +253,17 @@
   }
   #thinkingIndicator:empty { display: none; }
 
+  /* Stalemate used to silently reset the floor with zero feedback
+     (2026-07-16T11:51:25.998Z: "should trigger some kind of notification").
+     Same transient-text treatment as #thinkingIndicator above. */
+  #floorMessage {
+    margin: -8px 0 10px;
+    font-size: 12px;
+    color: var(--gold);
+    min-height: 0;
+  }
+  #floorMessage:empty { display: none; }
+
   dialog {
     position: absolute;
     margin: 0;
@@ -359,6 +370,7 @@
 <h1><a href="#" id="resetLink">Chezz</a></h1>
 <div id="campaignBanner"></div>
 <div id="thinkingIndicator" aria-live="polite"></div>
+<div id="floorMessage" aria-live="polite"></div>
 
 <table aria-label="Chess board"></table>
 <p>Captured: <output></output></p>
@@ -401,8 +413,17 @@
   <ol id="changelogList"></ol>
   <p class="cl-foot"><a id="changelogSource" href="#" target="_blank" rel="noopener">View the full tracker &#x2197;</a></p>
 </details>
+<p id="appVersion" style="opacity:.6; font-size:11px;"></p>
 
 <script>
+  // Bumped by hand on every substantive index1.html change (2026-07-15
+  // tracker report: "introduce version number... to see whether live
+  // (hosted at ocf) is different than other"). Carried into the URL (see
+  // updateUrl) so a bug report's link shows which build it was filed
+  // against, and displayed in the footer for a quick eyeball diff between
+  // deployments without needing devtools.
+  const APP_VERSION = "2026-07-24.5";
+
   // The rules of the world. Pieces are uppercase for White, lowercase for
   // Black. White's King reaching EXIT_ROW clears the floor.
   const BOARD_COLS = 8;
@@ -1061,7 +1082,7 @@
   // audited by just copying the address bar, and (via pushState) gives the
   // browser's own back button a working Undo with no on-page control needed.
   function updateUrl(push = false) {
-    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank, dateSeed: state.dateSeed });
+    const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank, dateSeed: state.dateSeed, v: APP_VERSION });
     if (state.captured) params.set("captured", state.captured);
     const url = "?" + params.toString();
     if (push) history.pushState(null, "", url);
@@ -1445,7 +1466,7 @@
   // Standing rule (human call, 2026-07-19, see .claude/QUESTIONS.md): the
   // run itself always stays alive -- never ends, never restarts floor 1.
   function checkStalemate() {
-    if (state.turn !== "w" || hasAnyLegalMove(state.board, true)) return;
+    if (state.turn !== "w" || hasAnyLegalMove(state.board, true)) return false;
     if (floorStart) {
       loadFen(floorStart);
       state.turn = "w";
@@ -1455,6 +1476,20 @@
       spawnBlackArmy();
       state.turn = "w";
     }
+    return true;
+  }
+
+  // Stalemate silently resetting the floor read as "a free move" with no
+  // feedback (2026-07-16T11:51:25.998Z tracker report). Reuses the same
+  // transient-text pattern as #thinkingIndicator -- plain text, no emoji,
+  // clears itself on the next real move.
+  function announceStalemateReset() {
+    const el = document.getElementById("floorMessage");
+    if (el) el.textContent = "No legal moves — floor reset.";
+  }
+  function clearFloorMessage() {
+    const el = document.getElementById("floorMessage");
+    if (el) el.textContent = "";
   }
 
   function hasBlackPieces(board) {
@@ -1615,7 +1650,10 @@
         state.captured = pool;
       }
       state.turn = "w";
-      checkFloorProgression(); checkStalemate(); updateUrl(false); renderBoard();
+      clearFloorMessage();
+      checkFloorProgression();
+      if (checkStalemate()) announceStalemateReset();
+      updateUrl(false); renderBoard();
       await wait(MOVE_PACING_MS);
     }
   }
@@ -2059,7 +2097,7 @@
     selected = null; promotion = null;
     promotionElement.close();
     if (!state.spawned) spawnBlackArmy();
-    checkStalemate();
+    if (checkStalemate()) announceStalemateReset();
     updateUrl();
     renderBoard();
   }
@@ -2071,6 +2109,8 @@
     e.preventDefault();
     location.href = location.pathname;
   });
+
+  document.getElementById("appVersion").textContent = "v" + APP_VERSION;
 
   window.addEventListener("popstate", loadFromUrl);
   loadFromUrl();
