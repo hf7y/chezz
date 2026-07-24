@@ -39,7 +39,7 @@ test("playtest the full campaign, continuously", async ({ page }) => {
       for (let y = 0; y < board.length; y++) {
         for (let x = 0; x < board[y].length; x++) {
           const piece = board[y][x];
-          if (!piece || isWhitePiece(piece) !== forWhite) continue;
+          if (!piece || isTerrain(piece) || isWhitePiece(piece) !== forWhite) continue;
           for (const m of legalMovesForPiece(board, piece, x, y)) {
             moves.push({ piece, fromX: x, fromY: y, toX: m.x, toY: m.y });
           }
@@ -60,7 +60,7 @@ test("playtest the full campaign, continuously", async ({ page }) => {
       const otherWhiteYs = [];
       for (let y = 0; y < board.length; y++) {
         for (const c of board[y]) {
-          if (!c) continue;
+          if (!c || isTerrain(c)) continue; // terrain (walls/holes) is not White material -- see DESIGN-NOTES.md "Terrain"
           score += VALUES[c] || 0;
           if (c === "K") whiteKingY = y;
           else if (isWhitePiece(c)) otherWhiteYs.push(y);
@@ -130,7 +130,7 @@ test("playtest the full campaign, continuously", async ({ page }) => {
       const floorLog = [];
 
       while (state.floor <= NARRATIVE_STAGES.length) {
-        const whiteArmyAtStart = state.board.flat().filter(c => c && isWhitePiece(c)).join("");
+        const whiteArmyAtStart = state.board.flat().filter(c => c && !isTerrain(c) && isWhitePiece(c)).join("");
         const poolAtStart = state.captured;
         let pliesThisFloor = 0;
         let clearedFloor = false;

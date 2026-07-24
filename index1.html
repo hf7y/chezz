@@ -197,6 +197,18 @@
   /* King in check: a red glow on the King and on whatever's attacking it. */
   td[data-threat] { box-shadow: 0 0 0 3px #ff3860 inset, 0 0 14px 4px rgba(255, 56, 96, 0.8); }
 
+  /* Terrain (priority queue item 4): impassable squares, monochrome like
+     everything else on this board (repeated reporter ask, no saturated
+     hue) -- a wall is a solid raised block, a hole is a dark sunken void.
+     Neither is a piece, so no data-side glyph is rendered inside. */
+  td[data-terrain="wall"] {
+    background: repeating-linear-gradient(45deg, rgba(232, 232, 232, 0.35) 0 4px, rgba(120, 120, 120, 0.35) 4px 8px);
+  }
+  td[data-terrain="hole"] {
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.55) 70%);
+    box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.6) inset;
+  }
+
   td[data-dragging] { opacity: 0.35; }
 
   /* Plays once per newly-spawned floor (class is added/removed in JS, not
@@ -385,6 +397,19 @@
   const WHITE_PROMOTION_ROW = 1;
   const BLACK_PROMOTION_ROW = BOARD_ROWS - 1;
 
+  // Terrain: neither side's piece, never capturable, blocks landing and
+  // sliding through for everyone. A wall is boss-gated (see
+  // dropWallIfBossDefeated) and reverts to an empty square once its
+  // stage's boss piece is off the board; a hole is permanent. Both are
+  // authored directly into NARRATIVE_STAGES row FEN strings -- parseFenRow
+  // already passes any non-digit character through literally, so no
+  // separate placement pass is needed for scripted floors.
+  const TERRAIN_WALL = "#";
+  const TERRAIN_HOLE = "X";
+  function isTerrain(piece) {
+    return piece === TERRAIN_WALL || piece === TERRAIN_HOLE;
+  }
+
   function isWhitePiece(piece) {
     return piece === piece.toUpperCase();
   }
@@ -429,12 +454,17 @@
     function isEnemy(x, y) {
       if (!inBounds(x, y)) return false;
       const target = board[y][x];
-      return target ? isWhitePiece(target) !== isWhite : false;
+      if (!target || isTerrain(target)) return false;
+      return isWhitePiece(target) !== isWhite;
     }
 
+    // Terrain blocks like a friendly piece (can't land on it, slides stop
+    // before it) but is never capturable, unlike an actual friendly piece
+    // that merely blocks -- isEnemy above already excludes it explicitly.
     function isFriendly(x, y) {
       if (!inBounds(x, y)) return false;
       const target = board[y][x];
+      if (isTerrain(target)) return true;
       return target ? isWhitePiece(target) === isWhite : false;
     }
 
@@ -954,7 +984,7 @@
   };
 
   function pieceGlyphHtml(piece) {
-    if (!piece) return "";
+    if (!piece || isTerrain(piece)) return "";
     // Unicode's "white" pieces (K/Q/R/B/N/P) are hollow-outline glyphs --
     // rendered in the same pale --cream as everything else, that thin
     // outline nearly vanished against the light squares (hsl(0,0%,74%)),
@@ -1080,10 +1110,20 @@
   // hand-tuned by playtesting before any randomization comes back.
   const NARRATIVE_STAGES = [
     { label: "First blood", rows: ["8", "8", "8", "8", "8", "4p3"] },
-    { label: "Two to take", rows: ["8", "8", "8", "8", "8", "2p2p2"] },
+    // Terrain (priority queue item 4, ~7-8 tracker reports asking for
+    // holes/walls on the pawn-fodder filler floors): two permanent holes
+    // (TERRAIN_HOLE) one row above the pawns, off the pawns' own files, so
+    // approaching the pawn row isn't a straight walk-up.
+    { label: "Two to take", rows: ["8", "8", "8", "8", "X6X", "2p2p2"] },
     { label: "A little further", rows: ["8", "8", "8", "8", "2p2p2", "8"] },
-    { label: "The Knight", rows: ["8", "8", "8", "3n4", "8", "8"] },
-    { label: "Building up", rows: ["8", "8", "8", "8", "1p2p2p", "8"] },
+    // Boss-gated wall (same tracker cluster, plus two reports specifically
+    // about this floor: "wall pops up... when the knight is captured,
+    // wall goes down"). wallRow/bossPiece are read by dropWallIfBossDefeated
+    // -- the wall blocks rows 7-8 (White's own start) from rows 1-6 except
+    // a 2-square gap, and reverts to open squares once the Knight (the
+    // stage's own boss piece) is captured.
+    { label: "The Knight", rows: ["8", "8", "8", "3n4", "8", "###11###"], wallRow: 6, bossPiece: "n" },
+    { label: "Building up", rows: ["8", "8", "8", "8", "1p2p2p", "3X2X1"] },
     { label: "Two Bishops", rows: ["8", "8", "8", "2b3b1", "8", "8"] },
     // Playtesting (see test/playtest-campaign.spec.mjs) found a lone Rook
     // is a genuine structural bottleneck, not a placement/ordering issue --
@@ -1131,11 +1171,24 @@
       });
       shifted.forEach((row, i) => { state.board[i + 1] = row; });
       if (!fallback) fallback = shifted;
-      const allSafe = shifted.every((row, i) => row.every((c, x) => !c || c === "p" || isSafeSquare(x, i + 1)));
+      const allSafe = shifted.every((row, i) => row.every((c, x) => !c || c === "p" || isTerrain(c) || isSafeSquare(x, i + 1)));
       if (allSafe) { fallback = shifted; break; }
     }
     fallback.forEach((row, i) => { state.board[i + 1] = row; });
     state.lastSpawnBudget = Math.max(state.lastSpawnBudget, armyCost(state.board));
+  }
+
+  // Boss-gated wall: if the current floor's stage names a wallRow/
+  // bossPiece and that boss is no longer anywhere on the board (captured),
+  // the wall reverts to open squares. Safe to call after every capture --
+  // a no-op on any floor/stage without a wallRow, and on a floor whose
+  // boss is still alive.
+  function dropWallIfBossDefeated() {
+    const stage = NARRATIVE_STAGES[state.floor - 1];
+    if (!stage || stage.wallRow == null) return;
+    const bossAlive = state.board.some(row => row.includes(stage.bossPiece));
+    if (bossAlive) return;
+    state.board[stage.wallRow] = state.board[stage.wallRow].map(c => c === TERRAIN_WALL ? "" : c);
   }
 
   // World generation: populate the floor with a black army -- a scripted
@@ -1399,7 +1452,7 @@
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
         const p = state.board[y][x];
-        if (p && p !== "K" && isWhitePiece(p) && y !== kingRow) pieces.push({ x, y, p });
+        if (p && p !== "K" && !isTerrain(p) && isWhitePiece(p) && y !== kingRow) pieces.push({ x, y, p });
       }
     }
     pieces.sort((a, b) => (FORMATION_VALUE[b.p.toLowerCase()] || 0) - (FORMATION_VALUE[a.p.toLowerCase()] || 0));
@@ -1498,6 +1551,7 @@
     state.board[toY][toX] = movingPiece;
     state.board[fromY][fromX] = "";
     state.turn = "b";
+    dropWallIfBossDefeated();
 
     // Formation-follow (DESIGN-NOTES.md, "Auto-march -- REFINED"): once the
     // King steps somewhere and no Black pieces remain on the board (the
@@ -1668,7 +1722,7 @@
     if (!cell || promotion || state.turn !== "w") return;
     const { x, y } = cellCoords(cell);
     const piece = state.board[y][x];
-    const hasOwnPiece = !!piece && isWhitePiece(piece);
+    const hasOwnPiece = !!piece && !isTerrain(piece) && isWhitePiece(piece);
     if (!hasOwnPiece && !selected) return; // nothing here to pick up, and no pending move to complete
     e.preventDefault(); // stop the browser from racing this with its own long-press/selection gesture
     const threshold = e.pointerType === "mouse" ? DRAG_THRESHOLD : TOUCH_DRAG_THRESHOLD;
@@ -1943,7 +1997,9 @@
         const threat = threats.has(`${x},${y}`) ? " data-threat" : "";
         const dangerLevel = legalTargets.get(`${x},${y}`);
         const legal = dangerLevel ? ` data-legal="${dangerLevel}"` : "";
-        html += `<td${sel}${threat}${legal}>${pieceGlyphHtml(state.board[y][x])}</td>`;
+        const cell = state.board[y][x];
+        const terrain = cell === TERRAIN_WALL ? ` data-terrain="wall"` : cell === TERRAIN_HOLE ? ` data-terrain="hole"` : "";
+        html += `<td${sel}${threat}${legal}${terrain}>${pieceGlyphHtml(cell)}</td>`;
       }
       html += `</tr>`;
     }
