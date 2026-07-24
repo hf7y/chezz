@@ -101,3 +101,42 @@ test("The Knight stage's wall blocks the gap-free columns and drops once the Kni
   expect(result.beforeHasGap).toBe(true); // never a full-width, unpassable block
   expect(result.afterAllOpen).toBe(true);
 });
+
+test("Two Bishops' wall stays up until BOTH bishops are captured, not just one", async ({ page }) => {
+  const stage = await page.evaluate(() => NARRATIVE_STAGES.find(s => s.label === "Two Bishops"));
+  expect(stage.wallRow).toBeTruthy();
+  expect(stage.bossPiece).toBe("b");
+
+  const result = await page.evaluate(() => {
+    state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+    state.board[8][4] = "K";
+    state.floor = NARRATIVE_STAGES.findIndex(s => s.label === "Two Bishops") + 1;
+    state.lastSpawnBudget = 0;
+    spawnBlackArmy();
+
+    const wallRow = NARRATIVE_STAGES[state.floor - 1].wallRow;
+    const beforeHasWall = state.board[wallRow].some(c => c === "#");
+
+    // Capture only the first bishop found -- the wall must stay up.
+    for (let y = 0; y < state.board.length; y++) {
+      const bx = state.board[y].indexOf("b");
+      if (bx !== -1) { state.board[y][bx] = ""; break; }
+    }
+    dropWallIfBossDefeated();
+    const afterOneStillWall = state.board[wallRow].some(c => c === "#");
+
+    // Now capture the second (and last) bishop -- the wall should drop.
+    for (let y = 0; y < state.board.length; y++) {
+      const bx = state.board[y].indexOf("b");
+      if (bx !== -1) { state.board[y][bx] = ""; break; }
+    }
+    dropWallIfBossDefeated();
+    const afterBothAllOpen = state.board[wallRow].every(c => c === "");
+
+    return { beforeHasWall, afterOneStillWall, afterBothAllOpen };
+  });
+
+  expect(result.beforeHasWall).toBe(true);
+  expect(result.afterOneStillWall).toBe(true);
+  expect(result.afterBothAllOpen).toBe(true);
+});

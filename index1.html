@@ -1130,7 +1130,12 @@
     // stage's own boss piece) is captured.
     { label: "The Knight", rows: ["8", "8", "8", "3n4", "8", "###11###"], wallRow: 6, bossPiece: "n" },
     { label: "Building up", rows: ["8", "8", "8", "8", "1p2p2p", "3X2X1"] },
-    { label: "Two Bishops", rows: ["8", "8", "8", "2b3b1", "8", "8"] },
+    // Boss-gated wall (tracker report 2026-07-17T04:36:10.534Z: "bishops
+    // here should come with back wall. you need to defeat them to open
+    // it.") -- same mechanism as The Knight's wallRow/bossPiece above, now
+    // that terrain exists. bossPiece "b" covers both Bishops: the wall only
+    // drops once neither is left anywhere on the board.
+    { label: "Two Bishops", rows: ["8", "8", "8", "2b3b1", "8", "###11###"], wallRow: 6, bossPiece: "b" },
     // Playtesting (see test/playtest-campaign.spec.mjs) found a lone Rook
     // is a genuine structural bottleneck, not a placement/ordering issue --
     // it can perpetually retreat along its own rank/file to dodge capture
