@@ -50,3 +50,17 @@ delete its line by hand — that still works.
      no unattended cron at all).
   > (answer inline here)
 
+- **2026-07-24 (nightly): should a spawned Black pawn ever be allowed to
+  hang (attackable for a free capture) right on arrival?**
+  Recurring cluster, at least 4 separate reports since 2026-07-18-20
+  (e.g. "black pawn spawns hanging, major problem", "should not spawn
+  under threat", "pawns should never hang on load"). Current design is
+  intentional, not a bug: `isSafeSquare` in index1.html explicitly skips
+  the free-capture check for pawns because "pawns are meant to stand in
+  the open" (spawn-safety guarantees only cover the King and non-pawn
+  pieces). One report explicitly asks to override that design. This is a
+  real balance/risk-reward call, not a defect -- overriding it removes a
+  source of early free material for the player, which changes difficulty
+  tuning on the fodder floors terrain was just added to. Deferring
+  instead of guessing given how often it recurs.
+  > (answer inline here)
