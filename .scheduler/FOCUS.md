@@ -144,8 +144,17 @@ short list.)
    popup blocked by Chrome's popup blocker -- screenshot-verify and fix.
 2. Move-into-check (King-only illegal-to-hang) + the `.scheduler/`
    migration.
-3. Auto-march drag interaction (King first, formation-follow falls out
-   of it) -- see DESIGN-NOTES.md before implementing.
+3. **DONE 2026-07-24 (nightly-batch, `1f51a1e`).** Auto-march drag
+   interaction: dragging a piece snaps to whichever legal move is
+   geometrically closest to the release point (works for every piece,
+   including the Knight's flagged pathing problem -- solved as
+   nearest-by-distance, no animated walk). Formation-follow fell out of
+   it as designed: once the King moves with no Black pieces left on the
+   board, surviving pieces auto-rank-up onto the King's new rank
+   (strongest first, naive). Not done: the animated "step one square at
+   a time" walking visual and the Knight's "circles around" flavor --
+   both explicitly flagged as follow-up polish in DESIGN-NOTES.md, not
+   blockers.
 4. Terrain: walls (boss-gated) + holes (impassable), sequenced after 3.
 5. Material-sufficiency: strengthen the tuning proxy (deeper search,
    real king-safety/tactical eval) -- can run in parallel with 3/4.
