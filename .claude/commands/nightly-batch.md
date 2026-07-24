@@ -2,26 +2,26 @@
 description: Nightly thorough pass -- feature work, redesigns, refactors too big for the bug sweeper, scoped by FOCUS.md
 ---
 
-Read `.claude/FOCUS.md` first. Everything below is scoped BY that file --
+Read `.scheduler/FOCUS.md` first. Everything below is scoped BY that file --
 if an accumulated idea in the tracker or backlog is not in service of the
 current focus, write it up in the report as deferred; do not implement it
 just because it is easy or already sitting there.
 
 This command is designed to run unattended overnight, with no human
 review step until the morning. When something needs a human call, defer
-it with a clear note in the report AND append it to `.claude/QUESTIONS.md`
+it with a clear note in the report AND append it to `.scheduler/QUESTIONS.md`
 (see step 1 and step 5) rather than guessing.
 
 ## 1. Orient
 
 `git log --oneline -10`, current branch state, `README.md` if one exists,
-and `.claude/FOCUS.md`. If the previous nightly run left work in progress
+and `.scheduler/FOCUS.md`. If the previous nightly run left work in progress
 (check the last report under `~/reports/chezz/`), pick up from there
 rather than starting over. Also fetch the full tracker backlog with
 `&status=all&type=all` (see `leaderboard/Code.gs`'s doc comment) so
 nothing already resolved gets re-investigated.
 
-**Read `.claude/QUESTIONS.md` and process any answers.** The user replies
+**Read `.scheduler/QUESTIONS.md` and process any answers.** The user replies
 to a question inline, on a line starting with `> ` (a Markdown blockquote)
 directly under it — that file's own header documents the convention. For
 every question that now has a `> ` answer, treat it as authoritative human
@@ -83,7 +83,7 @@ machine boots up -- write for that, not for completeness's own sake.
 For anything that genuinely needs the user to decide — an ambiguous
 policy question, a real tradeoff, a "which of these two directions" fork,
 a feature you deferred pending direction — **append it to
-`.claude/QUESTIONS.md`**, not just the report. Append only; never
+`.scheduler/QUESTIONS.md`**, not just the report. Append only; never
 overwrite or trim existing entries (including any `> ` answers). Format:
 `- **YYYY-MM-DD (nightly): <question>**` followed by a short context
 paragraph, then a `  > (answer inline here)` placeholder line so the

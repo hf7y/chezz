@@ -30,7 +30,20 @@
          constraint (see the 2026-07-20 report). Do not implement, do not
          re-ask unless something material changes. -->
 
-<!-- QUEUED FOR NEXT BATCH (2026-07-20): migrate off `.claude/` for
+<!-- DONE 2026-07-24 (nightly-batch): migrated off `.claude/` for
+     FOCUS.md/QUESTIONS.md, mirroring the scheduler project's own fix --
+     both now live at `.scheduler/FOCUS.md`/`.scheduler/QUESTIONS.md` (real
+     files, git mv, history preserved). `.claude/commands/*.md` themselves
+     stayed put per the note below; their path references were updated to
+     point at the new location. Cross-project follow-up still needed, NOT
+     done here (out of this repo's scope): the scheduler project's own
+     `schedule/chezz.conf` needs `SCHEDULER_SUBDIR=".scheduler"` set so its
+     `focus/chezz.md`/`questions/chezz.md` symlinks re-point correctly --
+     flagging in tonight's report instead of editing that repo from here.
+
+     Original queueing note, left intact below for the historical record:
+
+     QUEUED FOR NEXT BATCH (2026-07-20): migrate off `.claude/` for
      FOCUS.md/QUESTIONS.md, mirroring the scheduler project's own fix.
      Root cause (confirmed by scheduler's own controlled A/B test): the
      Edit/Write tool hard-refuses `.claude/**` writes in unattended runs as

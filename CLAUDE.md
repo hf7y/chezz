@@ -4,9 +4,9 @@ A daily-seeded roguelike built on chess rules. Live at
 https://hf7y.github.io/chezz/. Full context lives in a few specific
 files, not here -- read them, don't duplicate them:
 
-- `.claude/FOCUS.md` -- what's in scope right now (short, changes often).
+- `.scheduler/FOCUS.md` -- what's in scope right now (short, changes often).
 - `DESIGN-NOTES.md` -- the durable vision/decision record.
-- `.claude/QUESTIONS.md` -- open questions awaiting a human answer.
+- `.scheduler/QUESTIONS.md` -- open questions awaiting a human answer.
 - `.claude/commands/bug-sweep.md`, `nightly-batch.md`, `ideate.md` -- the
   three standing modes this project runs in (fast mechanical fixes,
   unattended feature implementation, interactive triage/vision).

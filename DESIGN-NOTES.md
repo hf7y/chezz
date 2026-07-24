@@ -2,7 +2,7 @@
 
 The durable "big picture" doc for this project, mirroring how the
 `scheduler` project keeps its own `DESIGN-NOTES.md` at repo root, outside
-`.claude/`. `.claude/FOCUS.md` is the short, frequently-rewritten "what's
+`.claude/`. `.scheduler/FOCUS.md` is the short, frequently-rewritten "what's
 in scope right now" pointer nightly-batch reads first; this file is the
 longer-lived record of *why*, for a human or an autonomous run trying to
 reconstruct the whole shape of the project without re-deriving it from
@@ -268,7 +268,7 @@ Not acted on further until 2/3 are answered — the branch now exists and
 is safe either way, but registering it into the scheduler ecosystem is a
 real recurring-budget commitment that shouldn't be guessed into.
 
-## Priority order this unlocks (see `.claude/FOCUS.md` for the live queue)
+## Priority order this unlocks (see `.scheduler/FOCUS.md` for the live queue)
 
 Nightly-batch's ordinary job (oldest-first through the tracker, four-
 outcome triage) continues for everything not covered by this list — this

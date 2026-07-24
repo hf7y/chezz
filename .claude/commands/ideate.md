@@ -20,7 +20,7 @@ Pull real, current state before saying anything about status:
   `QUESTIONS.md` answer if one is sitting there, same as any other run).
 - The live tracker, `&status=all&type=all` (see `leaderboard/Code.gs`'s
   doc comment) -- don't trust a stale count from a prior report.
-- `DESIGN-NOTES.md`, `.claude/FOCUS.md`, `.claude/QUESTIONS.md` -- the
+- `DESIGN-NOTES.md`, `.scheduler/FOCUS.md`, `.scheduler/QUESTIONS.md` -- the
   existing priority queue and any already-decided direction. Don't re-ask
   a settled decision.
 - Scheduler cross-project state, read-only: `~/Documents/Project
@@ -57,12 +57,12 @@ re-confirmed):
   future sessions and nightly-batch need the "why," not just the "what."
   If a decision corrects or refines an earlier entry, say so explicitly
   and mark what changed rather than silently overwriting it.
-- Add or update the ordered priority list in `.claude/FOCUS.md`'s
+- Add or update the ordered priority list in `.scheduler/FOCUS.md`'s
   PRIORITY QUEUE block, pointing back at `DESIGN-NOTES.md` for detail --
   keep FOCUS.md itself short.
 - If a decision needs a follow-up the user (not nightly-batch) must
   answer -- scope, credentials, something outside this repo -- append a
-  real entry to `.claude/QUESTIONS.md`, not just a mention in this
+  real entry to `.scheduler/QUESTIONS.md`, not just a mention in this
   session's chat output.
 - **Do not write feature/game code in this step.** Implementation is
   `/nightly-batch`'s job, working the priority queue on its own schedule.

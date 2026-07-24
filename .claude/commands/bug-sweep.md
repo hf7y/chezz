@@ -57,7 +57,7 @@ description anyway, since a reporter can still misjudge their own report.
 Don't resolve balance/design/feature-idea reports as "fixed" on your own
 judgment, and don't implement a feature idea here in the Tier 1 sweep —
 that's deliberately not this tier's job even now that autopilot is on
-(see `.claude/FOCUS.md`): reclassifying into the feature backlog is what
+(see `.scheduler/FOCUS.md`): reclassifying into the feature backlog is what
 hands it to the nightly Tier 2 run (`.claude/commands/nightly-batch.md`),
 which is where feature implementation actually happens.
 
@@ -160,7 +160,7 @@ a judgment call in the summary, even if you didn't block on it.
 
 If the sweep surfaces something bigger than a routine tracker note — an
 ambiguous policy question, a real tradeoff, a "which of these two
-directions" fork — append it to `.claude/QUESTIONS.md` at the repo root
+directions" fork — append it to `.scheduler/QUESTIONS.md` at the repo root
 (create it with a one-line header if it somehow doesn't exist). Append
 only; never overwrite or trim existing entries (including any `> ` answers
 the user has written). Format: `- **YYYY-MM-DD (bug-sweep): <question>**`
