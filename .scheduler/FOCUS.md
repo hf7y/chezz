@@ -169,9 +169,10 @@ short list.)
 4. Terrain: walls (boss-gated) + holes (impassable), sequenced after 3.
 5. Material-sufficiency: strengthen the tuning proxy (deeper search,
    real king-safety/tactical eval) -- can run in parallel with 3/4.
-6. King->Queen: design-spec-first, not implementation scope yet -- write
-   the spec into `DESIGN-NOTES.md`, surface via `QUESTIONS.md` for a
-   human checkpoint before any game code.
+6. **DONE 2026-07-24 (nightly-batch): spec drafted** in DESIGN-NOTES.md
+   ("King->Queen -- design spec draft"), question surfaced in
+   QUESTIONS.md (1:1 replacement vs. two-piece escort mode). No
+   implementation yet -- awaiting that answer.
 
 Backup work when the feature backlog (below) is empty: Rook/Queen
 material-sufficiency (item 5) and the index1.html size budget

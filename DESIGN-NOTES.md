@@ -179,6 +179,66 @@ or re-ask:
    surface it via `QUESTIONS.md` for a checkpoint — not to start writing
    game code against a redesign this size without one.
 
+## King→Queen — design spec draft (2026-07-24, spec-first per priority queue item 6)
+
+Not implementation scope. Per FOCUS.md's priority queue item 6, this is a
+draft spec to review at a `QUESTIONS.md` checkpoint before any game code
+changes — the point of writing it down is to make the tradeoff concrete
+enough for the user to actually react to, not to pre-decide it.
+
+**The core tension it touches.** Today the entire risk/reward loop is
+built on the King being fragile: `k` moves one square like a real King,
+is worth `100000` in the search's material table (i.e. "never tradeable,
+game ends"), and `KING_SAFETY_WEIGHT` actively penalizes the King running
+ahead of its own material. Every floor's difficulty curve — terrain gate
+widths (DESIGN-NOTES item 2 above), swarm pressure in `evaluateBoard`,
+the King-only "can't hang" legality rule shipped 2026-07-24 — is tuned
+against "the King is one bad move from a run-ending capture." Swap the
+King for a Queen and that constraint disappears: a Queen can capture its
+way out of most tactical jams a King can't, so "one bad move" stops
+meaning anything.
+
+**What would have to change:**
+- **The exit-row win condition** (`EXIT_ROW`, `k`/`K` reaching it clears
+  the floor) needs a new anchor piece if the player piece is a Queen —
+  either the Queen itself carries the win condition (then it's simply
+  "King, but stronger," which may undersell the redesign — see the open
+  question below), or a separate King is reintroduced *behind* the Queen
+  as the thing that must reach the exit row while the Queen escorts/
+  clears a path, which is a materially different game (two-piece
+  objective, not one).
+- **Spawn/threat balance.** Every floor's Black spawn budget (`budget`
+  param visible in tracker report URLs) and the swarm/advancement eval
+  terms are calibrated against a King that dies to one hang. A Queen
+  survives encounters a King wouldn't, so either Black's budget scales up
+  materially (to restore the same felt difficulty) or the game becomes
+  meaningfully easier at every floor — that's a real tuning pass, not a
+  free variable swap.
+- **The King-only hang rule** (2026-07-24, `isLegalMove`/`kingSafeAfterMove`)
+  would need to either generalize to "the Queen can't hang" (weird — the
+  Queen is the strongest piece, disallowing free captures of it changes
+  what "risk" means for every other piece too) or get retired entirely in
+  favor of ordinary chess legality (nothing is illegal to hang) — a
+  design call, not a bug to fix either way.
+- **Promotion/carry-over.** Captured Black pieces currently promote into
+  White material via `autoPromote`; if the player piece is already a
+  Queen, "promote to Queen" (the normal chess default) needs a different
+  target, or promotion stops being interesting for the player's own piece
+  specifically (still fine for other carried pieces).
+
+**What stays the same:** board size/shape, terrain (walls/holes),
+Black's own piece roster and movement rules, the floor-progression/
+carry-over structure, the daily-seed determinism.
+
+**Open question to put in `QUESTIONS.md`:** is the goal "same game,
+stronger player piece" (Queen replaces King 1:1, everything above just
+gets re-tuned around a Queen's higher survivability), or "a genuinely
+different mode" (two-piece objective, Queen escorts a separate fragile
+King) — these are different-sized projects and the tracker reports
+driving this (recurring since 2026-07-14) don't disambiguate between
+them. Recommend surfacing that exact fork, not a general "should we do
+this" — the fork is the actual decision point.
+
 ## Deep feature ideas (recorded 2026-07-20, NOT scoped for implementation)
 
 User-originated ideas, deliberately captured here rather than left to
@@ -291,9 +351,10 @@ same account-wide usage budget both projects share).
    difficulty lever).
 5. Material-sufficiency tuning-proxy strengthening (parallel/backup —
    doesn't block 3/4).
-6. King→Queen design spec (write-up + `QUESTIONS.md` checkpoint, not
-   implementation) — lowest urgency of the four since it's genuinely
-   exploratory and the least reversible if rushed.
+6. **DONE 2026-07-24 (nightly-batch): spec draft written**, see "King→Queen
+   — design spec draft" above. Surfaced as a `QUESTIONS.md` checkpoint
+   (1:1 replacement vs. two-piece escort mode) — no implementation yet,
+   awaiting that answer.
 
 Ordinary tracker triage keeps running underneath all of this for reports
 that don't belong to any cluster above — don't let the vision roadmap

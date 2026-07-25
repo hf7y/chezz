@@ -64,3 +64,20 @@ delete its line by hand — that still works.
   tuning on the fodder floors terrain was just added to. Deferring
   instead of guessing given how often it recurs.
   > (answer inline here)
+
+- **2026-07-24 (nightly): King->Queen -- 1:1 replacement, or a two-piece
+  escort mode?**
+  Priority-queue item 6's spec draft is in `DESIGN-NOTES.md` ("King->Queen
+  -- design spec draft"). Recurring tracker cluster since at least
+  2026-07-14 ("what if the player piece were a Queen instead of a King")
+  doesn't disambiguate between two differently-sized projects: (a) the
+  Queen simply replaces the King everywhere, including carrying the
+  exit-row win condition, and every floor's spawn budget / eval weights /
+  the King-only can't-hang rule gets re-tuned around a much more durable
+  player piece -- or (b) a separate, still-fragile King is reintroduced
+  behind the Queen, so the objective becomes escorting the King to the
+  exit row while the Queen fights -- a genuinely different two-piece
+  objective, not a strength buff. No implementation should start until
+  this fork is picked; see the DESIGN-NOTES.md section for the full
+  breakdown of what else changes under each option.
+  > (answer inline here)
