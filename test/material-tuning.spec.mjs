@@ -10,15 +10,18 @@
 // Reliability caveat, confirmed by a direct check: a POSITIVE result
 // ("captured: true") is solid evidence -- a strategy the proxy actually
 // found and executed is a real existence proof, regardless of how weak the
-// proxy is. A NEGATIVE result ("ran-out-of-moves") is much weaker evidence
-// -- even Queen vs. an identical enemy Queen (fair material, no king to
-// distract either side) failed at 20 moves, then failed AGAIN at 60 moves
-// and at a deeper search, and twice lost outright (White's own King
-// captured) rather than merely stalling. That means this proxy's shallow
-// search and simple material-only eval have real defensive/tactical blind
-// spots -- treat "couldn't find it in N moves" as "inconclusive," not as
-// proof the material is insufficient, especially for the Rook/Queen
-// results below.
+// proxy is. A NEGATIVE result ("ran-out-of-moves") is weaker evidence, and
+// used to be much weaker before quiesce() below was added (2026-07-24):
+// depth-3 with a flat leaf eval had a real tactical blind spot -- "two
+// Bishops from Knight + N pawns" needed 4 extra pawns beyond the Knight
+// force under the old flat eval, but needs 0 once same-square capture
+// sequences are resolved past the horizon instead of misjudged at it. That
+// difference is exactly the kind of false-negative the old caveat warned
+// about, so treat a NEGATIVE result on the Rook/Queen encounters below as
+// still meaningfully more trustworthy than before, but a fixed depth-3
+// full-width search is still shallow -- a "couldn't find it in N moves"
+// result is evidence the material is a real bottleneck, not proof no
+// strategy exists.
 import { test } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
@@ -63,9 +66,38 @@ test("find minimal material for each canonical piece, chained", async ({ page })
       return score;
     }
 
+    // Quiescence: a raw depth-0 static eval misjudges any position mid-
+    // exchange (a piece that looks "won" at the horizon may just be about
+    // to get recaptured) -- so instead of evaluating flat, keep resolving
+    // the SAME square's capture/recapture thread until it settles. This is
+    // the strengthening this proxy's own doc comment above calls for: a
+    // negative ("ran-out-of-moves") result is only solid evidence once the
+    // horizon isn't hiding a tactic. Bounded to same-square recaptures only
+    // (like the real engine's quiesce), so cost stays proportional to
+    // however many pieces attack one square, not the branching factor.
+    function quiesce(board, pool, alpha, beta, whiteToMove, targetSquare) {
+      const standPat = evalBoard(board);
+      if (whiteToMove) { if (standPat >= beta) return standPat; if (standPat > alpha) alpha = standPat; }
+      else { if (standPat <= alpha) return standPat; if (standPat < beta) beta = standPat; }
+
+      let captures = collect(board, whiteToMove).filter(mv => board[mv.toY][mv.toX]);
+      if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
+      if (!captures.length) return standPat;
+
+      let best = whiteToMove ? -Infinity : Infinity;
+      for (const mv of captures) {
+        const { nextBoard, pool: nextPool } = applyMove(board, mv, pool);
+        const val = quiesce(nextBoard, nextPool, alpha, beta, !whiteToMove, { x: mv.toX, y: mv.toY });
+        if (whiteToMove) { if (val > best) best = val; if (val > alpha) alpha = val; }
+        else { if (val < best) best = val; if (val < beta) beta = val; }
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+
     function whiteSearch(board, pool, depth, alpha, beta, whiteToMove) {
       const moves = collect(board, whiteToMove);
-      if (depth === 0 || !moves.length) return evalBoard(board);
+      if (depth === 0 || !moves.length) return quiesce(board, pool, alpha, beta, whiteToMove, null);
       let best = whiteToMove ? -Infinity : Infinity;
       for (const mv of moves) {
         const { nextBoard, pool: nextPool } = applyMove(board, mv, pool);
