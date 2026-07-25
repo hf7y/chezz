@@ -746,11 +746,14 @@
     // fast on-ramp); every RANKS_PER_FLOOR floors after adds one more ply.
     const TARGET_DEPTH = Math.min(MIN_DEPTH + Math.floor(((floor || 1) - 1) / RANKS_PER_FLOOR), MAX_DEPTH);
 
-    // Just a safety valve now -- generous enough that TARGET_DEPTH usually
-    // finishes well within it, protecting a slow device or dense position
-    // from freezing the tab rather than deciding the AI's strength.
-    const SEARCH_DEADLINE_MS = 4000;
-    const deadline = Date.now() + SEARCH_DEADLINE_MS;
+    // Safety valve against a slow device/dense position freezing the tab --
+    // a node count, not wall-clock time. Date.now() made the same seeded
+    // position pick a different move depending on machine speed/load
+    // (ai-determinism.spec.mjs flaked once quiescence made the tree big
+    // enough to brush the old 4s deadline). Node count is fixed per
+    // position, so identical searches always hit the cap at the same spot.
+    const NODE_BUDGET = 30000;
+    let nodesSearched = 0;
     let hitDeadline = false;
 
     const pieceValues = {
@@ -896,7 +899,8 @@
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
       if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
-      if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
+      nodesSearched++;
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
 
       const moves = collectMoves(b, whiteToMove);
       // No legal moves isn't terminal (the real game just skips the turn) --
@@ -981,7 +985,7 @@
     let best = searchRoot(MIN_DEPTH, null, null);
     let prevScores = new Map(best.all.map(c => [moveKey(c), c.score]));
     for (let depth = MIN_DEPTH + 1; depth <= TARGET_DEPTH; depth++) {
-      if (Date.now() > deadline) break;
+      if (nodesSearched > NODE_BUDGET) break;
       hitDeadline = false;
       const attempt = searchRoot(depth, best.candidates[0], prevScores);
       if (hitDeadline || !attempt.candidates.length) break;
