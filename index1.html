@@ -1656,6 +1656,17 @@
       updateUrl(false); renderBoard();
       await wait(MOVE_PACING_MS);
     }
+
+    // Post-combat mode (no Black pieces left): keep the just-moved piece
+    // selected instead of dropping the selection, so repositioning several
+    // pieces in a row (tracker 2026-07-17T04:30) is a chain of taps on
+    // legal-move dots rather than a re-select-every-time. Guarded against
+    // floor progression having replaced the board out from under (toX,toY).
+    if (!hasBlackPieces(state.board)) {
+      const landed = state.board[toY] && state.board[toY][toX];
+      selected = (landed && !isTerrain(landed) && isWhitePiece(landed)) ? { x: toX, y: toY } : null;
+      renderBoard();
+    }
   }
 
   // --- Drag-to-move ---

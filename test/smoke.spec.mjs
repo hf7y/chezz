@@ -129,6 +129,28 @@ test("a jittery touch tap still selects (regression: ghost-glitch fix)", async (
   expect(selected).toBe(true);
 });
 
+test("post-combat mode (no Black pieces) keeps the moved piece selected, not deselected (tracker 2026-07-17T04:30)", async ({ page }) => {
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-8-N6K_w&floor=1&spawned=1&budget=1&maxRank=0");
+
+  const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true };
+  await page.evaluate((base) => {
+    function knightCell() { return [...document.querySelectorAll("td")].find(td => td.textContent.includes("♘")); }
+    function center(el) { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width }; }
+    const el = knightCell();
+    const c = center(el);
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: c.x, clientY: c.y }));
+    document.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: c.x + c.w * 2, clientY: c.y - c.w }));
+    document.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: c.x + c.w * 2, clientY: c.y - c.w }));
+  }, base);
+  await page.waitForTimeout(400); // makeMove's Black-reply phase (no-op here) plus MOVE_PACING_MS
+
+  const stillSelectedOnKnight = await page.evaluate(() => {
+    const sel = document.querySelector("td[data-selected]");
+    return !!sel && sel.textContent.includes("♘");
+  });
+  expect(stillSelectedOnKnight).toBe(true);
+});
+
 test("selection highlight is an inset box-shadow, not an outline (regression: overlap fix)", async ({ page }) => {
   // An outline extends past the cell's own box and can get painted over by
   // a neighboring square; box-shadow inset draws inside it instead. Locks
