@@ -150,8 +150,11 @@ for the spec this satisfies. Full rationale for each item stays in the
 comment above and in `DESIGN-NOTES.md`; this is deliberately just the
 short list.)
 
-1. Urgent, small: white-piece visibility on light squares + bug-report
-   popup blocked by Chrome's popup blocker -- screenshot-verify and fix.
+1. **DONE 2026-07-24 (nightly-batch, `cbf2fca`).** White-piece
+   visibility on light squares + bug-report popup blocked by Chrome's
+   popup blocker -- fixed; bug reporting folded into the chat box.
+   (DONE marker added 2026-07-25 -- the work itself shipped 07-24 but
+   this list entry was never updated.)
 2. **DONE 2026-07-24 (nightly-batch, `2783c357`).** Move-into-check
    (King-only illegal-to-hang) + the `.scheduler/` migration (also done,
    see the DONE note above).
@@ -166,7 +169,10 @@ short list.)
    a time" walking visual and the Knight's "circles around" flavor --
    both explicitly flagged as follow-up polish in DESIGN-NOTES.md, not
    blockers.
-4. Terrain: walls (boss-gated) + holes (impassable), sequenced after 3.
+4. **DONE 2026-07-24 (nightly-batch, `ebdb1dc` + `b425d79`).** Terrain:
+   boss-gated walls + holes on the pawn-fodder floors; Two Bishops floor
+   got a boss-gated back wall via the same mechanism. (DONE marker added
+   2026-07-25 -- shipped 07-24, list entry never updated.)
 5. Material-sufficiency: strengthen the tuning proxy (deeper search,
    real king-safety/tactical eval) -- can run in parallel with 3/4.
 6. **DONE 2026-07-24 (nightly-batch): spec drafted** in DESIGN-NOTES.md
@@ -265,7 +271,17 @@ sandbox lacks are still genuinely out of reach here; don't force those).
 
 <!-- Appended by realisateur/fable-like/inject-suggestions.sh. Full context: fable-like/FABLE_REPORT.md. Triage these like any dated entries; delete freely. -->
 
-- **2026-07-25 (fable-review):** declare a stability milestone — the oldest project runs nightly at weight 1 with no bar; proposed: tracker-driven bug sweep re-enabled under the paced governor + one week green
-- **2026-07-25 (fable-review):** migrate .claude/ -> .scheduler/ to unblock unattended QUESTIONS.md writes (the sensitive-file gate), and retire chezz-nightly-batch-loop.sh for scheduler-run
-- **2026-07-25 (fable-review):** the staleness check silently no-op'd during the 2026-07-25 mega-burn — make it exit nonzero with a reason; sweep tier "PAUSED pending migration" since 07-19 needs an owner or an explicit park
-- **2026-07-25:** the `.claude/`→`.scheduler/` migration (4d01d7e) silently disabled the pre-commit fast path. The hook skips the Playwright suite for "only docs/.claude files staged"; FOCUS.md/QUESTIONS.md now live in `.scheduler/`, so every docs-only commit runs all 75 tests (3.3 min measured today on a one-line FOCUS.md append). Add `.scheduler/` to the hook's docs allowlist — a rename that makes the cheap path stop matching is layer-not-replace at hook level.
+Triaged 2026-07-25 (nightly): all four entries dealt with or out of this
+repo's scope. (1) stability-milestone declaration, (3) staleness-check
+exit-nonzero + sweep-tier ownership -- both live in the scheduler/
+realisateur repos, not here; flagged in tonight's report, not actionable
+from this repo. (2) the `.claude/`->`.scheduler/` migration was already
+done 2026-07-24 (see DONE note above); the remaining halves
+(scheduler's `SCHEDULER_SUBDIR` conf line, retiring
+chezz-nightly-batch-loop.sh) are scheduler-side -- and the missing conf
+line actually bit on 2026-07-25: the human's 10:00 QUESTIONS.md edit
+landed in a header-only stub at the stale `.claude/` path (`7beef04`).
+Bridged in-repo tonight: `.claude/FOCUS.md` and `.claude/QUESTIONS.md`
+are now symlinks to the `.scheduler/` originals, so stale-path
+reads/writes hit the real files; see QUESTIONS.md's 2026-07-25 entry.
+(4) pre-commit docs fast-path: DONE, `95cc235`.
