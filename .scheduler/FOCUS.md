@@ -178,6 +178,14 @@ Backup work when the feature backlog (below) is empty: Rook/Queen
 material-sufficiency (item 5) and the index1.html size budget
 investigation (~84.7KB against a 50KB soft target).
 
+**index1.html size is now urgent, not just a backup-tier investigation
+(2026-07-24 nightly):** 97,463 bytes against the 100,000-byte hard cap --
+only ~2.5KB of headroom left. Question filed in QUESTIONS.md (raise the
+cap / split the single-file architecture / trim comments with sign-off).
+Until that lands, weigh any further feature that adds real bytes to
+index1.html against how little room is left -- a build that fails
+`check-size` outright is worse than deferring one more feature a night.
+
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project
 again unless they want to -- players submit ideas through the in-game

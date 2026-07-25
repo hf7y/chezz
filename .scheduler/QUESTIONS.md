@@ -81,3 +81,38 @@ delete its line by hand — that still works.
   this fork is picked; see the DESIGN-NOTES.md section for the full
   breakdown of what else changes under each option.
   > (answer inline here)
+
+- **2026-07-24 (nightly): index1.html size -- raise the cap, split the
+  single-file architecture, or trim comments with explicit sign-off?**
+  Now 97,463 bytes against a 50,000-byte soft target and 100,000-byte
+  hard cap -- only ~2.5KB of headroom left before the build itself starts
+  failing `check-size`, and every night's shipped work eats into that.
+  Comments are the single largest reducible chunk (~31KB, ~32% of the
+  file when last measured); no other real bloat found (no dead code, no
+  duplicate CSS, `NARRATIVE_STAGES` is proportional to its content). The
+  2026-07-14 standing call was explicitly to stop and revisit rather than
+  cut deeper into comments, so nightly-batch can't just trim its way out
+  of this on its own judgment. Three live options: raise the soft/hard
+  targets, split the deliberately-single-file architecture into separate
+  CSS/JS files (changes the no-build-step deploy story), or selectively
+  trim comments with your explicit go-ahead. This is now urgent enough
+  that continuing to add features without an answer risks a build that
+  fails outright mid-run.
+  > (answer inline here)
+
+- **2026-07-24 (nightly): should White get a background move-hint
+  ("best move" dots) once the engine finds one, if White hasn't moved
+  yet?**
+  Tracker `2026-07-20T04:02:46.442Z`: "use the engine to solve whites
+  best move quietly in the background... signal white's best suggestion
+  with dots" once it's ready. This is a genuine design fork, not an
+  engineering judgment call: it turns the game from "a puzzle the player
+  solves unaided" into "a puzzle with an available hint," which changes
+  the core challenge the same way the King->Queen and spawn-gating asks
+  do. It would also need engine time firing on White's side (today the
+  background search only ever runs for Black's reply) and some UI for the
+  suggestion dots, at a moment (see the size question above) where new
+  UI surface is a real cost, not a free add. Deferring pending a human
+  call on whether hints are wanted at all, and if so, always-on vs. an
+  opt-in toggle.
+  > (answer inline here)
