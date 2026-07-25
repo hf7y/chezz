@@ -260,3 +260,11 @@ sandbox lacks are still genuinely out of reach here; don't force those).
 ## Ideas (added via `scheduler -i`)
 
 - **2026-07-22 15:09 (via `scheduler -i`):** look into developments in Documents/Projects/realisateur and Documents/Project Archive/scheduler, including generalizations of chezz's own findings about ideate and vision debt. move towards the general project scaffold design rather than bespoke chezz implementations if straightforward, file questions if not
+
+## Fable review (2026-07-25)
+
+<!-- Appended by realisateur/fable-like/inject-suggestions.sh. Full context: fable-like/FABLE_REPORT.md. Triage these like any dated entries; delete freely. -->
+
+- **2026-07-25 (fable-review):** declare a stability milestone — the oldest project runs nightly at weight 1 with no bar; proposed: tracker-driven bug sweep re-enabled under the paced governor + one week green
+- **2026-07-25 (fable-review):** migrate .claude/ -> .scheduler/ to unblock unattended QUESTIONS.md writes (the sensitive-file gate), and retire chezz-nightly-batch-loop.sh for scheduler-run
+- **2026-07-25 (fable-review):** the staleness check silently no-op'd during the 2026-07-25 mega-burn — make it exit nonzero with a reason; sweep tier "PAUSED pending migration" since 07-19 needs an owner or an explicit park
