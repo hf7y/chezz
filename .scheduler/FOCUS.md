@@ -181,16 +181,21 @@ short list.)
    implementation yet -- awaiting that answer.
 
 Backup work when the feature backlog (below) is empty: Rook/Queen
-material-sufficiency (item 5) and the index1.html size budget
-investigation (~84.7KB against a 50KB soft target).
+material-sufficiency (item 5).
 
-**index1.html size is now urgent, not just a backup-tier investigation
-(2026-07-24 nightly):** 97,463 bytes against the 100,000-byte hard cap --
-only ~2.5KB of headroom left. Question filed in QUESTIONS.md (raise the
-cap / split the single-file architecture / trim comments with sign-off).
-Until that lands, weigh any further feature that adds real bytes to
-index1.html against how little room is left -- a build that fails
-`check-size` outright is worse than deferring one more feature a night.
+**Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
+supersedes the "urgent" 2026-07-24 block that used to sit here):** the
+byte limit is **abandoned for chezz narrative** (index1.html on `main`).
+`scripts/check-size.mjs` still prints the size every run (creep stays
+visible) but never fails the build and must never be used to pre-defer a
+feature. The limit is **enforced only on the `chezz-classic` branch**,
+whose focus is elegance/efficiency — long-term aspiration: fit a Game Boy
+classic cartridge; future dev passes on classic work toward simpler, not
+bigger. If classic ever exceeds its cap: fail loud and file a blocker to
+Zach (scheduler `BLOCKERS.md`, `## chezz`) to raise the threshold before
+continuing — never trim silently. Run checks AFTER doing the work, not as
+a reason to skip it. This unblocks material-sufficiency (item 5) and any
+byte-adding narrative feature previously held behind the size question.
 
 Current focus: **autopilot mode**. The user's explicit goal (confirmed
 2026-07-17) is to never have to open a Claude session for this project
@@ -231,8 +236,7 @@ For each report, pick one of four outcomes:
    reason to only analyze it -- nightly-batch has the same tools and a
    much bigger turn budget than the bug sweeper does.
 3. **Defer it, with a real reason.** Genuinely ambiguous requests (two
-   plausible, conflicting interpretations), requests that would blow the
-   50KB soft target further without a clear trim elsewhere, anything
+   plausible, conflicting interpretations), anything
    that reads as more of a redesign than a feature (touches core game
    rules, scoring, or the AI's search behavior), or anything that would
    require adding a NEW external service dependency (e.g. calling an
@@ -251,11 +255,7 @@ For each report, pick one of four outcomes:
 Backup work, when the feature backlog is empty or everything in it was
 just resolved/deferred: Rook/Queen material-sufficiency (see priority
 queue item 5 above -- decided direction is strengthening the tuning
-proxy, not playtesting) and the index1.html size budget (currently
-~84.7KB against a 50KB soft target, 100KB hard cap -- worth actually
-investigating what's bloating it, not just raising the target; still the
-user's 2026-07-14 standing call to stop and revisit rather than cut
-deeper into comments) -- plus any bug reports Tier 1 left open with
+proxy, not playtesting) -- plus any bug reports Tier 1 left open with
 "needs a human call" notes (real mobile-device or WebKit-only repros this
 sandbox lacks are still genuinely out of reach here; don't force those).
 

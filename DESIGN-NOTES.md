@@ -359,3 +359,27 @@ same account-wide usage budget both projects share).
 Ordinary tracker triage keeps running underneath all of this for reports
 that don't belong to any cluster above — don't let the vision roadmap
 starve routine mechanical fixes.
+
+## Size policy — decided 2026-07-25 (human reply in that day's report)
+
+The index1.html byte limit is **abandoned for chezz narrative** (the
+build on `main`, hosted publicly). The 2026-07-24 "only ~2.5KB of
+headroom, urgent" framing is retired: `scripts/check-size.mjs` now
+prints the size on every run (creep stays visible) but never fails the
+narrative build, and size must never again be the reason a feature is
+pre-deferred — do the work, run the checks after, and if a real limit is
+ever exceeded, be noisy about it (file a blocker to Zach in the
+scheduler repo's `BLOCKERS.md` `## chezz` section to raise the threshold
+before continuing) rather than quietly deferring or trimming.
+
+The limit stays **enforced only on the `chezz-classic` branch**. Classic
+is the elegance/efficiency track: future dev passes there work to make
+the project *simpler*, with a stated long-term aspiration of fitting on
+a Game Boy classic cartridge. Caps on classic remain 50,000 soft /
+100,000 hard for now (classic is currently well under; the Game Boy
+target is an aspiration to design toward, not tonight's threshold).
+
+This supersedes: the 2026-07-14 "stop and revisit rather than cut
+comments" call (narrative side — moot now that nothing needs cutting),
+and closes the 2026-07-24 QUESTIONS.md size question (answered; removed
+from QUESTIONS.md 2026-07-25).

@@ -82,42 +82,6 @@ delete its line by hand — that still works.
   breakdown of what else changes under each option.
   > (answer inline here)
 
-- **2026-07-24 (nightly): index1.html size -- raise the cap, split the
-  single-file architecture, or trim comments with explicit sign-off?**
-  Now 97,463 bytes against a 50,000-byte soft target and 100,000-byte
-  hard cap -- only ~2.5KB of headroom left before the build itself starts
-  failing `check-size`, and every night's shipped work eats into that.
-  Comments are the single largest reducible chunk (~31KB, ~32% of the
-  file when last measured); no other real bloat found (no dead code, no
-  duplicate CSS, `NARRATIVE_STAGES` is proportional to its content). The
-  2026-07-14 standing call was explicitly to stop and revisit rather than
-  cut deeper into comments, so nightly-batch can't just trim its way out
-  of this on its own judgment. Three live options: raise the soft/hard
-  targets, split the deliberately-single-file architecture into separate
-  CSS/JS files (changes the no-build-step deploy story), or selectively
-  trim comments with your explicit go-ahead. This is now urgent enough
-  that continuing to add features without an answer risks a build that
-  fails outright mid-run.
-  > (answer inline here)
-
-- **2026-07-25 (nightly): your 10:00 QUESTIONS.md edit this morning hit
-  an empty stub at the old path -- did you mean to answer something?**
-  Commit `7beef04` ("Human edit via scheduler: QUESTIONS.md
-  2026-07-25T10:00") created a brand-new, header-only file at
-  `.claude/QUESTIONS.md` -- the pre-migration path -- because the
-  scheduler project's `schedule/chezz.conf` still lacks
-  `SCHEDULER_SUBDIR=".scheduler"`, so its `questions/chezz.md` symlink
-  never got re-pointed after the 2026-07-24 migration. You most likely
-  opened what looked like a questions file with zero questions in it,
-  while the five real open ones sat here unseen. Tonight's run bridged
-  this in-repo (the old `.claude/` paths are now symlinks to the real
-  `.scheduler/` files, so a stale-path edit lands correctly from now
-  on), but the proper fix is still the one-line `SCHEDULER_SUBDIR`
-  setting in the scheduler repo, which this run can't edit from here.
-  If you did intend to answer a question this morning, it never
-  arrived -- the five entries above (and below) are all still open.
-  > (answer inline here)
-
 - **2026-07-24 (nightly): should White get a background move-hint
   ("best move" dots) once the engine finds one, if White hasn't moved
   yet?**
