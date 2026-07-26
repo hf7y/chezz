@@ -44,3 +44,15 @@ Before marking anything done:
 - [ ] Config read from **one source**, not retyped per file?
 - [ ] Deploy verified against a **git ref**; drift fails loud?
 - [ ] **No secret** in a tracked file; tree clean of build debris?
+- [ ] **Shared-host footprint declared** (script/autostart/systemd unit on
+      `dexter`/`mandark`/etc named in this project's own FOCUS.md), and
+      retired entries actually removed, not left live?
+- [ ] Claims about system state **re-probed, not quoted** — and if written
+      down, stamped `# verified <date> via <command>`?
+- [ ] Verified **where the consumer reads it** (pushed to the ref the job
+      clones — not just committed locally)?
+- [ ] No privileged probe **silencing stderr** (`2>/dev/null` turns
+      "denied" into "clean")?
+- [ ] Multi-line or shell-quoting commit message written with
+      **`git commit -F <file>`**, not `-m` (backticks inside double
+      quotes execute)?

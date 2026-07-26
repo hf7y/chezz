@@ -141,6 +141,15 @@
      anything with `scheduler` for this until those land. Full detail in
      DESIGN-NOTES.md. -->
 
+## Stability milestone
+
+**Current:** Autopilot loop stable -- players file ideas in-game, unattended nightly runs ship or triage them, and anything needing Zach reaches him via scheduler `BLOCKERS.md`/`QUESTIONS.md` instead of stalling silently -- status: in-progress
+Done when:
+- [ ] The open tracker backlog is fully dispositioned: every open report is shipped, closed with a stated reason, or attached to a live blocker/question for Zach -- none sitting with only a stale triage note.
+- [ ] Two consecutive unattended nightly runs complete green (checks passing, pushed to `origin/main`) with no human rescue.
+- [ ] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss).
+Ideas beyond this bar are PARKED by default (see realisateur/STABILITY-MILESTONES.md).
+
 ## Priority queue
 
 (realisateur, 2026-07-24: pulled out of the HTML-comment-only "PRIORITY
@@ -148,37 +157,16 @@ QUEUE" block above into a real top-level list so `scheduler status
 chezz`'s next-up parser can see it -- see realisateur's `FOCUS-FORMAT.md`
 for the spec this satisfies. Full rationale for each item stays in the
 comment above and in `DESIGN-NOTES.md`; this is deliberately just the
-short list.)
+short list. DONE items compressed to one line each 2026-07-25 so the
+parser's next-up window shows live work, per FOCUS-FORMAT's own intent;
+their full writeups live in git history and DESIGN-NOTES.md.)
 
-1. **DONE 2026-07-24 (nightly-batch, `cbf2fca`).** White-piece
-   visibility on light squares + bug-report popup blocked by Chrome's
-   popup blocker -- fixed; bug reporting folded into the chat box.
-   (DONE marker added 2026-07-25 -- the work itself shipped 07-24 but
-   this list entry was never updated.)
-2. **DONE 2026-07-24 (nightly-batch, `2783c357`).** Move-into-check
-   (King-only illegal-to-hang) + the `.scheduler/` migration (also done,
-   see the DONE note above).
-3. **DONE 2026-07-24 (nightly-batch, `1f51a1e`).** Auto-march drag
-   interaction: dragging a piece snaps to whichever legal move is
-   geometrically closest to the release point (works for every piece,
-   including the Knight's flagged pathing problem -- solved as
-   nearest-by-distance, no animated walk). Formation-follow fell out of
-   it as designed: once the King moves with no Black pieces left on the
-   board, surviving pieces auto-rank-up onto the King's new rank
-   (strongest first, naive). Not done: the animated "step one square at
-   a time" walking visual and the Knight's "circles around" flavor --
-   both explicitly flagged as follow-up polish in DESIGN-NOTES.md, not
-   blockers.
-4. **DONE 2026-07-24 (nightly-batch, `ebdb1dc` + `b425d79`).** Terrain:
-   boss-gated walls + holes on the pawn-fodder floors; Two Bishops floor
-   got a boss-gated back wall via the same mechanism. (DONE marker added
-   2026-07-25 -- shipped 07-24, list entry never updated.)
-5. Material-sufficiency: strengthen the tuning proxy (deeper search,
-   real king-safety/tactical eval) -- can run in parallel with 3/4.
-6. **DONE 2026-07-24 (nightly-batch): spec drafted** in DESIGN-NOTES.md
-   ("King->Queen -- design spec draft"), question surfaced in
-   QUESTIONS.md (1:1 replacement vs. two-piece escort mode). No
-   implementation yet -- awaiting that answer.
+1. DONE 2026-07-24 (`cbf2fca`): white-piece visibility + chat-box bug reporting.
+2. DONE 2026-07-24 (`2783c357`): move-into-check + `.scheduler/` migration.
+3. DONE 2026-07-24 (`1f51a1e`): auto-march drag + formation-follow (walk animation = parked polish).
+4. DONE 2026-07-24 (`ebdb1dc`+`b425d79`): terrain -- boss-gated walls + holes.
+5. Material-sufficiency: strengthen the tuning proxy (deeper search, real king-safety/tactical eval). Unblocked 2026-07-25 (size cap lifted).
+6. (waiting: QUESTIONS.md answer, 1:1 vs. escort) King->Queen -- spec drafted 2026-07-24 in DESIGN-NOTES.md; no implementation until answered.
 
 Backup work when the feature backlog (below) is empty: Rook/Queen
 material-sufficiency (item 5).
@@ -261,21 +249,22 @@ sandbox lacks are still genuinely out of reach here; don't force those).
 
 ## Ideas (added via `scheduler -i`)
 
+(Two identical section headings merged into one, 2026-07-25 -- entries untouched.)
+
 - **2026-07-22 14:57 (via `scheduler -i`): RESOLVED 2026-07-24 (realisateur).** Added a real `## Priority queue` section above so `scheduler status chezz`'s next-up parser can see it -- existing comment content untouched.
-
-## Ideas (added via `scheduler -i`)
-
-- **2026-07-22 15:09 (via `scheduler -i`):** look into developments in Documents/Projects/realisateur and Documents/Project Archive/scheduler, including generalizations of chezz's own findings about ideate and vision debt. move towards the general project scaffold design rather than bespoke chezz implementations if straightforward, file questions if not
+- **2026-07-22 15:09 (via `scheduler -i`): DONE 2026-07-25 (nightly).** Scaffold-convergence pass ran (previously wrongly declined as out-of-scope -- see that night's report replies). Adopted in-repo: `## Stability milestone` declaration above (chezz was one of 4 projects `milestone-audit.sh` flagged as missing one), `(parked)`/`(waiting:)` tags, current 12-row build-discipline checklist in CLAUDE.md, ideate.md updated to realisateur's revised workflow (posture persistence, standard entry shape, park-by-default, §4.6 pacing), park-by-default step in nightly-batch.md, DONE-item compression in the priority queue. Cross-repo halves that remain are appended to scheduler `BLOCKERS.md ## chezz` -- nothing was quietly declined.
 
 ## Fable review (2026-07-25)
 
 <!-- Appended by realisateur/fable-like/inject-suggestions.sh. Full context: fable-like/FABLE_REPORT.md. Triage these like any dated entries; delete freely. -->
 
 Triaged 2026-07-25 (nightly): all four entries dealt with or out of this
-repo's scope. (1) stability-milestone declaration, (3) staleness-check
-exit-nonzero + sweep-tier ownership -- both live in the scheduler/
-realisateur repos, not here; flagged in tonight's report, not actionable
-from this repo. (2) the `.claude/`->`.scheduler/` migration was already
+repo's scope. (1) stability-milestone declaration -- CORRECTION, second
+pass same night: this was chezz-side after all (the declaration belongs
+in THIS file, per realisateur/STABILITY-MILESTONES.md's canonical format)
+and is now DONE, see `## Stability milestone` above. (3) staleness-check
+exit-nonzero + sweep-tier ownership -- scheduler/realisateur-side; now
+filed in scheduler `BLOCKERS.md` rather than only flagged in a report. (2) the `.claude/`->`.scheduler/` migration was already
 done 2026-07-24 (see DONE note above); the remaining halves
 (scheduler's `SCHEDULER_SUBDIR` conf line, retiring
 chezz-nightly-batch-loop.sh) are scheduler-side -- and the missing conf
