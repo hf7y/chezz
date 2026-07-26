@@ -427,7 +427,7 @@
   // updateUrl) so a bug report's link shows which build it was filed
   // against, and displayed in the footer for a quick eyeball diff between
   // deployments without needing devtools.
-  const APP_VERSION = "2026-07-25.1";
+  const APP_VERSION = "2026-07-26.1";
 
   // The rules of the world. Pieces are uppercase for White, lowercase for
   // Black. White's King reaching EXIT_ROW clears the floor.
@@ -765,7 +765,11 @@
     // (ai-determinism.spec.mjs flaked once quiescence made the tree big
     // enough to brush the old 4s deadline). Node count is fixed per
     // position, so identical searches always hit the cap at the same spot.
-    const NODE_BUDGET = 30000;
+    // Raised 30000 -> 60000 when quiesce nodes started counting toward it
+    // (they were previously free, so the old number bounded only part of
+    // the real work) -- measured on the 8 player-reported positions, worst
+    // case stays under ~2s on this hardware, same order as before.
+    const NODE_BUDGET = 60000;
     let nodesSearched = 0;
     let hitDeadline = false;
 
@@ -867,21 +871,20 @@
     }
 
     // Quiescence: a static eval at the horizon can misjudge a position
-    // mid-exchange, so keep searching captures until it settles. Only
-    // recaptures on the SAME square continue the thread -- unrelated
-    // captures get picked up once the main search reaches them normally --
-    // bounding the cost to however many pieces attack one square.
-    function quiesce(b, alpha, beta, whiteToMove, pool, targetSquare) {
+    // mid-exchange, so keep searching captures until it settles. ALL
+    // captures for the side to move continue the search, not just
+    // recaptures on the square that was just taken -- the old same-square
+    // thread was blind to a piece left hanging anywhere ELSE at the
+    // horizon, which is exactly the "hung for no reason" shape 9 tracker
+    // reports describe (2026-07-16/17 AI move-quality cluster). Cost is
+    // bounded honestly: every quiesce node now counts against NODE_BUDGET
+    // (they used to be free, so the freeze guard undercounted the real
+    // work), and per-capture delta pruning skips captures too small to
+    // matter. MVV ordering comes from collectMoves' existing sort.
+    function quiesce(b, alpha, beta, whiteToMove, pool) {
+      nodesSearched++;
       const standPat = evaluateBoard(b);
-
-      // Delta pruning: even winning the target square's piece outright
-      // couldn't close the gap to alpha/beta, so skip generating moves.
-      if (targetSquare) {
-        const victim = b[targetSquare.y][targetSquare.x];
-        const bestPossibleGain = (victim ? Math.abs(pieceValues[victim]) : 0) + DELTA_PRUNING_MARGIN;
-        if (whiteToMove && standPat - bestPossibleGain >= beta) return standPat;
-        if (!whiteToMove && standPat + bestPossibleGain <= alpha) return standPat;
-      }
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return standPat; }
 
       // Stand pat: settling for the position as-is is always a legal choice
       // in quiescence (unlike the main search), so it seeds the bound
@@ -894,14 +897,19 @@
         alpha = Math.max(alpha, standPat);
       }
 
-      let captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
-      if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
+      const captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
 
       for (const mv of captures) {
+        // Delta pruning: even winning this victim outright couldn't move
+        // the bound, so don't bother searching the capture.
+        const bestPossibleGain = Math.abs(pieceValues[b[mv.toY][mv.toX]]) + DELTA_PRUNING_MARGIN;
+        if (whiteToMove && standPat - bestPossibleGain >= beta) continue;
+        if (!whiteToMove && standPat + bestPossibleGain <= alpha) continue;
+
         const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
         const val = (mv.piece === "K" && mv.toY === EXIT_ROW)
           ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard)
-          : quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool, { x: mv.toX, y: mv.toY });
+          : quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool);
         if (whiteToMove) { if (val < beta) beta = val; } else { if (val > alpha) alpha = val; }
         if (beta <= alpha) return whiteToMove ? alpha : beta;
       }
@@ -911,9 +919,9 @@
     // Full alternating minimax with alpha-beta pruning: Black maximizes the
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
-      if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
+      if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool);
       nodesSearched++;
-      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool); }
 
       const moves = collectMoves(b, whiteToMove);
       // No legal moves isn't terminal (the real game just skips the turn) --
