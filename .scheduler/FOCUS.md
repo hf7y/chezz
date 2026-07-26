@@ -165,7 +165,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 2. DONE 2026-07-24 (`2783c357`): move-into-check + `.scheduler/` migration.
 3. DONE 2026-07-24 (`1f51a1e`): auto-march drag + formation-follow (walk animation = parked polish).
 4. DONE 2026-07-24 (`ebdb1dc`+`b425d79`): terrain -- boss-gated walls + holes.
-5. Material-sufficiency: strengthen the tuning proxy (deeper search, real king-safety/tactical eval). Unblocked 2026-07-25 (size cap lifted).
+5. Material-sufficiency: strengthen the tuning proxy (deeper search, real king-safety/tactical eval). Unblocked 2026-07-25 (size cap lifted). Tactical half DONE 2026-07-26 (`f83a709`): full-capture quiescence closed the horizon blind spot behind the 10-report AI hang cluster (all resolved on the tracker, probed against each reported position; two pinned in ai-quiescence.spec.mjs). Remaining: real king-safety eval (attack-based, not just King-progress) -- still ordinary backup work, no blocker.
 6. (waiting: QUESTIONS.md answer, 1:1 vs. escort) King->Queen -- spec drafted 2026-07-24 in DESIGN-NOTES.md; no implementation until answered.
 
 Backup work when the feature backlog (below) is empty: Rook/Queen
