@@ -78,3 +78,24 @@ test("the campaign's final stage is the traditional back rank", async ({ page })
   const bossRow = await page.evaluate(() => NARRATIVE_STAGES[NARRATIVE_STAGES.length - 1].rows[1]);
   expect(bossRow).toBe("rnbqkbnr");
 });
+
+test("the Two Bishops stage spawns opposite-colored bishops, under every cyclic shift", async ({ page }) => {
+  // Tracker 2026-07-17T05:43:51.354Z (+ one duplicate): same-color bishops
+  // read as a mistake. placeScriptedStage shifts every row by the same
+  // amount, so square-color parity is decided by the authored file gap --
+  // verify it directly for all 8 possible shifts.
+  await page.goto(GAME_URL);
+  const parities = await page.evaluate(() => {
+    const stage = NARRATIVE_STAGES.find(s => s.label === "Two Bishops");
+    const results = [];
+    for (let shift = 0; shift < 8; shift++) {
+      const bishops = [];
+      stage.rows.map(parseFenRow).forEach((row, i) => {
+        row.forEach((c, x) => { if (c === "b") bishops.push({ x: (x + shift) % 8, y: i + 1 }); });
+      });
+      results.push(bishops.map(b => (b.x + b.y) % 2));
+    }
+    return results;
+  });
+  for (const [a, b] of parities) expect(a).not.toBe(b);
+});

@@ -380,9 +380,14 @@
   <summary>How to play</summary>
   <p>
     Tap (or drag) your White King (♔) and other pieces to move them by standard chess
-    rules — reach the top row to clear the floor, and Black replies automatically after
-    every move. Pawns you capture don't just vanish: each one you're still holding when
-    a surviving piece carries over to the next floor comes back as an extra White pawn.
+    rules — get your King to the top row to clear the floor, and Black replies
+    automatically after every move. As you play, you're building your own chess board
+    out of the pieces you capture: every capture goes into your Captured pool, a pawn
+    reaching the second-from-top row promotes by spending a captured piece of that
+    type, and surviving pieces each bring one captured pawn back with them as an extra
+    White pawn on the next floor. Only pieces standing on the top row when your King
+    arrives carry over — and a piece moved onto the top row is committed: it can't
+    move again, but Black can never touch it there.
   </p>
 </details>
 
@@ -422,7 +427,7 @@
   // updateUrl) so a bug report's link shows which build it was filed
   // against, and displayed in the footer for a quick eyeball diff between
   // deployments without needing devtools.
-  const APP_VERSION = "2026-07-24.5";
+  const APP_VERSION = "2026-07-25.1";
 
   // The rules of the world. Pieces are uppercase for White, lowercase for
   // Black. White's King reaching EXIT_ROW clears the floor.
@@ -477,6 +482,14 @@
     const moves = [];
     const lower = piece.toLowerCase();
     const isWhite = isWhitePiece(piece);
+
+    // A White piece on the exit row is committed to carry-over and can
+    // never move again (tracker 2026-07-13T23:35:42.300Z). Black can't
+    // enter the exit row (see the filter at the bottom), so without this
+    // the row doubled as a free safe harbor -- park a piece out of reach,
+    // then pull it back into play. The King is exempt only because it can
+    // never rest here: its arrival ends the floor immediately.
+    if (isWhite && lower !== "k" && fromY === EXIT_ROW) return moves;
 
     function inBounds(x, y) {
       return x >= 0 && x < BOARD_COLS && y >= 0 && y < BOARD_ROWS;
@@ -1173,8 +1186,12 @@
     // here should come with back wall. you need to defeat them to open
     // it.") -- same mechanism as The Knight's wallRow/bossPiece above, now
     // that terrain exists. bossPiece "b" covers both Bishops: the wall only
-    // drops once neither is left anywhere on the board.
-    { label: "Two Bishops", rows: ["8", "8", "8", "2b3b1", "8", "###11###"], wallRow: 6, bossPiece: "b" },
+    // drops once neither is left anywhere on the board. Files c/f (like a
+    // real back rank) put them on opposite colors -- two same-color bishops
+    // read as a mistake (tracker 2026-07-17T05:43:51.354Z + one duplicate),
+    // and an odd file gap keeps that true under placeScriptedStage's
+    // cyclic shifts, which move both bishops by the same amount.
+    { label: "Two Bishops", rows: ["8", "8", "8", "2b2b2", "8", "###11###"], wallRow: 6, bossPiece: "b" },
     // Playtesting (see test/playtest-campaign.spec.mjs) found a lone Rook
     // is a genuine structural bottleneck, not a placement/ordering issue --
     // it can perpetually retreat along its own rank/file to dodge capture
@@ -1899,10 +1916,24 @@
   // <data> pairs a machine-readable rank with human-readable text --
   // textContent (not innerHTML) since name is free text from a public
   // write endpoint, even though getPlayerName() constrains it to hex.
+  // A local entry may carry `url` (the position query-string captured the
+  // moment the best was set -- tracker 2026-07-15T18:08:33.108Z: write
+  // the personal best as a shareable link); only a same-page "?..."
+  // string is ever accepted, so a corrupted localStorage value can't
+  // become an off-site link.
   function renderScore(el, entry, emptyMessage) {
+    el.textContent = "";
     if (!entry) { el.removeAttribute("value"); el.textContent = emptyMessage; el.style.removeProperty("--swatch"); return; }
     el.setAttribute("value", entry.rank);
-    el.textContent = `Rank ${entry.rank} (${entry.floor})`;
+    const text = `Rank ${entry.rank} (${entry.floor})`;
+    if (typeof entry.url === "string" && entry.url.startsWith("?")) {
+      const a = document.createElement("a");
+      a.href = entry.url;
+      a.textContent = text;
+      el.appendChild(a);
+    } else {
+      el.textContent = text;
+    }
     el.style.setProperty("--swatch", "#" + entry.name);
   }
 
@@ -1922,10 +1953,12 @@
     if (!el) return;
     let best = loadBestScore();
     if (state.maxRank && (!best || state.maxRank > best.rank)) {
-      best = { rank: state.maxRank, floor: state.floor };
+      // location.search is kept current by updateUrl, so this snapshots
+      // the exact position the new best was reached in.
+      best = { rank: state.maxRank, floor: state.floor, url: location.search };
       localStorage.setItem(BEST_SCORE_KEY, JSON.stringify(best));
     }
-    renderScore(el, best ? { rank: best.rank, floor: best.floor, name: getPlayerName() } : null, "No runs yet.");
+    renderScore(el, best ? { rank: best.rank, floor: best.floor, url: best.url, name: getPlayerName() } : null, "No runs yet.");
   }
 
   async function refreshLeaderboards() {
