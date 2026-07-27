@@ -6,6 +6,7 @@
     "test": "playwright test",
     "check-syntax": "node scripts/check-syntax.mjs",
     "check-size": "node scripts/check-size.mjs",
+    "check-answers": "node scripts/check-answer-channel.mjs",
     "check": "npm run check-syntax && npm run check-size && npm test",
     "prepare": "node scripts/setup-hooks.mjs",
     "pieces:generate": "node tools/generate-pieces.mjs",

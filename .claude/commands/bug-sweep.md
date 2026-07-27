@@ -190,6 +190,11 @@ followed by short context, then a `  > (answer inline here)` placeholder
 line so the reply slot is obvious. Most sweeps add nothing here — don't
 manufacture a question.
 
+Before appending, run `npm run check-answers` (fast, no browser). It confirms
+the file Zach reads is the same one you're about to write into — that has
+drifted twice, and a question filed into a copy he never sees is worse than
+no question at all, because the tracker note will claim it's awaiting him.
+
 Answer processing is the **nightly's** job, not this sweep's: the user
 replies inline under a question with a `> ` line (QUESTIONS.md's header
 documents the convention), and `/nightly-batch` reads those answers, acts

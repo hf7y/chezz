@@ -21,6 +21,15 @@ rather than starting over. Also fetch the full tracker backlog with
 `&status=all&type=all` (see `leaderboard/Code.gs`'s doc comment) so
 nothing already resolved gets re-investigated.
 
+**First run `npm run check-answers`.** It verifies that the file Zach writes
+answers into (the scheduler's `questions/chezz.md` symlink) is byte-identical
+to the `.scheduler/QUESTIONS.md` this run reads. That has silently drifted
+twice — a header-only stub on 2026-07-25, and a 6-commits-behind checkout on
+2026-07-27 that hid three questions from him entirely — and in both cases the
+run read an empty-looking file and concluded "no answers tonight." If this
+check fails, fix the channel before reading anything below it; a reply you
+never saw is indistinguishable from a reply he never wrote.
+
 **Read `.scheduler/QUESTIONS.md` and process any answers.** The user replies
 to a question inline, on a line starting with `> ` (a Markdown blockquote)
 directly under it — that file's own header documents the convention. For
