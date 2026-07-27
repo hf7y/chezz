@@ -263,7 +263,58 @@ list nightly-batch should start executing against.
   set — Archbishop/Chancellor/Amazon are simple move-set unions, a
   knightrider's repeated-knight-step movement is a different shape of
   rule entirely).
-- **Graphics pipeline — two independent tracks, not mutually exclusive:**
+- **Graphics pipeline — SIGN-OFF GRANTED 2026-07-27, track 1 built.** Zach
+  answered the standing new-external-dependency gate in scheduler
+  `BLOCKERS.md` (`## chezz`): *"Yes, pursue the gemini path, safe bounded
+  account balance exists for testing precisely this. Lift creds from
+  vkv-inventory if possible pending the creation of chezz specific ones."*
+  Track 1 is now implemented (see below for what was built and the one
+  thing still missing); track 2 (the fairy-piece font) is untouched and
+  still has no gate on it.
+
+  **What shipped 2026-07-27 (nightly):**
+  - `tools/generate-pieces.mjs` — prompts `gemini-2.5-flash-image` for all
+    18 pieces (9 types × 2 sides) over plain `fetch`, no SDK.
+  - `tools/sprite-postprocess.js` — chroma-keys the magenta field out,
+    crops to content, fits-and-centers into 32×32, and snaps every pixel to
+    the game's own monochrome ramp. Runs on a Playwright canvas.
+  - `tools/wire-pieces.mjs` — bakes `assets/pieces/*.png` into
+    `index1.html`'s `PIECE_SPRITES` as base64 data URIs.
+  - `index1.html` — `pieceGlyphHtml` renders a sprite when one exists and
+    the Unicode glyph when one doesn't, **per piece**.
+
+  **Three decisions worth not re-litigating:**
+  - *Zero new dependencies.* vkv-inventory's version needs Python +
+    `google-genai` + Pillow + numpy. Chezz is a Node repo with no Python,
+    and Playwright (already a devDependency, since `npm test` is Playwright)
+    ships a browser whose `<canvas>` does every pixel operation Pillow was
+    doing. So the port is a rewrite, not a copy — same pipeline shape, none
+    of the install footprint.
+  - *Monochrome is enforced by the pipeline, not by the prompt.* The palette
+    snap means a sprite CANNOT come back off-palette even if the model
+    ignores the instruction. The monochrome constraint is a standing human
+    decision; leaving it to prompt compliance would have made it a
+    coin-flip.
+  - *Sprites are baked in, and `PIECE_SPRITES` ships empty.* Data URIs keep
+    chezz a single self-contained HTML file (what makes the share links, the
+    `file://` test harness and the Pages deploy work with no build step).
+    Empty-by-default means the committed game is byte-for-byte the glyph
+    game it was, and generation is a deliberate manual step — never a side
+    effect of `npm run check` or a nightly run, since each run costs money
+    and returns different art.
+
+  **Still missing: the API key.** No `GEMINI_API_KEY` is reachable from an
+  unattended run, so no sprite has actually been generated yet. "Lift creds
+  from vkv-inventory" turned out not to be possible: vkv stores no key
+  anywhere — its `tools/generate_sprite.py` documents `export
+  GEMINI_API_KEY=...` as something a human types into an interactive shell,
+  and there is no key in its repo, its scheduler conf, or the environment.
+  Everything downstream of the API call is tested and green (11 tests across
+  `test/sprite-postprocess.spec.mjs` and `test/piece-sprites.spec.mjs`); the
+  generator exits non-zero with instructions when the key is absent. One
+  `export` away from producing art.
+
+  The original two-track note, still accurate on track 2:
   1. **Autonomous AI-generated sprites**, extracting and adapting the
      pixel-art Gemini API workflow already built in the `vkv-inventory`
      project, made autonomous for chezz. **This is a NEW external service

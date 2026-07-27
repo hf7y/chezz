@@ -8,6 +8,8 @@
     "check-size": "node scripts/check-size.mjs",
     "check": "npm run check-syntax && npm run check-size && npm test",
     "prepare": "node scripts/setup-hooks.mjs",
+    "pieces:generate": "node tools/generate-pieces.mjs",
+    "pieces:wire": "node tools/wire-pieces.mjs",
     "sheet:push": "clasp push --force",
     "sheet:status": "clasp status"
   },

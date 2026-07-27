@@ -127,6 +127,28 @@
       1px 1px 0 var(--ink), -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink);
   }
 
+  /* Generated sprites (see PIECE_SPRITES in the script below) render as
+     <img class="piece sprite"> in place of the glyph. Square, sized to the
+     same 1.6em box .piece already reserves, so swapping a glyph for a sprite
+     doesn't reflow the board. "pixelated" is the whole point: these are
+     32px-tall pixel art scaled up, and the browser's default smooth
+     interpolation would blur exactly the hard pixel edges the art is made of. */
+  .piece.sprite {
+    width: 1.6em;
+    image-rendering: pixelated;
+  }
+
+  /* text-shadow does nothing to an <img>, so White sprites need the same
+     read-against-light-squares treatment (see the glyph rule above) spelled
+     as a filter instead. Four offset drop-shadows approximate the glyph
+     halo's outline on the sprite's actual alpha silhouette. */
+  .piece.sprite[data-side="w"] {
+    text-shadow: none;
+    filter:
+      drop-shadow(1px 0 0 var(--ink)) drop-shadow(-1px 0 0 var(--ink))
+      drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 -1px 0 var(--ink));
+  }
+
   th {
     text-align: right;
     padding-right: 6px;
@@ -1082,8 +1104,30 @@
     k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", m:"🩑", c:"🩒", a:"🩓",
   };
 
+  // Generated pixel-art sprites, keyed by the same piece letters as SYMBOLS,
+  // each a self-contained PNG data URI (no network fetch, no extra files to
+  // deploy -- the game stays one HTML file). Populated by
+  // `npm run pieces:wire`, which rewrites the object literal between the two
+  // marker comments below; see tools/generate-pieces.mjs for the pipeline
+  // that produces them. Deliberately EMPTY by default: every piece with no
+  // sprite here falls through to its Unicode glyph, so an un-generated (or
+  // partially generated) sprite set degrades piece-by-piece to exactly the
+  // behavior that shipped before, rather than leaving holes on the board.
+  /* PIECE_SPRITES:start */
+  const PIECE_SPRITES = {};
+  /* PIECE_SPRITES:end */
+
   function pieceGlyphHtml(piece) {
     if (!piece || isTerrain(piece)) return "";
+    const sprite = PIECE_SPRITES[piece];
+    if (sprite) {
+      // alt carries the glyph rather than "" -- the sprite is the piece's
+      // only identity on the board, so a screen reader (or a broken image)
+      // still says which piece this is. data-side is kept for parity with
+      // the glyph path so any CSS/selectors keyed on it keep working.
+      const side = isWhitePiece(piece) ? "w" : "b";
+      return `<img class="piece sprite" data-side="${side}" src="${sprite}" alt="${SYMBOLS[piece] || piece}">`;
+    }
     // Unicode's "white" pieces (K/Q/R/B/N/P) are hollow-outline glyphs --
     // rendered in the same pale --cream as everything else, that thin
     // outline nearly vanished against the light squares (hsl(0,0%,74%)),
