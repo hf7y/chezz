@@ -165,11 +165,13 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 2. DONE 2026-07-24 (`2783c357`): move-into-check + `.scheduler/` migration.
 3. DONE 2026-07-24 (`1f51a1e`): auto-march drag + formation-follow (walk animation = parked polish).
 4. DONE 2026-07-24 (`ebdb1dc`+`b425d79`): terrain -- boss-gated walls + holes.
-5. Material-sufficiency: strengthen the tuning proxy (deeper search, real king-safety/tactical eval). Unblocked 2026-07-25 (size cap lifted). Tactical half DONE 2026-07-26 (`f83a709`): full-capture quiescence closed the horizon blind spot behind the 10-report AI hang cluster (all resolved on the tracker, probed against each reported position; two pinned in ai-quiescence.spec.mjs). Remaining: real king-safety eval (attack-based, not just King-progress) -- still ordinary backup work, no blocker.
+5. DONE 2026-07-26 (`f83a709` tactical half, `de7c7a6` king-safety half): material-sufficiency tuning proxy strengthened -- full-capture quiescence closed the horizon blind spot (10-report AI hang cluster resolved, pinned in ai-quiescence.spec.mjs); evaluateBoard's king safety is now attack-based (real attackersOf(...) on the King's square) not just kingProgress, pinned in ai-determinism.spec.mjs.
 6. (waiting: QUESTIONS.md answer, 1:1 vs. escort) King->Queen -- spec drafted 2026-07-24 in DESIGN-NOTES.md; no implementation until answered.
 
-Backup work when the feature backlog (below) is empty: Rook/Queen
-material-sufficiency (item 5).
+Backup work when the feature backlog (below) is empty: item 5 is now DONE
+in full (see above) -- priority queue is otherwise all DONE or blocked on
+a QUESTIONS.md answer (item 6). Next backup tier: any bug reports Tier 1
+left open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
 supersedes the "urgent" 2026-07-24 block that used to sit here):** the
@@ -241,9 +243,8 @@ For each report, pick one of four outcomes:
    with reasonable judgment calls (leave a short note either way).
 
 Backup work, when the feature backlog is empty or everything in it was
-just resolved/deferred: Rook/Queen material-sufficiency (see priority
-queue item 5 above -- decided direction is strengthening the tuning
-proxy, not playtesting) -- plus any bug reports Tier 1 left open with
+just resolved/deferred: material-sufficiency (priority queue item 5) is
+now DONE in full -- next tier is any bug reports Tier 1 left open with
 "needs a human call" notes (real mobile-device or WebKit-only repros this
 sandbox lacks are still genuinely out of reach here; don't force those).
 
