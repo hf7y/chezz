@@ -147,14 +147,34 @@
 Done when:
 - [x] The open tracker backlog is fully dispositioned: every open report is shipped, closed with a stated reason, or attached to a live blocker/question for Zach -- none sitting with only a stale triage note. **Met 2026-07-27** (nightly): the bug queue had been the gap -- 19 of 25 open bugs carried no note at all. 9 were closed (2 fixed tonight in `daffb82`, 3 already shipped, 3 re-probed and closed by the engine work, 1 already-shipped stalemate behavior); the remaining 16 each now name the live question or the specific human check they wait on. Verified by re-fetch, not by the POST responses: zero open reports with an empty note.
 - [x] Two consecutive unattended nightly runs complete green (checks passing, pushed to `origin/main`) with no human rescue: 2026-07-26 ~21:00 (`de7c7a6`/`21e0d0c`) and 2026-07-27 (`daffb82` onward).
-- [x] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss). **Met 2026-07-27 (second run that day), via the `BLOCKERS.md` half of the channel:** Zach left two inline `### REPLY` blocks under `## chezz` in scheduler `BLOCKERS.md`; this run read them before anything else, and the first one ("Yes, pursue the gemini path...") is what produced `f7a2458` -- a question asked by automation, answered by the human, and acted on by the next unattended run, end to end. Earlier same day the "balance-tuning delegation" question exposed a second failure mode (five tracker notes and two nightly reports told Zach a question was awaiting his answer in `QUESTIONS.md`, where it had never actually been written; restored in `cf7b50f`). **Caveat, deliberately not papered over:** what round-tripped was the `BLOCKERS.md` `### REPLY` path. The `QUESTIONS.md` `> `-reply path specifically still has no demonstrated round-trip -- six questions sit there unanswered. If that path is the one that matters, this bullet is met only in spirit.
+- [x] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss). **Met 2026-07-27 (second run that day), via the `BLOCKERS.md` half of the channel:** Zach left two inline `### REPLY` blocks under `## chezz` in scheduler `BLOCKERS.md`; this run read them before anything else, and the first one ("Yes, pursue the gemini path...") is what produced `f7a2458` -- a question asked by automation, answered by the human, and acted on by the next unattended run, end to end. Earlier same day the "balance-tuning delegation" question exposed a second failure mode (five tracker notes and two nightly reports told Zach a question was awaiting his answer in `QUESTIONS.md`, where it had never actually been written; restored in `cf7b50f`). **Caveat, deliberately not papered over:** what round-tripped was the `BLOCKERS.md` `### REPLY` path. The `QUESTIONS.md` `> `-reply path specifically still has no demonstrated round-trip -- seven questions sit there unanswered. If that path is the one that matters, this bullet is met only in spirit. **Update 2026-07-27 (late run, `7fc0d3b`): the reason is now known and was a real defect, not human silence** -- the symlink Zach writes answers through pointed at a checkout 6 commits behind, so three of the seven questions had never reached him at all (see the root-cause note below). Channel repaired and guarded by `npm run check-answers`. The bullet stays as-is rather than being upgraded: a repaired channel is not a demonstrated round-trip, and the demonstration needs one reply from Zach that a run then acts on. First real chance is whichever question he answers next.
 
 <!-- Standing lesson from that miss (2026-07-27): a tracker note or a
      report that says "waiting on your answer in QUESTIONS.md" is a claim
      about file state, and the build-discipline rule about re-probing
      rather than quoting applies to it. Before writing that sentence,
      grep QUESTIONS.md for the question. Three separate runs repeated the
-     claim without checking. -->
+     claim without checking.
+
+     ROOT CAUSE FOUND 2026-07-27 (late run, `7fc0d3b`) -- and it was not
+     just sloppy note-writing. The scheduler's `questions/chezz.md`
+     symlink, the file Zach actually writes answers into, resolves into a
+     SECOND chezz checkout (`~/Documents/Project Archive/chezz`), which
+     was 6 commits behind origin/main. The three questions filed
+     2026-07-27 were therefore invisible to him and the four he could see
+     were stale. So the `> `-reply path had never round-tripped because
+     the question never arrived -- not because he hadn't replied.
+     Fixed the instance (lossless fast-forward; all 7 questions verified
+     readable through his own path) and the class: `npm run check-answers`
+     asserts human-copy == run-copy and fails loud, wired into step 1 of
+     both nightly-batch.md and bug-sweep.md, 6 tests in
+     test/answer-channel.spec.mjs (5 of them failure cases).
+     STILL OPEN, scheduler-side, filed in scheduler BLOCKERS.md ## chezz:
+     the drift returns on EVERY chezz push, since pushing puts that
+     checkout one commit behind again. Until the symlink is repointed at
+     the live nightly checkout (or the scheduler ff's it per run), expect
+     `check-answers` to fail at the start of a run and fast-forward it as
+     the guard's own message instructs. Do not skip the guard. -->
 
 <!-- Parked 2026-07-27 (park-by-default triage): the five `chezz-classic`
      reports Zach filed 2026-07-26 from mandark (mobile text highlighting,
