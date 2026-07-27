@@ -70,6 +70,29 @@ test("the move log round-trips through the URL, so back/forward rewinds it", asy
   expect(restored.log).toEqual(["Ke1-e2", "pd9-d8"]);
 });
 
+test("an oversized last= param from a hand-edited URL is truncated on load, not trusted", async ({ page }) => {
+  const log = await page.evaluate(() => {
+    const many = Array.from({ length: 50 }, (_, i) => `P a${i}-b${i}`).join(",");
+    history.replaceState(null, "", "?fen=8-8-8-8-8-8-8-8-4K3_w&floor=1&spawned=1&last=" + encodeURIComponent(many));
+    loadFromUrl();
+    return state.moveLog;
+  });
+  expect(log.length).toBe(5);
+});
+
+test("labels from different floors never collide, so a log spanning a floor advance stays readable", async ({ page }) => {
+  const labels = await page.evaluate(() => {
+    const out = [];
+    for (const floor of [1, 2, 3]) {
+      state.floor = floor;
+      out.push(squareLabel(0, 8)); // same square, three different floors
+    }
+    return out;
+  });
+  expect(new Set(labels).size).toBe(3);
+  expect(labels).toEqual(["a1", "a9", "a17"]);
+});
+
 test("a position URL with no move log yet leaves the param off entirely", async ({ page }) => {
   const search = await page.evaluate(() => {
     state.moveLog = [];
