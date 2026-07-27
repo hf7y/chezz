@@ -28,10 +28,27 @@ test("known-position regression pins", async ({ page }) => {
     .toEqual({ piece: "q", fromX: 0, fromY: 3, toX: 3, toY: 3, score: 497900 });
 
   expect(await bestMove(page, "8-r7-8-8-8-8-8-5P2-5K2", "PbP", 4))
-    .toEqual({ piece: "r", fromX: 0, fromY: 1, toX: 2, toY: 1, score: -99650 });
+    .toEqual({ piece: "r", fromX: 0, fromY: 1, toX: 2, toY: 1, score: -99655 });
 
   expect(await bestMove(page, "8-8-6p1-6K1-6PP-8-8-8-b7", "", 3))
     .toEqual({ piece: "b", fromX: 0, fromY: 8, toX: 3, toY: 5, score: -100540 });
+});
+
+test("king safety is attack-based, not just King-progress (priority queue item 5)", async ({ page }) => {
+  // Same King square (same kingProgress) in both positions -- only whether
+  // a Black rook actually attacks that square differs. Depth 1 so the
+  // score returned is (close to) the static eval of the position handed
+  // in, isolating evaluateBoard's kingAttackers term rather than search
+  // dynamics. Before that term existed, an exposed vs. shielded King at
+  // the same square scored identically; now the exposed one must score
+  // worse for White (more negative -- evaluateBoard favors Black).
+  const exposed = "8-8-8-8-8-3K4-8-8-r7"; // rook shares King's file, nothing blocks it
+  const shielded = "8-8-8-8-8-3K4-3p4-8-r7"; // same rook, but a black pawn blocks the file
+
+  const exposedMove = await bestMove(page, exposed, "", 1);
+  const shieldedMove = await bestMove(page, shielded, "", 1);
+
+  expect(exposedMove.score).toBeLessThan(shieldedMove.score);
 });
 
 test("no legal Black move returns null instead of throwing", async ({ page }) => {

@@ -786,6 +786,19 @@
     // at 2000 it did, and White shuffled the King instead of recapturing.
     const KING_SAFETY_WEIGHT = 150;
 
+    // Attack-based half of king safety (priority queue item 5, remaining
+    // half): kingProgress alone rewards climbing rows even when climbing
+    // walks the King into more attackers, and says nothing about a King
+    // that's standing still but newly exposed (an escort piece captured,
+    // a wall/hole shifted its cover). This counts real attackersOf(...)
+    // on the King's own square -- reuses the same legality-check machinery
+    // as kingSafeAfterMove, so it's exactly the search's own definition of
+    // "under threat," not a separate heuristic. One call per evaluateBoard
+    // (leaf), same order of cost as the swarm/advancement passes already
+    // there -- measured on material-tuning.spec.mjs's chained runs, no
+    // NODE_BUDGET or wall-clock regression (still <2s worst case).
+    const KING_ATTACK_WEIGHT = 220;
+
     // Same distance-based-falloff shape as `swarm` below (closer is worth
     // more), just anchored to a fixed row (EXIT_ROW) instead of the King's
     // live square -- rewards holding the exit regardless of where the King
@@ -842,11 +855,18 @@
       const kingProgress = (BOARD_ROWS - 1) - wKing.y; // rows already climbed toward EXIT_ROW
       const kingSafety = -kingProgress * KING_SAFETY_WEIGHT;
 
+      // Real attack pressure on the King's own square, not just how far
+      // it's walked -- a King standing pat but newly attacked (escort
+      // captured, terrain shifted) scores worse here even though
+      // kingProgress hasn't moved at all.
+      const kingAttackers = attackersOf(b, wKing.x, wKing.y, false).length;
+      const kingThreat = -kingAttackers * KING_ATTACK_WEIGHT;
+
       // Swarm pressure: black pieces are worth more the closer they crowd the King
       const swarm = blackPieces.reduce((sum, bp) =>
         sum + (SWARM_MAX_DISTANCE - taxicabDistance(bp, wKing)) * SWARM_WEIGHT, 0);
 
-      return material + advancement + kingSafety + swarm;
+      return material + advancement + kingSafety + kingThreat + swarm;
     }
 
     function collectMoves(b, whiteToMove) {
