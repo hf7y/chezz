@@ -145,9 +145,32 @@
 
 **Current:** Autopilot loop stable -- players file ideas in-game, unattended nightly runs ship or triage them, and anything needing Zach reaches him via scheduler `BLOCKERS.md`/`QUESTIONS.md` instead of stalling silently -- status: in-progress
 Done when:
-- [ ] The open tracker backlog is fully dispositioned: every open report is shipped, closed with a stated reason, or attached to a live blocker/question for Zach -- none sitting with only a stale triage note.
-- [ ] Two consecutive unattended nightly runs complete green (checks passing, pushed to `origin/main`) with no human rescue.
-- [ ] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss).
+- [x] The open tracker backlog is fully dispositioned: every open report is shipped, closed with a stated reason, or attached to a live blocker/question for Zach -- none sitting with only a stale triage note. **Met 2026-07-27** (nightly): the bug queue had been the gap -- 19 of 25 open bugs carried no note at all. 9 were closed (2 fixed tonight in `daffb82`, 3 already shipped, 3 re-probed and closed by the engine work, 1 already-shipped stalemate behavior); the remaining 16 each now name the live question or the specific human check they wait on. Verified by re-fetch, not by the POST responses: zero open reports with an empty note.
+- [x] Two consecutive unattended nightly runs complete green (checks passing, pushed to `origin/main`) with no human rescue: 2026-07-26 ~21:00 (`de7c7a6`/`21e0d0c`) and 2026-07-27 (`daffb82` onward).
+- [ ] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss). **Still open, and 2026-07-27 found a second failure mode:** the "balance-tuning delegation" question that five tracker notes and two nightly reports told Zach was awaiting his answer had never actually been written into `QUESTIONS.md` -- the channel can't round-trip a question that isn't in it. Restored 2026-07-27 (`cf7b50f`). This bullet needs an actual answered-and-acted-on question to close, so it stays unchecked.
+
+<!-- Standing lesson from that miss (2026-07-27): a tracker note or a
+     report that says "waiting on your answer in QUESTIONS.md" is a claim
+     about file state, and the build-discipline rule about re-probing
+     rather than quoting applies to it. Before writing that sentence,
+     grep QUESTIONS.md for the question. Three separate runs repeated the
+     claim without checking. -->
+
+<!-- Parked 2026-07-27 (park-by-default triage): the five `chezz-classic`
+     reports Zach filed 2026-07-26 from mandark (mobile text highlighting,
+     move-dot/move-into-check port, pawn-scarcity progression, analytic
+     material theory, pawn spawn). Several are straight ports of working
+     narrative code, but nothing has decided whether unattended runs may
+     work that branch at all, and its byte cap is enforced -- so a new
+     QUESTIONS.md entry (2026-07-27) asks exactly that, narrower than the
+     older Chezz Classic parts 2/3 question and enough to unblock all
+     five on its own. Parked, not declined; each report says so on the
+     tracker. -->
+
+<!-- Parked 2026-07-27: tracker 2026-07-26T02:42 asks for an *analytic*
+     material-sufficiency theory rather than the search-based proxy item
+     5 already built and strengthened. That is research-scale, past the
+     current milestone bar. -->
 Ideas beyond this bar are PARKED by default (see realisateur/STABILITY-MILESTONES.md).
 
 ## Priority queue
@@ -244,9 +267,17 @@ For each report, pick one of four outcomes:
 
 Backup work, when the feature backlog is empty or everything in it was
 just resolved/deferred: material-sufficiency (priority queue item 5) is
-now DONE in full -- next tier is any bug reports Tier 1 left open with
-"needs a human call" notes (real mobile-device or WebKit-only repros this
-sandbox lacks are still genuinely out of reach here; don't force those).
+now DONE in full, and the open bug queue was fully dispositioned
+2026-07-27 (see the milestone above) -- so the next tier is whatever new
+reports have arrived since. The 16 still-open bugs are each waiting on a
+named human input, not on a run: three `QUESTIONS.md` design/tuning
+forks, the `chezz-classic` scope question, and five that need a real
+mobile/WebKit device this sandbox does not have (two superscript
+rendering, three text-selection-on-drag -- the last of these now needs a
+*two-part* check after `daffb82`: drag drift must still not pop a
+selection toolbar, AND the text panels below the board must now be
+selectable again). Don't re-triage those every night; re-triaging an
+already-attached report is the busywork this bar was written against.
 
 ## Ideas (added via `scheduler -i`)
 
