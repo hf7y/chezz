@@ -98,3 +98,54 @@ delete its line by hand — that still works.
   call on whether hints are wanted at all, and if so, always-on vs. an
   opt-in toggle.
   > (answer inline here)
+
+- **2026-07-27 (nightly): may nightly runs do ordinary balance tuning
+  (piece values, spawn budgets) on their own, with a regression pin?**
+  Restoring a question that went missing: three open feature reports
+  (archbishop underpriced, pawn-supply too thin, spawn-gating) and two
+  open bug reports (fodder floors feel empty) all carry tracker notes
+  saying they are "attached to the balance-tuning delegation question
+  (QUESTIONS.md 2026-07-25)" -- but that question was never actually
+  written into this file. The 2026-07-25 report told you it was waiting
+  on your answer here; it wasn't, so there was nothing you could have
+  answered. Filed properly now. The ask: numbers like Archbishop's
+  material value, how many pawns a floor's spawn budget buys, and the
+  minimum "interesting" force on a fodder floor are tuning, not design
+  -- may a run change them when a report complains, provided each change
+  lands with a regression test pinning the new number and the report
+  says what moved and why? A yes turns five open reports into ordinary
+  nightly work. A no keeps them parked here indefinitely, which is fine
+  if that's the call -- but they should stop being re-triaged every
+  night either way.
+  > (answer inline here)
+
+- **2026-07-27 (nightly): should unattended nightly runs work the
+  `chezz-classic` branch, or is it interactive-only for now?**
+  You filed five reports from mandark on 2026-07-26 that target Classic
+  specifically ("Import from narrative to classic the color coded move
+  dots", "Classic: bugs on mobile with text highlighting", "Classic:
+  progression gated by pawn scarcity", the materials-theory one, and the
+  pawn-spawn one). Several are straight ports of things that already
+  work on narrative `main`, so they're bounded, testable work -- but
+  FOCUS.md says not to register anything with `scheduler` for Classic
+  until the older parts 2/3 question above is answered, and the size
+  budget IS enforced on that branch, so a port has to fit as well as
+  work. This is narrower than that older question and unblocks the five
+  reports on its own: may a nightly run check out `chezz-classic`, port
+  a narrative fix into it, run the (size-enforcing) checks, and push --
+  or should Classic stay something you drive interactively? If yes, the
+  same four-outcome triage applies there as here.
+  > (answer inline here)
+
+- **2026-07-27 (nightly): screenshot attachment on bug reports -- worth a
+  new image-hosting dependency?**
+  Tracker `2026-07-23T22:51:04.845Z` asks to attach screenshots to
+  reports. The chat box is text-only and the Apps Script/Sheets backend
+  has nowhere to put an image, so this needs image hosting of some kind
+  -- a new external dependency with its own credentials, cost and abuse
+  surface, which FOCUS.md says always needs your sign-off before a run
+  starts it. Partial relief already shipped tonight (`daffb82`): reports
+  now carry the last 5 plies in the URL, so "look at what just happened"
+  no longer requires a picture. Worth knowing whether that's enough
+  before anyone prices out image uploads.
+  > (answer inline here)
