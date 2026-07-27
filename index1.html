@@ -273,6 +273,19 @@
   /* Shared card look for every collapsible/list panel below -- a thick dark
      outline plus a hard offset shadow (no blur) is the Balatro/card-table
      silhouette this reskin is going for, reused instead of repeated per rule. */
+  /* Selection is blocked page-wide (see body) so a drag drifting off the
+     board can't start a native selection/search gesture -- but that also
+     made genuinely readable prose uncopyable (tracker 2026-07-20T17:53:37:
+     "text highlighting is blocked on the entire page"). These panels sit
+     below the board, are not drag-drift targets, and hold the text a
+     player actually wants to copy (a rank/share link, a leaderboard name,
+     what shipped), so selection comes back on for them specifically. */
+  #instructions, #leaderboard, #featureChat, #changelog, #sweepStatus, #appVersion {
+    user-select: text;
+    -webkit-user-select: text;
+    -webkit-touch-callout: default;
+  }
+
   #instructions, #leaderboard, #featureChat, #changelog {
     max-width: 380px;
     width: 280px;
@@ -1085,7 +1098,27 @@
   const capturedElement = document.querySelector("output");
   const promotionElement = document.querySelector("dialog");
 
-  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0, dateSeed: "" };
+  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0, dateSeed: "", moveLog: [] };
+
+  // A bug report carries the position, which says what the board looks like
+  // but not how it got that way -- so "this sacrifice was illogical" arrived
+  // with no way to see the sacrifice (tracker 2026-07-20T17:51:44). The last
+  // few plies ride along in the URL, in the same file+absolute-rank labels
+  // the board itself shows, so triage reads the same squares the player did.
+  const MOVE_LOG_LENGTH = 5;
+  const FILE_LETTERS = "abcdefgh";
+
+  // Absolute rank, not row index: the number painted in the board's own
+  // rank gutter, which keeps climbing across floors (currentKingRank uses
+  // the same arithmetic), so a label stays unambiguous in a report.
+  function squareLabel(x, y) {
+    return FILE_LETTERS[x] + (((state.floor - 1) * RANKS_PER_FLOOR) + (BOARD_ROWS - y));
+  }
+
+  function recordMove(piece, fromX, fromY, toX, toY, captured) {
+    state.moveLog.push(piece + squareLabel(fromX, fromY) + (captured ? "x" : "-") + squareLabel(toX, toY));
+    if (state.moveLog.length > MOVE_LOG_LENGTH) state.moveLog.splice(0, state.moveLog.length - MOVE_LOG_LENGTH);
+  }
 
   // Transient interaction state -- kept separate from `state` above since
   // it doesn't belong in the saved/shared/audited URL (drag and
@@ -1129,6 +1162,7 @@
   function updateUrl(push = false) {
     const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank, dateSeed: state.dateSeed, v: APP_VERSION });
     if (state.captured) params.set("captured", state.captured);
+    if (state.moveLog.length) params.set("last", state.moveLog.join(","));
     const url = "?" + params.toString();
     if (push) history.pushState(null, "", url);
     else history.replaceState(null, "", url);
@@ -1656,6 +1690,7 @@
   // progression together.
   async function makeMove(fromX, fromY, toX, toY) {
     const movingPiece = state.board[fromY][fromX];
+    recordMove(movingPiece, fromX, fromY, toX, toY, state.board[toY][toX]);
     if (state.board[toY][toX]) state.captured += state.board[toY][toX];
     state.board[toY][toX] = movingPiece;
     state.board[fromY][fromX] = "";
@@ -1694,6 +1729,7 @@
         // Reuses the same applyMove the search explores hypothetical lines
         // with -- Black always auto-promotes to the strongest piece
         // available, no UI prompt needed, unlike White's dialog above.
+        recordMove(bm.piece, bm.fromX, bm.fromY, bm.toX, bm.toY, state.board[bm.toY][bm.toX]);
         const { nextBoard, pool } = applyMove(state.board, bm, state.captured);
         state.board = nextBoard;
         state.captured = pool;
@@ -2165,6 +2201,9 @@
     state.captured = params.get("captured") || "";
     state.lastSpawnBudget = parseInt(params.get("budget") || "0");
     state.maxRank = parseInt(params.get("maxRank") || "0");
+    // Rides the URL like everything else, so back/forward rewinds the move
+    // context along with the position instead of leaving a stale trail.
+    state.moveLog = (params.get("last") || "").split(",").filter(Boolean).slice(-MOVE_LOG_LENGTH);
     // Falls back to today when absent (old bookmarked/shared URLs, or a
     // fresh boot) -- overwritten below by spawnBlackArmy() itself whenever
     // this load actually generates a new floor.
