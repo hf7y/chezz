@@ -190,3 +190,64 @@ delete its line by hand — that still works.
   before anyone prices out image uploads.
 > Good catch. Park for now. URL is the right place for missing context.
 
+
+- **2026-07-28 (`/ideate`, interactive): moving chezz's execution to
+  dexter -- four calls, none of them building anything yet.**
+  Goal as Zach framed it: let gardien move chezz to dexter "without
+  building much or breaking anything," production flow unchanged. The
+  GitHub-issues redesign of the question channel is explicitly a LATER
+  pass, and transitional work that gets sunset by it is acceptable.
+
+  Two findings that shrink the job before any decision:
+  (i) `sync-crontab.sh:419` already supports a project with **no local
+  working copy** -- `PROJECT_REPO_PATH` is optional, and the
+  `focus/`+`questions/` symlinks are only created when it is set. So the
+  scheduler engine needs NO change to run chezz without a mandark
+  checkout. What unsetting it costs is precisely the answer surface.
+  (ii) The branch regime Zach theorized -- agents on one branch, human
+  editing an assumed-stale copy, frequent rebasing -- **already exists as
+  `focus-commit`**: it fetches, rebases on rejection, and verifies the
+  rebase did not change what the commit means. A second branch would add
+  merge surface without adding that guarantee.
+
+  The one hard prerequisite is credentials, and it has already killed
+  this exact move once: on 2026-07-25 wtul was moved to
+  `_paced.dexter.conf` and REVERTED the same day because dexter has no
+  matching SSH host alias or deploy key, so `git ls-remote` failed at
+  name resolution. chezz's `REPO_URL` is
+  `git@github-chezz-deploy:hf7y/chezz.git` and needs the same alias + key
+  provisioned on dexter, verified by running `git ls-remote` FROM dexter
+  before any participant line moves. (Not verifiable from mandark: no key
+  here authenticates to dexter, and `_paced.dexter.conf`'s own header
+  says dexter owns that file and writes it in a human session there.)
+
+  Also a policy call, not just config: `_paced.dexter.conf`'s pinning
+  policy says only hardware-evidenced projects belong there, with `wtul`
+  as a deliberate named exception. chezz would be the SECOND non-hardware
+  exception.
+
+  The four questions, with this session's recommendation on each:
+  1. **Answer surface.** (a) Keep the mandark checkout as a
+     human-only answer surface -- symlinks and vim mappings keep working,
+     near-zero build, just add an ff-only refresh so it cannot go stale;
+     (b) teach scheduler to fetch QUESTIONS.md from origin into a cache
+     and push back after edit -- true "no repo on mandark" but real new
+     engine machinery, and the most likely thing the issues pass throws
+     away; (c) unset `PROJECT_REPO_PATH` now and lose the channel until
+     the issues design lands. RECOMMEND (a): it is the cheapest thing
+     that keeps today's interface working, and its sunset is expected.
+  2. **Move scope.** Both participants (`chezz`|1|2 and `chezz-sweep`|1)
+     at once, or nightly first and the sweep later? RECOMMEND nightly
+     first -- a one-line revert, and a smaller test of the second
+     non-hardware exception.
+  3. **Branch model.** Adopt the two-branch regime, or keep single `main`
+     + `focus-commit`? RECOMMEND keeping single `main`: today's actual
+     losses (a swallowed commit message, a stranded commit) came from
+     bare git BYPASSING focus-commit, not from single-branch.
+  4. **Gemini key on dexter.** Provision it there, or leave sprite
+     generation interactive on mandark? RECOMMEND leaving it: on dexter
+     the key is simply absent, `generate-pieces` refuses loudly, and the
+     game renders committed sprites + glyph fallbacks (already the tested
+     path). Note the ledger would otherwise split across two machines and
+     the per-month cap would count separately on each.
+> 
