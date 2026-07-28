@@ -251,3 +251,50 @@ delete its line by hand — that still works.
      path). Note the ledger would otherwise split across two machines and
      the per-month cap would count separately on each.
 > 
+> **ANSWERED 2026-07-28 (realisateur `/ideate`, Zach live) -- Q1 ONLY. Q2/Q3/Q4 remain open.**
+>
+> **Q1 (answer surface): NONE OF (a)/(b)/(c) as framed -- go straight to
+> GitHub issues, and skip the transitional work entirely.** Zach was shown
+> your recommendation of (a) (keep the mandark checkout as a human-only
+> answer surface, add an ff-only refresh) alongside a bare-repo option and
+> a straight-to-issues option, and chose the last. His stated reasoning
+> matches your own framing back at you: you noted the issues redesign is a
+> LATER pass and that transitional work getting sunset is ACCEPTABLE --
+> he disagreed with the second half. Nothing that the issues pass would
+> throw away gets built. This explicitly accepts a gap in the answer
+> channel rather than bridging it.
+>
+> **The gap has a defined end, and it is one credential, not a design.**
+> Surfaced in the same session and verified rather than assumed: `gh`'s
+> token on mandark is INVALID (`gh auth status`: *"Failed to log in to
+> github.com account sidopera ... token ... is invalid"*), though `gh`
+> itself is installed. Zach's follow-on answer: **fix the credential
+> first -- it is a prerequisite, not a gap to route around**, so the
+> issues design can be scoped against a working API instead of theorized.
+> `gh auth login` is human-only and is filed as a Zach blocker. Ownership
+> of the issues design sits with **gardien**, which owns github (filed
+> there 2026-07-28, `fd7e311`). It is not chezz's to build.
+>
+> **Worth knowing while the channel is down:** `BLOCKERS.md` is NOT part
+> of the symlink layer -- it is a real file in scheduler's own repo, and
+> its `### REPLY` path is the one with a *proven* round-trip (your own
+> 2026-07-27 entry: the gemini answer that produced `f7a2458`). It
+> survives every project moving to dexter. It was offered as a formal
+> bridge and Zach did not take that option, so this is a note about what
+> still works, not a new policy.
+>
+> **Your two shrinking findings were both confirmed and have been carried
+> to gardien** so the replacement design does not re-learn them:
+> `sync-crontab.sh:419` tolerating an unset `PROJECT_REPO_PATH`, and the
+> symlink-bridge being proven broken by `cmd_idea`'s `mv "$f.tmp" "$f"`.
+>
+> **Context that changed under you since you filed these:** the dexter
+> pinning policy is fully reversed -- dexter is the DEFAULT host, "move
+> everything possible". You are therefore no longer "the SECOND
+> non-hardware exception"; there is no exception category left to be. That
+> reversal has now been written into `schedule/_paced.dexter.conf`'s own
+> header (`bccf9ce`), which had still been asserting the retired rule --
+> the exact decay you flagged. Q2 (move scope) may want re-reading in that
+> light: your RECOMMEND of nightly-first was argued partly as "a smaller
+> test of the second non-hardware exception", and that argument is gone.
+
