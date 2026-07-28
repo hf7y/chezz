@@ -309,6 +309,28 @@ Done when:
      material-sufficiency theory rather than the search-based proxy item
      5 already built and strengthened. That is research-scale, past the
      current milestone bar. -->
+<!-- HISTORY CORRECTION 2026-07-28 -- `e3590c3` does not contain what its
+     message says. It is titled "CLAUDE.md: adopt the silence-audit checklist
+     retirement" and does carry that 6-line change, but it ALSO carries 329
+     insertions of unrelated work that a concurrent interactive session had
+     staged at that moment:
+       tools/gemini-budget.mjs       (the whole Gemini spend cap)
+       test/gemini-budget.spec.mjs   (10 tests for it)
+       tools/generate-pieces.mjs     (key resolution + cap wiring)
+       package.json, .gitignore
+     Cause: a cross-project rollout script committed with a bare `git commit`
+     (no pathspec) while those files sat staged behind a ~5min pre-commit
+     suite. The staging session's own commit message -- which documented why
+     the cap refuses instead of reporting, why the ledger lives outside the
+     repo, and why it fails closed on a corrupt ledger -- was discarded.
+     NOT rewritten, deliberately: `e3590c3` was already pushed, and force-
+     pushing a ref the nightly clone and another live session may hold is a
+     bigger risk than a wrong label. So this note is the record instead.
+     `9bfd8e8`'s message compounds it slightly by describing the cap as
+     though it landed there; only the sprite and its tests did.
+     Filed scheduler-side as `15948a8`: should a cross-project script be
+     required to pass an explicit pathspec, the way focus-commit does? -->
+
 Ideas beyond this bar are PARKED by default (see realisateur/STABILITY-MILESTONES.md).
 
 ## Priority queue
