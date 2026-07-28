@@ -97,6 +97,17 @@ function fail(message) {
   process.exit(1);
 }
 
+/* True when an API rejection is about the ACCOUNT rather than this one call,
+ * so retrying the remaining pieces is guaranteed-futile spend. Exported for
+ * test/gemini-fatal.spec.mjs -- the 2026-07-28 live run is the witness this
+ * exists for, and a regression here is invisible until it costs money. */
+export function isFatalApiError(status, text) {
+  if (status === 401 || status === 403) return true;
+  // A 429 is normally "slow down" -- retryable, and NOT fatal. The exception
+  // is a stated limit of 0, which means no quota exists to wait for.
+  return status === 429 && /limit:\s*0\b/.test(text || "");
+}
+
 async function generateOne(apiKey, spec) {
   const response = await fetch(ENDPOINT, {
     method: "POST",
@@ -107,7 +118,20 @@ async function generateOne(apiKey, spec) {
     // Surface the API's own message -- a 429 (quota), 403 (bad key) and 400
     // (bad request) need completely different fixes, and "generation failed"
     // alone would send the next reader hunting through all three.
-    throw new Error(`Gemini API ${response.status} ${response.statusText}: ${(await response.text()).slice(0, 400)}`);
+    const text = await response.text();
+    const error = new Error(`Gemini API ${response.status} ${response.statusText}: ${text.slice(0, 400)}`);
+    // ACCOUNT-LEVEL vs PER-CALL failure. A 401/403, or a 429 whose quota
+    // limit is literally 0, is not a transient hiccup and not specific to
+    // this piece: it says this key cannot call this model AT ALL. Retrying
+    // the other 17 cannot succeed, so mark it fatal and let main() abort the
+    // whole run. Witnessed 2026-07-28: a first live run burned all 18 calls
+    // against `generate_content_free_tier_requests, limit: 0` (the image
+    // model has no free tier) and printed 18 near-identical stack-height
+    // paragraphs, burying the one line that actually mattered. Zero dollars
+    // lost -- the account was unbilled, which is exactly why it failed -- but
+    // on a BILLED key the same bug spends 18x the cost of learning one fact.
+    error.fatal = isFatalApiError(response.status, text);
+    throw error;
   }
   const body = await response.json();
   const parts = body?.candidates?.[0]?.content?.parts ?? [];
@@ -156,6 +180,19 @@ async function main() {
         // Collected and re-raised at the end so the exit code still fails loud.
         console.log(`FAILED: ${error.message}`);
         failures.push(letter);
+        if (error.fatal) {
+          // ...but an account-level rejection WILL repeat for every remaining
+          // piece, so stop rather than paying to learn the same thing 17 more
+          // times. See the `error.fatal` note in generateOne.
+          console.log(
+            `\nSTOPPING after 1 of ${letters.length}: that failure is account-level, not piece-specific.\n` +
+            `  A 429 with "limit: 0" means this key's project has no quota for ${MODEL} --\n` +
+            `  the image model is not on the free tier, so this needs billing enabled on the\n` +
+            `  project the key belongs to (check which one at https://aistudio.google.com/apikey).\n` +
+            `  Nothing was written and nothing was charged. Re-run after fixing billing.`,
+          );
+          break;
+        }
       }
     }
   } finally {
@@ -171,4 +208,9 @@ async function main() {
   execFileSync(process.execPath, [path.join(ROOT, "tools", "wire-pieces.mjs")], { stdio: "inherit" });
 }
 
-await main();
+/* Only auto-run when invoked as a script. Without this guard, importing the
+ * module to test isFatalApiError would execute main() -- i.e. a test run would
+ * start calling a paid image API. */
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}
