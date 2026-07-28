@@ -482,3 +482,21 @@ Bridged in-repo tonight: `.claude/FOCUS.md` and `.claude/QUESTIONS.md`
 are now symlinks to the `.scheduler/` originals, so stale-path
 reads/writes hit the real files; see QUESTIONS.md's 2026-07-25 entry.
 (4) pre-commit docs fast-path: DONE, `95cc235`.
+
+## Ideas (added via `scheduler -i`)
+
+- **2026-07-28 13:34 (via `scheduler -i`):** playwright.config.mjs: derive `workers` from the host's core count, not a magic 2 (2026-07-28, Zach-directed via realisateur /ideate; filed through the front door because chezz had a live interactive session at the time).
+
+WHAT'S THERE NOW. `workers: 2`, with a good comment explaining it: at full concurrency ai-determinism.spec.mjs races material-tuning.spec.mjs for CPU, the AI's wall-clock search deadline lands at a different depth on its second of two same-position calls, and a test that isn't testing concurrency fails reliably. The reasoning is sound and should be kept. The problem is the number, and specifically this clause: "default is CPU-count-based, 6 on this machine".
+
+WHY IT MATTERS NOW. "This machine" is about to stop being one machine. chezz is being migrated to dexter under the 2026-07-28 pin-by-contention-relief decision (filed to scheduler same day). mandark has 6 cores; **dexter has 16**. So the comment's stated premise is false on the new host the moment the move lands, while the code keeps working -- which is the worst version of this, because nothing fails and the next person reads a rationale that no longer describes anything real. The cap of 2 is still *safe* on 16 cores; it is the justification that decays, not the behavior.
+
+WHAT TO DO INSTEAD. Derive it, and let the derivation carry the intent. Something like a fraction of `os.availableParallelism()` (node 18+, present on both hosts -- dexter now runs node v24.18.0) with a floor, plus a `CHEZZ_TEST_WORKERS` env override so a specific host or CI context can pin it without editing tracked code:
+
+  workers: Number(process.env.CHEZZ_TEST_WORKERS) || Math.max(1, Math.floor(os.availableParallelism() / 3))
+
+-- the exact fraction is chezz's call, not this filing's. What matters is that the number stops being typed and starts being computed, and that the comment then explains the RULE ("leave enough headroom that material-tuning's wall-clock deadline is not CPU-starved") rather than a measurement taken once on a laptop that is no longer the host.
+
+THE GENERAL SHAPE, worth applying beyond this one line. This is a host-property dependency hiding in a config file -- the same class as crt's remote-Claude bridge being a reverse tunnel because mandark has no inbound path. It is filed to senechal as class 5 of five dependency classes (2026-07-28, "HOST DEPENDENCIES AS A DECLARED, PROBEABLE THING"). A constant tuned to one machine's hardware is fine while there is one machine; it becomes a latent lie the moment there are two. So while touching this: grep chezz for other numbers that were measured on mandark rather than reasoned from a rule -- timeouts, size budgets in scripts/check-size.mjs, any wall-clock deadline in the AI search itself. Each one is either genuinely host-independent (say so in the comment, and it's done) or it needs the same treatment. Better to sweep them once now, before the move, than to discover them one failing test at a time on a 16-core box.
+
+Note the migration does NOT block on this and this does not block the migration -- workers:2 runs correctly on dexter today. This is a correctness-of-reasoning fix, not a bug.
