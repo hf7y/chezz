@@ -42,13 +42,24 @@ delete its line by hand — that still works.
      an unattended run (credentials, SSH/rsync access, whatever OCF
      hosting requires), or is publishing there always a manual step no
      matter what automation does?
+> Right now there's a manual step but there is ssh access. The right 
+> shape of this might be to move the hf7y domain over to github pages.
+> right now it's just a redirect to the ocf domain. For now, we'll need
+> to work interactively to get an ssh key to allow for deployment to ocf
+> which is no problem.
+
   3. What "its own production stream" means concretely -- a full new
      `scheduler` registration (own repo/branch/FOCUS.md/nightly cadence,
      sharing the same constrained account budget every other registered
      project already competes for) vs. something lighter (occasional
      interactive `/ideate`-or-similar sessions against `chezz-classic`,
      no unattended cron at all).
-  > (answer inline here)
+> Something lighter. It should be called from the same scheduler job.
+> Right now, many quality of life features built for chezz narrative
+> should be imported into classic. But classic is all about elegance,
+> keeping the file size small, the html clean, and the game simple
+> and self-evident. So a new set of classic tests will exist that don't
+> apply to narrative.
 
 - **2026-07-24 (nightly): should a spawned Black pawn ever be allowed to
   hang (attackable for a free capture) right on arrival?**
@@ -63,7 +74,13 @@ delete its line by hand — that still works.
   source of early free material for the player, which changes difficulty
   tuning on the fodder floors terrain was just added to. Deferring
   instead of guessing given how often it recurs.
-  > (answer inline here)
+> No. Never. Pawns can spawn under threat if they are defended by another
+> piece. But the "stand in the open" logic was not stated by zach. Free
+> material on level load is not a good design. We will eventually need to
+> build a difficulty detection system that starts from solving, analytically
+> what white material is actually needed to defeat black team compositions.
+> For now, the general design is more pawns, more terrain, never free on
+> fodder levels. Fodder levels should play like a platformer / puzzle.
 
 - **2026-07-24 (nightly): King->Queen -- 1:1 replacement, or a two-piece
   escort mode?**
@@ -80,7 +97,14 @@ delete its line by hand — that still works.
   objective, not a strength buff. No implementation should start until
   this fork is picked; see the DESIGN-NOTES.md section for the full
   breakdown of what else changes under each option.
-  > (answer inline here)
+> For chezz narrative, we can handle it like this, royal pieces that
+> get built up over time. Player can choose to start from level 1 with
+> that royal piece already loaded after its unlocked. For example, the
+> king finds a neutral knight 1/2 black, 1/2 white on a fodder level;
+> he now gains knight movements in addition to king movements. Requires
+> wiring up sprite generation via gemini (look into vkv-inventory) to
+> create pieces unavailable in the font. For chezz classic, no, always
+> king. 
 
 - **2026-07-24 (nightly): should White get a background move-hint
   ("best move" dots) once the engine finds one, if White hasn't moved
@@ -97,7 +121,16 @@ delete its line by hand — that still works.
   UI surface is a real cost, not a free add. Deferring pending a human
   call on whether hints are wanted at all, and if so, always-on vs. an
   opt-in toggle.
-  > (answer inline here)
+> This is an interesting feature to park. Maybe lay stubs out for.
+> It would ultimately be a toggle. Not sure what the real cost is though
+> since processing would be background, interrupted, and it doesn't steal
+> from black engine work, unless I'm misunderstanding the design. In fact,
+> it should be largely free since black's previous move already considered
+> white's best move. Shouldn't need to call the engine at all. Basically,
+> when white selects the piece that has the best move, the dot corresponding
+> to that move should be a special color, or a star, whatever is simplest
+> now. Only do this work if the black engine piggyback hypothesis is real,
+> otherwise park as an idea in the feature vision tree.
 
 - **2026-07-27 (nightly): may nightly runs do ordinary balance tuning
   (piece values, spawn budgets) on their own, with a regression pin?**
@@ -117,7 +150,9 @@ delete its line by hand — that still works.
   nightly work. A no keeps them parked here indefinitely, which is fine
   if that's the call -- but they should stop being re-triaged every
   night either way.
-  > (answer inline here)
+> Yes. Balance tuning is good for nightly work. In fact, this research
+> should be documented in its own lane, like a folder, since it may
+> be interesting to other researchers. This is scholarship. 
 
 - **2026-07-27 (nightly): should unattended nightly runs work the
   `chezz-classic` branch, or is it interactive-only for now?**
@@ -135,7 +170,12 @@ delete its line by hand — that still works.
   a narrative fix into it, run the (size-enforcing) checks, and push --
   or should Classic stay something you drive interactively? If yes, the
   same four-outcome triage applies there as here.
-  > (answer inline here)
+> Yes, nightly work should work the classic branch. Absolutely try
+> porting those things in. If a port is successful but exceeds the size
+> limit, keep the work but don't merge, loudly announce on the html
+> that the limit was exceeded. Eventually we'll have a nightly builds
+> folder of the html pages where beta testers can explore different
+> builds. 
 
 - **2026-07-27 (nightly): screenshot attachment on bug reports -- worth a
   new image-hosting dependency?**
@@ -148,4 +188,5 @@ delete its line by hand — that still works.
   now carry the last 5 plies in the URL, so "look at what just happened"
   no longer requires a picture. Worth knowing whether that's enough
   before anyone prices out image uploads.
-  > (answer inline here)
+> Good catch. Park for now. URL is the right place for missing context.
+
