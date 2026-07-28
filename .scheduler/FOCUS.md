@@ -225,6 +225,86 @@ Done when:
      `daffb82` is the accepted answer. If a future ask needs more context
      on a report, extend what the URL carries. -->
 
+<!-- RESOLVED 2026-07-28 -- FOUR MORE answers, from the same sweep, that an
+     earlier pass of this session missed. All seven questions in
+     QUESTIONS.md were answered at once (2026-07-28, `3cf830e`); the first
+     fold-in caught only the three dated 2026-07-27. These are the rest.
+
+     (a) King->Queen (asked 2026-07-24) -- ANSWERED, and NOT as either
+     option offered. Not 1:1 replacement, not a two-piece escort:
+     **royal pieces that get built up over time.** "The king finds a
+     neutral knight 1/2 black, 1/2 white on a fodder level; he now gains
+     knight movements in addition to king movements." The player may
+     later choose to start from level 1 with an unlocked royal piece
+     already loaded. For `chezz-classic`: **no, always king** -- do not
+     port this. HARD DEPENDENCY: the neutral half-black/half-white piece
+     does not exist in Unicode, so this needs the Gemini sprite pipeline
+     (item 7) to have actually run. Item 6 is therefore no longer waiting
+     on Zach -- it is waiting on a generated sprite, same gate as item 7.
+
+     (b) Classic test suite -- "Something lighter. It should be called
+     from the same scheduler job." A separate, lighter set of classic
+     tests that do NOT apply to narrative, run from the existing chezz
+     job rather than a new one. Rationale in the answer, and it is the
+     standing frame for all Classic work: "classic is all about elegance,
+     keeping the file size small, the html clean, and the game simple and
+     self-evident." Pairs with item 8.
+
+     (c) Pawn spawn under threat (asked 2026-07-24) -- "No. Never." Pawns
+     MAY spawn under threat **if defended by another piece**. Free
+     material on level load is not good design. The current behavior is
+     an INFERENCE nobody authorized: `placePawn()` (index1.html ~1471)
+     carries the comment "no safety check, pawns stand in the open," and
+     Zach's answer says flatly that logic "was not stated by zach."
+     Note the asymmetry it creates -- the non-pawn spawn path a few lines
+     below DOES try safe squares first and will spend budget shielding a
+     piece with a pawn rather than scrap it; only the pawn path drops
+     material in the open. Fixing that asymmetry is the work.
+     General direction, quotable: "more pawns, more terrain, never free
+     on fodder levels. Fodder levels should play like a platformer /
+     puzzle." Longer-term he wants a difficulty-detection system that
+     starts by solving analytically what White material is actually
+     needed to beat a given Black composition -- that is the same
+     research-scale analytic material theory parked below, now with a
+     stated purpose; keep it parked, but stop treating it as idle.
+
+     (d) White background move-hint -- PARK, with stubs, conditional.
+     "Only do this work if the black engine piggyback hypothesis is
+     real, otherwise park as an idea in the feature vision tree." The
+     hypothesis, in his words: it "should be largely free since black's
+     previous move already considered white's best move. Shouldn't need
+     to call the engine at all." Shape if real: when White selects the
+     piece holding the best move, that move's dot renders special (a
+     color or a star -- "whatever is simplest"), behind a toggle. So the
+     first task is not implementation, it is ANSWERING the hypothesis by
+     reading the search: does Black's completed search already surface
+     White's best reply, retrievably, at no extra cost? Report the
+     finding either way; build only on a yes. -->
+
+<!-- PARKED WITH A TRIGGER 2026-07-28 (Zach, interactive) -- moving the
+     `hf7y` domain to GitHub Pages. Today it is only a redirect to the
+     OCF domain, and OCF deployment is getting an ssh key anyway, so the
+     move buys nothing right now. It is NOT a "someday" park: it becomes
+     worth doing the moment the OCF hop is carrying weight it would not
+     have to carry on Pages.
+     MILESTONE THAT MAKES IT WORTH DOING -- any ONE of these is enough:
+       - The nightly-builds folder (item 9) is live and beta testers are
+         actually fetching builds through the domain. Serving a growing
+         set of static HTML builds is precisely what Pages does for free
+         and what the OCF redirect makes awkward.
+       - The OCF ssh key breaks, expires, or needs a second manual rescue.
+         Two rescues means the redirect is costing more than the move.
+       - Anything needs HTTPS/CDN behavior or a custom 404 the redirect
+         cannot give.
+     TRIGGER THAT TELLS US THE TIME HAS COME -- this must be a real
+     check, not a note nobody reads. Wire it as part of item 9: the
+     nightly-builds index build asserts the domain can serve a build
+     directly, and FAILS LOUD (blocker to Zach, scheduler BLOCKERS.md
+     `## chezz`) the first time it cannot. Until item 9 exists there is
+     nothing to wire it to, which is itself the honest status: this park
+     has no live trigger yet, and item 9 is what gives it one. Do not
+     mark this wired until that assertion exists and has run. -->
+
 <!-- Parked 2026-07-27: tracker 2026-07-26T02:42 asks for an *analytic*
      material-sufficiency theory rather than the search-based proxy item
      5 already built and strengthened. That is research-scale, past the
@@ -247,7 +327,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 3. DONE 2026-07-24 (`1f51a1e`): auto-march drag + formation-follow (walk animation = parked polish).
 4. DONE 2026-07-24 (`ebdb1dc`+`b425d79`): terrain -- boss-gated walls + holes.
 5. DONE 2026-07-26 (`f83a709` tactical half, `de7c7a6` king-safety half): material-sufficiency tuning proxy strengthened -- full-capture quiescence closed the horizon blind spot (10-report AI hang cluster resolved, pinned in ai-quiescence.spec.mjs); evaluateBoard's king safety is now attack-based (real attackersOf(...) on the King's square) not just kingProgress, pinned in ai-determinism.spec.mjs.
-6. (waiting: QUESTIONS.md answer, 1:1 vs. escort) King->Queen -- spec drafted 2026-07-24 in DESIGN-NOTES.md; no implementation until answered.
+6. (ANSWERED 2026-07-28; now waiting on a generated sprite, not on Zach) King->Queen -- neither option in the original question won: it is **royal progression**, the King absorbing movement from neutral pieces found on fodder floors (see resolved block above for the full answer). The 2026-07-24 DESIGN-NOTES.md spec is superseded on its central question and needs rewriting before implementation. Blocked on item 7 having actually run, because the neutral half-black/half-white piece has no Unicode glyph. Narrative only -- Classic stays always-king.
 7. (waiting: a GEMINI_API_KEY on this machine) Gemini sprite pipeline -- BUILT 2026-07-27 (`f7a2458`), gate opened by Zach's `BLOCKERS.md` reply the same day. `tools/generate-pieces.mjs` + `sprite-postprocess.js` + `wire-pieces.mjs`, and `pieceGlyphHtml` renders a sprite when one exists / the Unicode glyph when it doesn't. Zero new dependencies (Playwright's canvas replaces vkv's Pillow+numpy; plain `fetch` replaces the google-genai SDK). Monochrome is enforced by a palette snap in the pipeline, not by prompt compliance. 11 new tests; everything downstream of the API call is green. **Not shipped: any actual sprite.** No key is reachable from an unattended run, and the reply's suggestion to lift creds from `vkv-inventory` is not possible -- vkv stores no key anywhere (verified 2026-07-27: `tools/generate_sprite.py` documents `export GEMINI_API_KEY=...` as an interactive human step; no key in its repo, its scheduler conf, or the env). This needs one `export` from a human, then `npm run pieces:generate`; do not re-triage it nightly until then. Full writeup in DESIGN-NOTES.md's "Graphics pipeline" section.
 
 8. (LIVE, unblocked 2026-07-28) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run.
@@ -256,11 +336,19 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 
 10. (LIVE, new 2026-07-28) Balance-research lane -- the "scholarship" half of the balance-tuning delegation. Create a folder (suggest `research/balance/`) that is the documented record of every tuning change: what number moved, from what to what, the report or observation that prompted it, the reasoning, and the regression test that now pins it. Zach's framing is that this may interest researchers outside the project, so write it for a stranger, not as a changelog. Every tuning change from here on lands through this lane -- the folder is the deliverable, the constants are its output. Start it with the five reports the delegation unblocked (archbishop value, pawn supply, spawn-gating, two empty-fodder-floor bugs) rather than as an empty scaffold.
 
-Backup work when the feature backlog (below) is empty: items 8, 9 and 10
-are LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are
-DONE, 6 and 7 stay blocked (a QUESTIONS.md answer and a human `export`
-respectively). Next backup tier after those: any bug reports Tier 1 left
-open needing a human call (see below).
+11. (LIVE, new 2026-07-28) Pawn spawn must never be free material -- implement Zach's "No. Never." A spawned Black pawn may stand under threat ONLY if defended by another Black piece. `placePawn()` (index1.html ~1471) currently takes the first empty square with no safety check at all, while the non-pawn path directly below already tries safe squares and will spend budget shielding a piece rather than scrap it -- so this is closing an asymmetry, not inventing a policy. Pin the new behavior with a test that fails on the old one (a seeded floor where a pawn lands undefended-and-attacked). Watch the interaction with PAWN_ALLOWANCE_CHANCE, which places a pawn OUTSIDE the tiered budget. This is balance-adjacent, so route the numbers half through item 10's research lane.
+
+12. (LIVE, new 2026-07-28) Classic test suite -- "something lighter," called from the SAME scheduler job, not a new one. Classic-only tests that don't apply to narrative, holding the line Zach stated: elegance, small file size, clean HTML, a game that is simple and self-evident. Prerequisite-ish for item 8 -- the ports need something to be checked against beyond the byte cap.
+
+13. (RESEARCH FIRST, new 2026-07-28) White move-hint -- do NOT build it yet. Answer the hypothesis first: does Black's completed search already surface White's best reply, retrievably, at no extra engine call? Zach parks the feature unless that is true. Report the finding either way; on a yes, the shape is a toggle plus a special dot/star on the best move, "whatever is simplest." Benchmark any measurement with the deadline disabled at fixed depth on node counts, never wall-clock.
+
+Backup work when the feature backlog (below) is empty: items 8-13 are all
+LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are DONE;
+6 and 7 are both now gated on the same thing, a generated sprite, which
+needs one human `export` (item 7) and nothing else. Cheapest real wins in
+that set: item 11 (a bounded correctness fix with a clear test) and item
+13 (pure research, no shipping risk). Next backup tier after those: any
+bug reports Tier 1 left open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
 supersedes the "urgent" 2026-07-24 block that used to sit here):** the
