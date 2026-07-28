@@ -331,6 +331,37 @@ Done when:
      Filed scheduler-side as `15948a8`: should a cross-project script be
      required to pass an explicit pathspec, the way focus-commit does? -->
 
+<!-- EXECUTION HOST: chezz is moving to dexter (policy, 2026-07-28).
+     Zach, interactive: **the dexter pinning policy is reversed -- move
+     everything possible to dexter.** dexter is now the DEFAULT execution
+     host; the old rule (only hardware/network-evidenced projects may be
+     pinned there, `wtul` as the lone named exception) is retired. Filed
+     to scheduler as `a36d3c0` and to realisateur the same day.
+     What this settles for chezz: it no longer needs a named exception to
+     move. The "chezz would be the second non-hardware exception" concern
+     raised earlier the same day is RETIRED -- permission is not the
+     question any more.
+     What it does NOT settle, still open in QUESTIONS.md (`d7f1229`):
+     where Zach's answer surface lives, whether `chezz-sweep` moves with
+     the nightly or later, the branch model, and whether the Gemini key
+     follows to dexter.
+     THE PREREQUISITE, unchanged and now MORE important rather than less:
+     dexter must be able to reach `git@github-chezz-deploy:hf7y/chezz.git`
+     -- live-verified with `git ls-remote` FROM dexter before any
+     participant line moves. `wtul` was moved 2026-07-25 and reverted the
+     same day for exactly this gap. A policy that moves projects faster
+     than credentials get provisioned converts one revert into many.
+     Mechanically the move is a PAIRED edit, and the halves happen on
+     different machines: drop/disable `chezz` (and `chezz-sweep`) in
+     scheduler `schedule/_paced.conf` on mandark, add them to
+     `schedule/_paced.dexter.conf` ON dexter (that file is dexter-owned).
+     Two hosts must never dispatch the same participant.
+     CAVEAT worth knowing before reading anything else: `_paced.dexter.conf`
+     lines 29-33 still state the OLD policy verbatim, and that file cannot
+     be corrected from mandark. Until it is amended in a human session on
+     dexter, the most authoritative-looking statement of the rule
+     contradicts the actual one. -->
+
 Ideas beyond this bar are PARKED by default (see realisateur/STABILITY-MILESTONES.md).
 
 ## Priority queue
