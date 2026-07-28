@@ -147,7 +147,7 @@
 Done when:
 - [x] The open tracker backlog is fully dispositioned: every open report is shipped, closed with a stated reason, or attached to a live blocker/question for Zach -- none sitting with only a stale triage note. **Met 2026-07-27** (nightly): the bug queue had been the gap -- 19 of 25 open bugs carried no note at all. 9 were closed (2 fixed tonight in `daffb82`, 3 already shipped, 3 re-probed and closed by the engine work, 1 already-shipped stalemate behavior); the remaining 16 each now name the live question or the specific human check they wait on. Verified by re-fetch, not by the POST responses: zero open reports with an empty note.
 - [x] Two consecutive unattended nightly runs complete green (checks passing, pushed to `origin/main`) with no human rescue: 2026-07-26 ~21:00 (`de7c7a6`/`21e0d0c`) and 2026-07-27 (`daffb82` onward).
-- [x] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss). **Met 2026-07-27 (second run that day), via the `BLOCKERS.md` half of the channel:** Zach left two inline `### REPLY` blocks under `## chezz` in scheduler `BLOCKERS.md`; this run read them before anything else, and the first one ("Yes, pursue the gemini path...") is what produced `f7a2458` -- a question asked by automation, answered by the human, and acted on by the next unattended run, end to end. Earlier same day the "balance-tuning delegation" question exposed a second failure mode (five tracker notes and two nightly reports told Zach a question was awaiting his answer in `QUESTIONS.md`, where it had never actually been written; restored in `cf7b50f`). **Caveat, deliberately not papered over:** what round-tripped was the `BLOCKERS.md` `### REPLY` path. The `QUESTIONS.md` `> `-reply path specifically still has no demonstrated round-trip -- seven questions sit there unanswered. If that path is the one that matters, this bullet is met only in spirit. **Update 2026-07-27 (late run, `7fc0d3b`): the reason is now known and was a real defect, not human silence** -- the symlink Zach writes answers through pointed at a checkout 6 commits behind, so three of the seven questions had never reached him at all (see the root-cause note below). Channel repaired and guarded by `npm run check-answers`. The bullet stays as-is rather than being upgraded: a repaired channel is not a demonstrated round-trip, and the demonstration needs one reply from Zach that a run then acts on. First real chance is whichever question he answers next.
+- [x] The human-answer channel round-trips: a `> ` reply or `%%TAG` left by Zach demonstrably reaches and is acted on by the next run (no repeat of the 2026-07-25 stale-symlink loss). **Met 2026-07-27 (second run that day), via the `BLOCKERS.md` half of the channel:** Zach left two inline `### REPLY` blocks under `## chezz` in scheduler `BLOCKERS.md`; this run read them before anything else, and the first one ("Yes, pursue the gemini path...") is what produced `f7a2458` -- a question asked by automation, answered by the human, and acted on by the next unattended run, end to end. Earlier same day the "balance-tuning delegation" question exposed a second failure mode (five tracker notes and two nightly reports told Zach a question was awaiting his answer in `QUESTIONS.md`, where it had never actually been written; restored in `cf7b50f`). **Caveat, deliberately not papered over:** what round-tripped was the `BLOCKERS.md` `### REPLY` path. The `QUESTIONS.md` `> `-reply path specifically still has no demonstrated round-trip -- seven questions sit there unanswered. If that path is the one that matters, this bullet is met only in spirit. **Update 2026-07-27 (late run, `7fc0d3b`): the reason is now known and was a real defect, not human silence** -- the symlink Zach writes answers through pointed at a checkout 6 commits behind, so three of the seven questions had never reached him at all (see the root-cause note below). Channel repaired and guarded by `npm run check-answers`. The bullet stays as-is rather than being upgraded: a repaired channel is not a demonstrated round-trip, and the demonstration needs one reply from Zach that a run then acts on. First real chance is whichever question he answers next. **UPGRADED 2026-07-28 -- the `QUESTIONS.md` `> `-reply path has now round-tripped, on the repaired channel, for real.** Zach answered three of the questions inline (balance-tuning delegation: yes + document it as scholarship; `chezz-classic`: yes, port them in, keep-don't-merge over-cap builds; screenshots: park, the URL is the right place), and this session folded all three into scope -- see the two RESOLVED blocks and priority queue items 8/9/10. **One caveat, deliberately not papered over, and it is a NEW failure mode rather than the old one:** the answers reached the repo and were committed by the scheduler's reactive sweep (`3cf830e`, 10:15) -- but that commit sat UNPUSHED, and chezz's nightly resets its dedicated clone `--hard` to origin, so the next unattended run would have re-triaged all three as unanswered for a third consecutive night. It was caught by hand in an interactive session, not by any guard. So the human->repo half of the channel is demonstrated; the repo->origin->dispatch half still has a hole that only a human happened to notice. Filed scheduler-side 2026-07-28 (`8c94eff` in scheduler's own FOCUS.md) asking whether the ~30-minute sweeper can catch its own missed push; leading unverified hypothesis is that chezz pushes over the `github-chezz-deploy:` SSH alias and the sweeper has no key it can reach, so `focus-commit` dies at the push into a stderr with no reader.
 
 <!-- Standing lesson from that miss (2026-07-27): a tracker note or a
      report that says "waiting on your answer in QUESTIONS.md" is a claim
@@ -176,16 +176,54 @@ Done when:
      `check-answers` to fail at the start of a run and fast-forward it as
      the guard's own message instructs. Do not skip the guard. -->
 
-<!-- Parked 2026-07-27 (park-by-default triage): the five `chezz-classic`
-     reports Zach filed 2026-07-26 from mandark (mobile text highlighting,
-     move-dot/move-into-check port, pawn-scarcity progression, analytic
-     material theory, pawn spawn). Several are straight ports of working
-     narrative code, but nothing has decided whether unattended runs may
-     work that branch at all, and its byte cap is enforced -- so a new
-     QUESTIONS.md entry (2026-07-27) asks exactly that, narrower than the
-     older Chezz Classic parts 2/3 question and enough to unblock all
-     five on its own. Parked, not declined; each report says so on the
-     tracker. -->
+<!-- UNPARKED 2026-07-28 -- Zach answered the 2026-07-27 QUESTIONS.md entry
+     ("may nightly runs work `chezz-classic`?") with a plain YES. The five
+     `chezz-classic` reports he filed 2026-07-26 from mandark (mobile text
+     highlighting, move-dot/move-into-check port, pawn-scarcity
+     progression, analytic material theory, pawn spawn) are now ordinary
+     nightly work; see priority queue item 8. Standing rules from that
+     answer, verbatim in intent:
+       - Nightly runs MAY check out `chezz-classic`, port a narrative fix
+         into it, run the (size-enforcing) checks, and push.
+       - "Absolutely try porting those things in" -- attempt the port
+         first; do not pre-decline one on a size guess.
+       - If a port WORKS but exceeds the byte cap: **keep the work, do not
+         merge it**, and announce the overage LOUDLY in the HTML itself.
+         This supersedes the older "file a blocker and wait" half of the
+         size policy below for the port case specifically -- the blocker
+         still gets filed, but the work is no longer thrown away or
+         deferred while it waits.
+       - Destination for such a build: the nightly-builds folder (item 9),
+         not `chezz-classic` proper. -->
+
+<!-- RESOLVED 2026-07-28 -- balance tuning is DELEGATED to nightly runs.
+     Zach's answer to the 2026-07-27 QUESTIONS.md entry: "Yes. Balance
+     tuning is good for nightly work." A run MAY change numbers like
+     Archbishop's material value, a floor's pawn/spawn budget, and the
+     minimum interesting force on a fodder floor, on its own, when a
+     report complains -- PROVIDED each change lands with a regression test
+     pinning the new number and the report says what moved and why. This
+     is tuning, not design; it does not extend to changing what a piece
+     DOES or how a floor is structured, which stay design calls.
+     Unblocks five reports that were parked on this: archbishop
+     underpriced, pawn supply too thin, spawn-gating, and two "fodder
+     floors feel empty" bugs. Retire their tracker notes pointing at this
+     question -- it is answered, not pending.
+     SECOND HALF OF THE ANSWER, not optional: "this research should be
+     documented in its own lane, like a folder, since it may be
+     interesting to other researchers. This is scholarship." So the
+     deliverable is not just tuned constants -- it is a durable research
+     record a stranger could read. See priority queue item 10; do the
+     tuning THROUGH that lane, not alongside it. -->
+
+<!-- RESOLVED 2026-07-28 -- screenshot attachment on bug reports: PARKED,
+     by Zach's own call, answering the 2026-07-27 QUESTIONS.md entry.
+     "Good catch. Park for now. URL is the right place for missing
+     context." Tracker `2026-07-23T22:51:04.845Z` stays open but is NOT to
+     be re-triaged: no image hosting, no new external dependency, no
+     pricing exercise. The ply-history-in-the-URL relief shipped in
+     `daffb82` is the accepted answer. If a future ask needs more context
+     on a report, extend what the URL carries. -->
 
 <!-- Parked 2026-07-27: tracker 2026-07-26T02:42 asks for an *analytic*
      material-sufficiency theory rather than the search-based proxy item
@@ -212,10 +250,17 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 6. (waiting: QUESTIONS.md answer, 1:1 vs. escort) King->Queen -- spec drafted 2026-07-24 in DESIGN-NOTES.md; no implementation until answered.
 7. (waiting: a GEMINI_API_KEY on this machine) Gemini sprite pipeline -- BUILT 2026-07-27 (`f7a2458`), gate opened by Zach's `BLOCKERS.md` reply the same day. `tools/generate-pieces.mjs` + `sprite-postprocess.js` + `wire-pieces.mjs`, and `pieceGlyphHtml` renders a sprite when one exists / the Unicode glyph when it doesn't. Zero new dependencies (Playwright's canvas replaces vkv's Pillow+numpy; plain `fetch` replaces the google-genai SDK). Monochrome is enforced by a palette snap in the pipeline, not by prompt compliance. 11 new tests; everything downstream of the API call is green. **Not shipped: any actual sprite.** No key is reachable from an unattended run, and the reply's suggestion to lift creds from `vkv-inventory` is not possible -- vkv stores no key anywhere (verified 2026-07-27: `tools/generate_sprite.py` documents `export GEMINI_API_KEY=...` as an interactive human step; no key in its repo, its scheduler conf, or the env). This needs one `export` from a human, then `npm run pieces:generate`; do not re-triage it nightly until then. Full writeup in DESIGN-NOTES.md's "Graphics pipeline" section.
 
-Backup work when the feature backlog (below) is empty: item 5 is now DONE
-in full (see above) -- priority queue is otherwise all DONE or blocked on
-a QUESTIONS.md answer (item 6). Next backup tier: any bug reports Tier 1
-left open needing a human call (see below).
+8. (LIVE, unblocked 2026-07-28) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run.
+
+9. (LIVE, new 2026-07-28) Nightly-builds folder -- Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." This is where an over-cap `chezz-classic` port goes instead of being merged or discarded, so item 8 has a real destination rather than a dead-end branch. Needs: a published path (GitHub Pages already serves this repo), one HTML per build with enough label to tell builds apart, and an index page listing them. Keep it dumb -- static files, no build system, no new dependency. The loud overage announcement from item 8 lives in the build's own HTML, where a beta tester will actually see it.
+
+10. (LIVE, new 2026-07-28) Balance-research lane -- the "scholarship" half of the balance-tuning delegation. Create a folder (suggest `research/balance/`) that is the documented record of every tuning change: what number moved, from what to what, the report or observation that prompted it, the reasoning, and the regression test that now pins it. Zach's framing is that this may interest researchers outside the project, so write it for a stranger, not as a changelog. Every tuning change from here on lands through this lane -- the folder is the deliverable, the constants are its output. Start it with the five reports the delegation unblocked (archbishop value, pawn supply, spawn-gating, two empty-fodder-floor bugs) rather than as an empty scaffold.
+
+Backup work when the feature backlog (below) is empty: items 8, 9 and 10
+are LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are
+DONE, 6 and 7 stay blocked (a QUESTIONS.md answer and a human `export`
+respectively). Next backup tier after those: any bug reports Tier 1 left
+open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
 supersedes the "urgent" 2026-07-24 block that used to sit here):** the
