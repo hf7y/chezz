@@ -30,8 +30,38 @@ test("with no sprite generated, pieces render as Unicode glyphs (today's shipped
   expect(white).not.toContain("<img");
 });
 
-test("PIECE_SPRITES ships empty, so the committed game is glyph-based until sprites are generated", async ({ page }) => {
-  expect(await page.evaluate(() => Object.keys(PIECE_SPRITES).length)).toBe(0);
+/* UPDATED 2026-07-28. This used to assert PIECE_SPRITES was EMPTY, which was
+ * the shipped truth right up until the pipeline's first successful live call
+ * generated b-pawn.png and baked it in. The old assertion failing is the test
+ * doing its job -- it is the tripwire for "the sprite path quietly changed how
+ * the board renders", and it caught exactly that. What it pins now is the
+ * MIXED state, which per-piece fallback makes a supported state rather than a
+ * half-finished one: whatever has been generated renders as a sprite, and
+ * every piece that has not still renders as its glyph. */
+test("every piece in PIECE_SPRITES is a real sprite, and the rest fall back to glyphs", async ({ page }) => {
+  const { spriteLetters, allLetters } = await page.evaluate(() => ({
+    spriteLetters: Object.keys(PIECE_SPRITES),
+    allLetters: Object.keys(SYMBOLS),
+  }));
+  // No empty/placeholder entries: a key with nothing behind it would render a
+  // broken <img> where a perfectly good glyph used to be.
+  for (const letter of spriteLetters) {
+    const src = await page.evaluate((l) => PIECE_SPRITES[l], letter);
+    expect(src, `sprite for ${letter}`).toMatch(/^data:image\/png;base64,.{100,}/);
+  }
+  for (const letter of allLetters.filter((l) => !spriteLetters.includes(l))) {
+    const html = await page.evaluate((l) => pieceGlyphHtml(l), letter);
+    expect(html, `ungenerated ${letter} must stay a glyph`).toContain("<span");
+    expect(html, `ungenerated ${letter} must not be an <img>`).not.toContain("<img");
+  }
+});
+
+test("the first generated sprite (b-pawn) is actually wired into the board", async ({ page }) => {
+  // The concrete witness that the whole pipeline ran for real: Gemini call ->
+  // palette snap -> postprocess -> PNG -> wire-pieces -> rendered <img>.
+  const html = await page.evaluate(() => pieceGlyphHtml("p"));
+  expect(html).toContain("<img");
+  expect(html).toContain("♟");  // glyph retained as alt text
 });
 
 test("a piece with a sprite renders as an <img>, carrying its glyph as alt text", async ({ page }) => {
