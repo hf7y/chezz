@@ -11,6 +11,7 @@
     "prepare": "node scripts/setup-hooks.mjs",
     "pieces:generate": "node tools/generate-pieces.mjs",
     "pieces:wire": "node tools/wire-pieces.mjs",
+    "pieces:spend": "node tools/gemini-budget.mjs",
     "sheet:push": "clasp push --force",
     "sheet:status": "clasp status"
   },

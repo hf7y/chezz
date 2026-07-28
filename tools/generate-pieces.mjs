@@ -10,10 +10,20 @@
  * behind explicit human approval. Zach gave it 2026-07-27 (scheduler
  * BLOCKERS.md, "## chezz", replying to the Gemini-sprite blocker: "Yes, pursue
  * the gemini path, safe bounded account balance exists for testing precisely
- * this"). It is deliberately a MANUAL step, not part of `npm run check` or any
- * nightly path -- generation costs money per call and is non-deterministic, so
- * nothing should be able to trigger it as a side effect. The committed PNGs in
- * assets/pieces/ are the artifact; this script is how they get regenerated.
+ * this"). It is deliberately never part of `npm run check` -- generation costs
+ * money per call and is non-deterministic, so no ordinary test or build path
+ * should trigger it as a side effect. The committed PNGs in assets/pieces/ are
+ * the artifact; this script is how they get regenerated.
+ *
+ * RETIRES (2026-07-28, Zach): the stricter "not part of any nightly path" half
+ * of that rule, which this file used to state. Unattended nightly runs MAY now
+ * reach this, at his direction, reading the key from ~/.config/chezz/gemini.env
+ * via the scheduler's SECRETS_SRC_DIR copy-in. What replaces the blanket ban is
+ * NOT trust -- it is tools/gemini-budget.mjs: a hard pre-call cap that refuses
+ * before the network, plus a ledger outside the repo that survives the clone's
+ * --hard reset. Zach asked for a spend report; the cap is deliberately more
+ * than he asked for, because a report only ever arrives after the balance is
+ * already gone. Same reasoning as the fatal-abort in generateOne.
  *
  * Adapted from vkv-inventory's tools/generate_sprite.py, which does the same
  * job for isometric box textures. Two deliberate divergences: this calls the
@@ -23,11 +33,15 @@
  * devDependency here). Net new dependencies: none.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { chromium } from "@playwright/test";
+
+import {
+  DEFAULT_MONTH_CAP, KEY_PATH, assertBudget, billedThisMonth, readLedger, recordCall, report,
+} from "./gemini-budget.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OUT_DIR = path.join(ROOT, "assets", "pieces");
@@ -142,15 +156,30 @@ async function generateOne(apiKey, spec) {
   return `data:${image.inlineData.mimeType || "image/png"};base64,${image.inlineData.data}`;
 }
 
+/* env first (an interactive `export` should always win, so a human debugging
+ * with a different key does not have to fight the file), then the shared
+ * config file that SECRETS_SRC_DIR copies into a nightly clone. One source for
+ * the path: gemini-budget.mjs owns it. */
+function resolveApiKey() {
+  if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+  try {
+    const match = readFileSync(KEY_PATH, "utf8").match(/^\s*GEMINI_API_KEY\s*=\s*(.+?)\s*$/m);
+    return match ? match[1] : "";
+  } catch {
+    return "";
+  }
+}
+
 async function main() {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = resolveApiKey();
   if (!apiKey) {
     fail(
-      "GEMINI_API_KEY is not set -- refusing to run.\n" +
-      "  Get one at https://aistudio.google.com/apikey, then: export GEMINI_API_KEY=...\n" +
-      "  (This is the only remaining blocker on the sprite pipeline: everything\n" +
-      "   downstream of the API call is tested and working -- see\n" +
-      "   test/sprite-postprocess.spec.mjs and test/piece-sprites.spec.mjs.)",
+      "No Gemini API key -- refusing to run.\n" +
+      `  Looked at: $GEMINI_API_KEY, then ${KEY_PATH}\n` +
+      "  Get one at https://aistudio.google.com/apikey, then either export it, or:\n" +
+      "    mkdir -p ~/.config/chezz && read -rs K && printf 'GEMINI_API_KEY=%s\\n' \"$K\" \\\n" +
+      "      > ~/.config/chezz/gemini.env && chmod 600 ~/.config/chezz/gemini.env && unset K\n" +
+      "  (the read -rs form keeps the key out of shell history)",
     );
   }
 
@@ -158,6 +187,17 @@ async function main() {
   const unknown = requested.filter((letter) => !(letter in PIECES));
   if (unknown.length) fail(`unknown piece letter(s): ${unknown.join(", ")} (expected one of ${Object.keys(PIECES).join("")})`);
   const letters = requested.length ? requested : Object.keys(PIECES);
+
+  // HARD PRE-CALL CAP. Before the network, before the browser launch: if this
+  // run would exceed the per-run or per-month allowance, nothing happens at
+  // all. Throws with the number and the deliberate override.
+  try {
+    const remaining = assertBudget(letters.length);
+    console.log(`budget: ${letters.length} generation(s) requested, ${remaining} left this month ` +
+      `(${billedThisMonth(readLedger())}/${DEFAULT_MONTH_CAP} used). Estimates only -- see npm run pieces:spend.`);
+  } catch (error) {
+    fail(error.message);
+  }
 
   mkdirSync(OUT_DIR, { recursive: true });
   const browser = await chromium.launch();
@@ -170,7 +210,19 @@ async function main() {
       const spec = PIECES[letter];
       process.stdout.write(`${letter} (${spec.file})... `);
       try {
-        const raw = await generateOne(apiKey, spec);
+        let raw;
+        try {
+          raw = await generateOne(apiKey, spec);
+        } catch (error) {
+          // Record BEFORE re-throwing: a rejected call is unbilled, but the
+          // attempt belongs in the ledger so the counts explain themselves.
+          recordCall({ billed: false });
+          throw error;
+        }
+        // Billed the moment the API returned an image -- recorded before the
+        // postprocessing that could still throw, because a local failure
+        // downstream does not refund the call.
+        recordCall({ billed: true });
         const processed = await page.evaluate((uri) => window.postprocessSprite(uri), raw);
         const png = Buffer.from(processed.split(",")[1], "base64");
         writeFileSync(path.join(OUT_DIR, `${spec.file}.png`), png);
@@ -204,7 +256,8 @@ async function main() {
          `  Re-run just those: npm run pieces:generate -- ${failures.join(" ")}`);
   }
 
-  console.log(`\nWrote ${letters.length} sprite(s) to assets/pieces/. Baking into index1.html...`);
+  console.log(`\n${report()}\n`);
+  console.log(`Wrote ${letters.length} sprite(s) to assets/pieces/. Baking into index1.html...`);
   execFileSync(process.execPath, [path.join(ROOT, "tools", "wire-pieces.mjs")], { stdio: "inherit" });
 }
 
