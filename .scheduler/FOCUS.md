@@ -430,6 +430,47 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 
 13. RESEARCH DONE 2026-07-29, AWAITING A HUMAN CALL (issue #3) -- White move-hint. The piggyback hypothesis is HALF real. Yes, the information is computed: Black's search does evaluate White's replies under the same eval, so NO second engine call is needed. But it is not retained (`search()` returns a scalar; there is no PV table and no transposition table anywhere) and most of it is not an answer (alpha-beta cut nodes yield a move sufficient to REFUTE the line, not White's best). Three correctness conditions any implementation must meet, each a way it ships subtly wrong: restrict PV collection to exact-window nodes; filter through `legalMovesFrom` before display, because `collectMoves` builds from `legalMovesForPiece` and so enumerates King-hanging moves the player may not play (measured: 208 of 1312, 15.9%, across 60 spawned boards); and suppress a hint when the search hit `NODE_BUDGET`, since the line is then partial. Timing does line up as Zach thought -- the node wanted is exactly the child of the Black move played, searched at full window on the first deepening iteration. NOT BUILT: his instruction was to build only on a clean yes, and this is a qualified yes, so it goes back to him rather than an unattended run deciding. Full writeup: `research/engine/2026-07-29-white-move-hint-hypothesis.md`.
 
+14. DONE 2026-07-29 (second nightly, `48c1e68` + `cd446b8`) -- three
+    tracker reports filed as features that were really defects in already-
+    shipped work. Worth reading as a class, not three incidents:
+      (a) **Terrain has been invisible since it shipped** (item 4,
+          `ebdb1dc`, 2026-07-24). `td[data-terrain="wall"]` is specificity
+          (0,1,1); the checkerboard rule above it is (0,2,2) and won every
+          square, so walls painted as ordinary empty squares. All six
+          terrain tests passed the whole time -- they assert MOVEMENT and
+          the data attribute, never the paint. The reporter's question
+          ("failed rendering of the wall tile or genuine unable to move?")
+          had the answer BOTH, which is why it was unanswerable from
+          outside the code.
+      (b) **Formation-follow stranded anything more than one move behind**
+          the King: it only accepted moves landing ON the King's new rank,
+          and falling behind is precisely what makes that gap unclosable,
+          so it was permanent. Now a piece with no rank-reaching move takes
+          the legal move that gets it strictly closer.
+      (c) A Black pawn marching off the board (correct, deliberate) did it
+          **silently**, so a rule read as a piece vanishing. Announced now
+          through the existing `#floorMessage` channel; the rule is
+          unchanged.
+    STANDING LESSON: (a) and (c) are the same failure in different clothes
+    -- a feature whose LOGIC is tested and whose OUTPUT nobody looked at.
+    Green tests are not a witness that a player can see the thing. When
+    shipping anything visual, assert the computed paint, not the attribute
+    that is supposed to cause it.
+
+15. Feature backlog re-triaged 2026-07-29 (second nightly): 14 open -> 10,
+    zero with an empty or stale note. Four notes RETIRED that claimed to be
+    waiting on Zach and were not: three ("archbishop pricing", "pawn
+    supply", "spawn-gating") pointed at the balance-tuning question he
+    ANSWERED 2026-07-28, so they had been unblocked-but-labelled-blocked
+    for a day; one pointed at the move-hint question item 13 has since
+    answered. Those three are now ordinary queued work routed through
+    `research/balance/` -- undone for TIME, not for permission, which is a
+    different status and should be reported as one. Three genuinely new
+    forks went to Zach as issues #4 (roguelike respawn-with-bank: floor
+    structure, past the tuning delegation), #5 (earcons/vibration: audio
+    default on/off + FM-synthesis bytes), #6 (difficulty theory: separate
+    math branch or the research lane, and is agent playtesting in scope).
+
 Backup work when the feature backlog (below) is empty: items 8-13 are all
 LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are DONE;
 6 and 7 are both now gated on the same thing, a generated sprite, which
