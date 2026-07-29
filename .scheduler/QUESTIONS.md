@@ -298,3 +298,126 @@ delete its line by hand — that still works.
 > light: your RECOMMEND of nightly-first was argued partly as "a smaller
 > test of the second non-hardware exception", and that argument is gone.
 
+
+> ---
+>
+> **ANSWERED 2026-07-28 (realisateur `/cloture`, Zach live, supervision
+> session) -- Q2/Q3/Q4 now closed. Two CORRECTIONS to the Q1 block above.**
+>
+> **Q3 (branch model): single `main` + `focus-commit`.** Zach: "single is
+> fine if it's how the pros do it" -- it is; single-trunk with
+> rebase-on-conflict is ordinary practice for solo/small-team work, and
+> the two-branch human/agent split would add merge surface without adding
+> the guarantee `focus-commit` already provides. Your RECOMMEND stands.
+>
+> **Q4 (Gemini key): leave it on mandark.** Sprite generation stays
+> interactive there; on dexter the key is simply absent, `generate-pieces`
+> refuses loudly, and the game renders committed sprites + glyph
+> fallbacks. Your RECOMMEND stands. The ledger does not split.
+>
+> **Q2 (move scope): NIGHTLY ONLY. `chezz-sweep` stays on mandark.**
+> Zach did not answer this one directly (he answered the issues-channel
+> design instead), so it was defaulted to your RECOMMEND -- but on NEW
+> evidence, not on the retired "second non-hardware exception" argument
+> the block above correctly notes is gone. The new reason is mechanical
+> and is a blocker in its own right, below.
+>
+> **BLOCKER FOUND, not previously filed: chezz is still on the LEGACY
+> WRAPPER PATH, and that breaks the move as currently scoped.**
+> `schedule/chezz.conf` sets both `BATCH_SCRIPT` and `SWEEP_SCRIPT`,
+> pointing at `/home/zach/.local/bin/chezz-*-loop.sh` -- **mandark files
+> that do not exist on dexter.** Every dexter participant line uses
+> `scheduler-run <project> <tier>`, and `scheduler-run:46` hard-refuses
+> any tier whose `*_SCRIPT` is still set (exit 2: "that legacy wrapper is
+> authoritative"). So the move is NOT the paired one-line edit described
+> in FOCUS.md -- MIGRATION.md step 2 must be completed first, or chezz
+> lands on dexter and fails every dispatch.
+> Verified by diffing the wrapper against the conf this session:
+> - **Nightly: one line.** `REPO_URL`, `REPO_SUBDIR`, `MAX_TURNS=200`,
+>   `EXPIRY_DAYS=7` and the prompt are ALREADY mirrored in `chezz.conf`.
+>   Deleting `BATCH_SCRIPT` is the whole migration.
+> - **Sweep: not one line.** Its wrapper carries three settings that exist
+>   nowhere in the conf -- `MAX_TURNS=40`, `MODEL=claude-sonnet-5`, and
+>   `PRECHECK_CMD=/home/zach/.local/bin/chezz-bug-sweep-precheck.sh`, a
+>   mandark-only script that would also have to be ported to dexter.
+> That asymmetry is the real argument for nightly-first.
+>
+> **Second blocker, smaller: `PROJECT_REPO_PATH` is a mandark path.**
+> `chezz.conf` sets it to `/home/zach/Documents/Project Archive/chezz`,
+> which does not exist on dexter. Per `sync-crontab.sh:419` it is optional
+> so dispatch does not break -- but under Q1's "straight to issues, build
+> nothing transitional" answer it should be UNSET as part of the move,
+> and unsetting it is what removes the vim/symlink answer channel. Also
+> note `BATCH_PROMPT` writes to `~/reports/chezz/`, which after the move
+> is dexter's disk -- the morning-read location moves with the job.
+>
+> **CORRECTION 1 (matters most): `gh` on mandark is NOT invalid.** The Q1
+> block above states its token is INVALID and Zach's follow-on answer made
+> "fix the credential first" a PREREQUISITE, filed as a Zach blocker and
+> carried to gardien (`fd7e311`). Re-probed first-hand this session:
+> `gh auth status` on mandark shows **`hf7y`, Active account: true, valid
+> token, scopes admin:public_key/gist/read:org/repo**. The failing
+> `sidopera` line is a SECOND, INACTIVE account in the same `hosts.yml`.
+> The earlier reading took the failing line and missed the working one.
+> Witness, run on mandark this session: `gh issue list --repo hf7y/chezz`
+> returns rc=0, and `gh repo view hf7y/chezz --json hasIssuesEnabled`
+> returns `true` (repo is PUBLIC, issue count currently 0).
+> **Consequence: the prerequisite is DISSOLVED, not merely satisfied.**
+> The issues design can be built today, from mandark, with no credential
+> work. gardien should be told, since it is holding a blocker that does
+> not exist. dexter is independently authenticated as `hf7y` too.
+>
+> **CORRECTION 2: `_paced.dexter.conf`'s stale policy header is already
+> fixed.** FOCUS.md's caveat says lines 29-33 still assert the retired
+> pin-by-need rule "and cannot be corrected from mandark". Verified live
+> ON dexter this session: the header now reads "HOST POLICY (REVERSED
+> 2026-07-28) ... dexter is the DEFAULT execution host", committed as
+> `bccf9ce` and present in both dexter's working copy and origin. Nothing
+> to amend during the move. (This session relayed the stale caveat once
+> before re-probing it -- flagging so the caveat itself gets retired from
+> FOCUS.md rather than re-read by the next run.)
+>
+> **dexter readiness, all verified first-hand this session, not recalled:**
+> `git ls-remote git@github-chezz-deploy:hf7y/chezz.git` FROM dexter
+> succeeds (the `github-chezz-deploy` alias + `~/.ssh/dexter_chezz_deploy`
+> key are provisioned there) -- the prerequisite that reverted wtul on
+> 2026-07-25 does NOT apply to chezz. `node v24.18.0` present at
+> `~/.local/bin/node` and on cron's PATH. `jq 1.8.1` installed by Zach
+> this session. `~/scheduler` clone current with origin; `chezz.conf`
+> present. Still MISSING on dexter: the four realisateur ecosystem guard
+> commands (`notify-senechal`, `check-project-busy`, `focus-commit`,
+> `silence-audit`).
+>
+> **THE ISSUES CHANNEL -- Zach's design question, answered.** He asked:
+> "something back to Zach that feels like vim edit by pulling the issues
+> using the scheduler wrapper?" Yes, and one rule matters more than the
+> rest. The reason the file channel never round-tripped is on record
+> (scheduler `BLOCKERS.md`): `questions/chezz.md` symlinks into a checkout
+> that goes one commit stale on every push. The fix is not a better copy,
+> it is **no copy** -- the buffer must be rendered fresh from the API on
+> every invocation and DELETED on exit. A view, not a file. Anything that
+> persists question state on disk re-creates the staleness class being
+> escaped. Shape, as `scheduler -q <project>` in `scheduler/bin/`
+> (ecosystem-wide, not chezz-specific):
+> 1. `gh issue list --label question --state open --json
+>    number,title,body,comments` -> render ONE markdown buffer shaped like
+>    today's QUESTIONS.md: each issue headed by its `#123`, body verbatim,
+>    then an empty `> ` answer slot. Same interface Zach's fingers know.
+> 2. Open `$EDITOR` on it in a tempfile.
+> 3. On exit, parse the `> ` blocks; for each with content,
+>    `gh issue comment #123`. Answers are COMMENTS, never body edits --
+>    the ask survives verbatim and history is free.
+> 4. Delete the tempfile. Next run re-renders.
+> Labels carry the semantics the file had: agents `gh issue create --label
+> question`; a human reply adds `answered`; the nightly reads
+> `label:question,answered`, acts, then CLOSES the issue -- the same
+> "removes the block once it has acted" contract. No merge logic is needed
+> anywhere: there is never a second writer to the same bytes, and the
+> worst case is two comments. Per BUILD-DISCIPLINE it must FAIL LOUD if
+> `gh` errors -- a questions command that silently renders an empty buffer
+> is indistinguishable from "no questions", which is precisely the failure
+> being retired. Caveat to decide before it propagates: `hf7y/chezz` is
+> PUBLIC, so every question and answer is world-readable -- fine for
+> chezz, not automatically fine ecosystem-wide.
+> Ownership stays with **gardien** per the Q1 block; this is a design
+> handoff, not chezz building it.
