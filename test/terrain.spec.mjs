@@ -140,3 +140,38 @@ test("Two Bishops' wall stays up until BOTH bishops are captured, not just one",
   expect(result.afterOneStillWall).toBe(true);
   expect(result.afterBothAllOpen).toBe(true);
 });
+
+test("terrain actually PAINTS differently from an empty square, on both checkerboard colors", async ({ page }) => {
+  // Tracker 2026-07-28T14:47:56: "white pawns on f and g are blocked. is this
+  // a failed rendering of the wall tile or genuine unable to move?" -- it was
+  // both. The rules above all passed while every wall and hole rendered as an
+  // ordinary empty square, because the checkerboard selector
+  // (`tr:nth-child(...) td:nth-child(...)`, specificity 0,2,2) outranked a
+  // bare `td[data-terrain=...]` (0,1,1). Every existing terrain test asserts
+  // MOVEMENT or the data attribute, so none of them could see it.
+  //
+  // This probe FAILS against the pre-fix build: backgroundImage reads "none".
+  // Both parities are checked because the bug was a specificity tie -- a fix
+  // that only won on one square color would still be half broken.
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-%23%23%232%23%23%23-4PPP1-6K1_w&floor=4&spawned=1&budget=3&maxRank=24");
+
+  const paint = await page.evaluate(() => {
+    const walls = [...document.querySelectorAll('td[data-terrain="wall"]')];
+    const plain = [...document.querySelectorAll("td:not([data-terrain])")];
+    const img = el => getComputedStyle(el).backgroundImage;
+    // nth-child parity within the row decides the checkerboard color; the
+    // rank <th> makes the first <td> nth-child(2), hence the +1 offset.
+    const parity = el => ([...el.parentElement.children].indexOf(el)) % 2;
+    return {
+      wallCount: walls.length,
+      wallsPainted: walls.map(img).filter(v => v !== "none").length,
+      paritiesCovered: new Set(walls.map(parity)).size,
+      plainPainted: plain.map(img).filter(v => v !== "none").length,
+    };
+  });
+
+  expect(paint.wallCount).toBe(6);
+  expect(paint.wallsPainted).toBe(6);          // every wall, not just the lucky parity
+  expect(paint.paritiesCovered).toBe(2);       // the probe really did span both colors
+  expect(paint.plainPainted).toBe(0);          // and an empty square stays flat
+});

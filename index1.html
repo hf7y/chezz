@@ -222,11 +222,20 @@
   /* Terrain (priority queue item 4): impassable squares, monochrome like
      everything else on this board (repeated reporter ask, no saturated
      hue) -- a wall is a solid raised block, a hole is a dark sunken void.
-     Neither is a piece, so no data-side glyph is rendered inside. */
-  td[data-terrain="wall"] {
+     Neither is a piece, so no data-side glyph is rendered inside.
+
+     The leading `tr:nth-child(n)` is NOT redundant, and removing it makes
+     terrain invisible: the checkerboard above is `tr:nth-child(...)
+     td:nth-child(...)`, specificity (0,2,2), so a bare `td[data-terrain]`
+     at (0,1,1) loses to it and the square paints as an ordinary empty one.
+     `:nth-child(n)` matches every element and buys back the tie, which
+     source order then settles in terrain's favor. This is what tracker
+     2026-07-28T14:47:56 hit -- "is this a failed rendering of the wall tile
+     or genuine unable to move?" was BOTH: a real wall, painted as nothing. */
+  tr:nth-child(n) td[data-terrain="wall"] {
     background: repeating-linear-gradient(45deg, rgba(232, 232, 232, 0.35) 0 4px, rgba(120, 120, 120, 0.35) 4px 8px);
   }
-  td[data-terrain="hole"] {
+  tr:nth-child(n) td[data-terrain="hole"] {
     background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.55) 70%);
     box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.6) inset;
   }
@@ -1687,9 +1696,23 @@
 
     for (const { x, y, p } of pieces) {
       const kingX = state.board[kingRow].indexOf("K");
-      const moves = legalMovesFrom(state.board, x, y).filter(m => m.y === kingRow && state.board[m.y][m.x] === "");
+      const empty = legalMovesFrom(state.board, x, y).filter(m => state.board[m.y][m.x] === "");
+      // Landing on the King's rank outright is still the preferred move. But a
+      // piece too far back to reach it in one move takes the legal move that
+      // gets it strictly closer instead of standing still: the old
+      // rank-or-nothing filter stranded anything more than one move behind
+      // FOREVER, since falling behind is exactly what makes the gap
+      // unclosable (tracker 2026-07-28T14:47:05 -- a pawn four rows back
+      // never caught up no matter how far the King walked).
+      let moves = empty.filter(m => m.y === kingRow);
+      if (!moves.length) {
+        const gap = Math.abs(y - kingRow);
+        moves = empty.filter(m => Math.abs(m.y - kingRow) < gap);
+      }
       if (!moves.length) continue;
-      moves.sort((m1, m2) => Math.abs(m1.x - kingX) - Math.abs(m2.x - kingX));
+      moves.sort((m1, m2) =>
+        (Math.abs(m1.y - kingRow) - Math.abs(m2.y - kingRow)) ||
+        (Math.abs(m1.x - kingX) - Math.abs(m2.x - kingX)));
       const dest = moves[0];
       state.board[dest.y][dest.x] = p;
       state.board[y][x] = "";

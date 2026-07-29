@@ -70,3 +70,35 @@ test("formation-follow does not trigger while Black pieces remain", async ({ pag
   expect(board[6][0]).toBe("R");
   expect(board[6][7]).toBe("B");
 });
+
+test("formation-follow: a piece too far back to reach the King's rank still steps toward it", async ({ page }) => {
+  // Tracker 2026-07-28T14:47:05 -- "pawn on f file should be automoving with
+  // king". The old rank-or-nothing filter stranded any piece more than one
+  // move behind: an f-file Pawn three rows back can never land on the King's
+  // rank in one move, so it never moved at all, and falling further behind
+  // only made the gap less closable. That self-reinforcement is the bug.
+  //
+  // This probe FAILS against the pre-fix build: the pawn never leaves row 6.
+  // The King deliberately stops short of EXIT_ROW (0) -- reaching it would
+  // load the next floor and replace the board mid-assertion.
+  await page.goto(GAME_URL + "?fen=8-8-8-8-4P1K1-8-5P2-8-8_w&floor=3&spawned=1&budget=1&maxRank=0");
+
+  const boards = await page.evaluate(() => {
+    const snaps = [];
+    makeMove(6, 4, 6, 3);   // King steps up a rank; formation-follow fires.
+    snaps.push(state.board.map(r => [...r]));
+    makeMove(6, 3, 6, 2);   // ...and again.
+    snaps.push(state.board.map(r => [...r]));
+    return snaps;
+  });
+
+  // The trailing f-file pawn advances one rank per King move instead of
+  // standing still. Its file is unchanged -- a pawn has no sideways move.
+  expect(boards[0][5][5]).toBe("P");
+  expect(boards[0][6][5]).toBe("");
+  expect(boards[1][4][5]).toBe("P");
+
+  // The e-file pawn, which CAN reach the King's rank, still lands on it
+  // outright -- the fallback must not quietly replace the preferred move.
+  expect(boards[0][3][4]).toBe("P");
+});
