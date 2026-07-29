@@ -280,3 +280,123 @@ test("scripted lone-boss stages are never capturable on move 1 by a plausible ca
 
   expect(failures).toEqual([]);
 });
+
+// Regression for a recurring report cluster (at least 4 reports, 2026-07-18
+// onward: "black pawn spawns hanging, major problem", "should not spawn under
+// threat", "pawns should never hang on load") and for the human call that
+// settled it on 2026-07-24: "No. Never. Pawns can spawn under threat if they
+// are defended by another piece ... Free material on level load is not a good
+// design." The old placePawn took the first empty square with no safety check
+// at all, on the strength of an in-code comment ("pawns stand in the open")
+// that Zach's answer says was never his. This pins the replacement rule:
+//
+//   a freshly spawned Black pawn may be attacked by White ONLY if some Black
+//   piece defends it.
+//
+// Swept over the same 30 floors x 28 days as the safety-invariant test above,
+// so it covers the procedural spawner broadly rather than one lucky seed.
+// Note it deliberately checks EVERY black pawn on the board, not just ones
+// placePawn produced -- the shield-pawn path in the tier loop places a pawn
+// directly, and it used to be able to leave that shield hanging too.
+//
+// HONEST LIMIT, measured not assumed: this bare-King sweep PASSES against the
+// pre-fix build too (verified by stashing the fix and running it alone). With
+// only a King on the board almost nothing reaches the pawn ranks, so it has no
+// teeth as a regression witness -- it is a standing invariant guard, and the
+// real witness is the carried-army test directly below, which found 114
+// violations on the old code and 0 on the new.
+test("no spawned black pawn is ever attacked and undefended (840 floor x day combinations)", async ({ page }) => {
+  await page.goto(GAME_URL);
+  const floors = await proceduralFloors(page, SWEEP_SIZE);
+
+  const failures = await page.evaluate(([floors, days]) => {
+    const bad = [];
+        // Defender probe defined HERE rather than calling the game's own
+        // isDefendedSquare, so this test is a witness to behavior and not a
+        // tautology against the helper the fix introduced -- and so it still
+        // runs (and fails) against a build that predates that helper.
+        const defended = (bx, by) => {
+          const occ = state.board[by][bx];
+          state.board[by][bx] = "P";
+          const d = attackersOf(state.board, bx, by, false);
+          state.board[by][bx] = occ;
+          return d.length > 0;
+        };
+    for (const floor of floors) {
+      for (const day of days) {
+        todayKey = () => "dTESTfreepawn" + day;
+        state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+        state.board[8][4] = "K";
+        state.floor = floor;
+        state.lastSpawnBudget = 0;
+        spawnBlackArmy();
+        for (let y = 0; y < BOARD_ROWS; y++) {
+          for (let x = 0; x < BOARD_COLS; x++) {
+            if (state.board[y][x] !== "p") continue;
+            // Occupancy is already real here, so attackersOf can be asked
+            // directly; defenders need the white-occupant probe above, since a
+            // black piece can't "move onto" its own pawn.
+            const attacked = attackersOf(state.board, x, y, true).length > 0;
+            if (attacked && !defended(x, y)) bad.push({ floor, day, x, y });
+          }
+        }
+      }
+    }
+    return bad;
+  }, [floors, FAKE_DAYS]);
+
+  expect(failures).toEqual([]);
+});
+
+// The carried army is what actually threatens a spawn square, so the sweep
+// above (bare King) exercises the rule only lightly. This aims real White
+// long-range material down open files at the pawn ranks -- the shape that
+// produced the original reports -- and demands the same invariant.
+//
+// THIS is the regression witness for the never-free-pawn rule. Measured, not
+// asserted: against the pre-fix index1.html it reports 114 attacked-and-
+// undefended spawned pawns; against the fix, 0. Reproduced twice, each test
+// run alone under --workers=1 so the attribution isn't an artifact of
+// interleaved reporter output.
+test("no spawned black pawn hangs against a carried long-range army", async ({ page }) => {
+  await page.goto(GAME_URL);
+  const floors = await proceduralFloors(page, 12);
+
+  const failures = await page.evaluate(([floors]) => {
+    const bad = [];
+        // Defender probe defined HERE rather than calling the game's own
+        // isDefendedSquare, so this test is a witness to behavior and not a
+        // tautology against the helper the fix introduced -- and so it still
+        // runs (and fails) against a build that predates that helper.
+        const defended = (bx, by) => {
+          const occ = state.board[by][bx];
+          state.board[by][bx] = "P";
+          const d = attackersOf(state.board, bx, by, false);
+          state.board[by][bx] = occ;
+          return d.length > 0;
+        };
+    for (const floor of floors) {
+      for (const carried of ["R", "Q", "B"]) {
+        for (let col = 0; col < BOARD_COLS; col++) {
+          todayKey = () => "dTESTcarried" + carried + col;
+          state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+          state.board[8][4] = "K";
+          state.board[7][col] = carried;
+          state.floor = floor;
+          state.lastSpawnBudget = 0;
+          spawnBlackArmy();
+          for (let y = 0; y < BOARD_ROWS; y++) {
+            for (let x = 0; x < BOARD_COLS; x++) {
+              if (state.board[y][x] !== "p") continue;
+              const attacked = attackersOf(state.board, x, y, true).length > 0;
+              if (attacked && !defended(x, y)) bad.push({ floor, carried, col, x, y });
+            }
+          }
+        }
+      }
+    }
+    return bad;
+  }, [floors]);
+
+  expect(failures).toEqual([]);
+});
