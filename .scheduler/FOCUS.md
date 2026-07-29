@@ -169,12 +169,41 @@ Done when:
      asserts human-copy == run-copy and fails loud, wired into step 1 of
      both nightly-batch.md and bug-sweep.md, 6 tests in
      test/answer-channel.spec.mjs (5 of them failure cases).
-     STILL OPEN, scheduler-side, filed in scheduler BLOCKERS.md ## chezz:
-     the drift returns on EVERY chezz push, since pushing puts that
-     checkout one commit behind again. Until the symlink is repointed at
-     the live nightly checkout (or the scheduler ff's it per run), expect
-     `check-answers` to fail at the start of a run and fast-forward it as
-     the guard's own message instructs. Do not skip the guard. -->
+     SUPERSEDED 2026-07-29 for the questions half -- see the block below.
+     The paragraph that used to sit here told runs to fast-forward the
+     symlinked checkout when `check-answers` failed; that remedy still
+     applies to FOCUS.md, but there is no longer a QUESTIONS.md symlink to
+     drift. -->
+
+<!-- ANSWER CHANNEL: QUESTIONS ARE GITHUB ISSUES NOW (2026-07-28, human-
+     directed: "move the full chezz over to test the githubs issues
+     pipeline"; reaffirmed 2026-07-29 in scheduler BLOCKERS.md -- "new
+     decision is to move the entire ecosystem over to github issues. thanks
+     chezz for being first to the suggestion"). chezz is the ECOSYSTEM
+     PILOT for this; other projects follow.
+       - ask:     `scheduler ask chezz "<question>"` -> a `question`-labelled
+                  issue on `hf7y/chezz`. Do NOT append to QUESTIONS.md.
+       - answer:  Zach runs `scheduler -q chezz`, or comments on the issue.
+       - consume: read `label:question,answered`, act, then CLOSE the issue.
+     `.scheduler/QUESTIONS.md` is FROZEN history -- do not read it for
+     pending work and do not append to it. All 8 of its entries were
+     answered before the move, so nothing was stranded.
+     The fix was NOT a better copy, it was NO copy: issue state is rendered
+     fresh from the API on every read and never persisted, so the staleness
+     class that ate two of Zach's replies cannot recur.
+     LANDED ON `main` 2026-07-29 (`91725e3`, fast-forward of the
+     `gh-issues-answer-channel` branch). It had been sitting on that branch,
+     pushed but unmerged, while `main` still instructed runs to read the
+     file -- and scheduler `schedule/chezz.conf` had ALREADY been switched
+     to `ANSWER_CHANNEL="issues"`, so the two halves disagreed.
+     `npm run check-answers` now probes the issues API (fails loud when it
+     cannot look, since "could not look" and "no answers" are otherwise
+     indistinguishable) and still byte-compares the FOCUS.md pair, which
+     did NOT move. Revert: drop `ANSWER_CHANNEL="issues"` from
+     `schedule/chezz.conf`; the file channel is untouched.
+     CAVEAT, knowingly accepted: `hf7y/chezz` is PUBLIC, so questions and
+     answers are world-readable. Fine for chezz; check repo visibility
+     before migrating the next project. -->
 
 <!-- UNPARKED 2026-07-28 -- Zach answered the 2026-07-27 QUESTIONS.md entry
      ("may nightly runs work `chezz-classic`?") with a plain YES. The five
@@ -356,11 +385,15 @@ Done when:
      scheduler `schedule/_paced.conf` on mandark, add them to
      `schedule/_paced.dexter.conf` ON dexter (that file is dexter-owned).
      Two hosts must never dispatch the same participant.
-     CAVEAT worth knowing before reading anything else: `_paced.dexter.conf`
-     lines 29-33 still state the OLD policy verbatim, and that file cannot
-     be corrected from mandark. Until it is amended in a human session on
-     dexter, the most authoritative-looking statement of the rule
-     contradicts the actual one. -->
+     CAVEAT RETIRED 2026-07-29 -- do not re-read it. This block used to warn
+     that `_paced.dexter.conf` lines 29-33 still stated the OLD pinning
+     policy and "cannot be corrected from mandark". It was verified ON
+     dexter during the 2026-07-28 `/cloture` session and found already
+     fixed: the header now reads "HOST POLICY (REVERSED 2026-07-28) ...
+     dexter is the DEFAULT execution host", committed as `bccf9ce` and
+     present in both dexter's working copy and origin. Nothing to amend
+     during the move. The caveat outlived its own verification by a day,
+     which is the exact decay it was written to flag. -->
 
 Ideas beyond this bar are PARKED by default (see realisateur/STABILITY-MILESTONES.md).
 
@@ -387,9 +420,11 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 
 9. (LIVE, new 2026-07-28) Nightly-builds folder -- Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." This is where an over-cap `chezz-classic` port goes instead of being merged or discarded, so item 8 has a real destination rather than a dead-end branch. Needs: a published path (GitHub Pages already serves this repo), one HTML per build with enough label to tell builds apart, and an index page listing them. Keep it dumb -- static files, no build system, no new dependency. The loud overage announcement from item 8 lives in the build's own HTML, where a beta tester will actually see it.
 
-10. (LIVE, new 2026-07-28) Balance-research lane -- the "scholarship" half of the balance-tuning delegation. Create a folder (suggest `research/balance/`) that is the documented record of every tuning change: what number moved, from what to what, the report or observation that prompted it, the reasoning, and the regression test that now pins it. Zach's framing is that this may interest researchers outside the project, so write it for a stranger, not as a changelog. Every tuning change from here on lands through this lane -- the folder is the deliverable, the constants are its output. Start it with the five reports the delegation unblocked (archbishop value, pawn supply, spawn-gating, two empty-fodder-floor bugs) rather than as an empty scaffold.
+10. OPENED 2026-07-29 (`50c0c3e`), and now the STANDING ROUTE for every tuning change -- `research/balance/`. README states the bounded-tuning rule (a run may change what a number IS, never what a piece DOES or how a floor is STRUCTURED), explains Chezz to a cold reader, and records method notes: sweep 30 floors x 28 days rather than sample, offset past NARRATIVE_STAGES so you measure the procedural system and not authored content, define a test's probe locally so it can fail against the pre-change build, and read the measurement rather than the reporter's diff-line count. First entry is item 11, written in full. The four still-unstudied questions the delegation unblocked (archbishop value, pawn supply, the two empty-fodder-floor reports, analytic material sufficiency) are named in the README's index as open, so the gaps stay visible. Every future tuning change lands through here.
 
-11. (LIVE, new 2026-07-28) Pawn spawn must never be free material -- implement Zach's "No. Never." A spawned Black pawn may stand under threat ONLY if defended by another Black piece. `placePawn()` (index1.html ~1471) currently takes the first empty square with no safety check at all, while the non-pawn path directly below already tries safe squares and will spend budget shielding a piece rather than scrap it -- so this is closing an asymmetry, not inventing a policy. Pin the new behavior with a test that fails on the old one (a seeded floor where a pawn lands undefended-and-attacked). Watch the interaction with PAWN_ALLOWANCE_CHANCE, which places a pawn OUTSIDE the tiered budget. This is balance-adjacent, so route the numbers half through item 10's research lane.
+11. DONE 2026-07-29 (`50c0c3e`) -- spawned pawns are never free material. A spawned Black pawn now takes an unattacked square, else an attacked-but-DEFENDED one, else none at all; the shield-pawn path in the tier loop was fixed too, since it placed a pawn directly (bypassing placePawn) and could leave the shield itself hanging. New `isDefendedSquare` probes with a WHITE occupant, because a black defender cannot "move onto" a square its own colour already holds. Measured: attacked-and-undefended pawns 16 -> 0 over a 288-spawn carried-army sweep, with pawn supply UNCHANGED at 0.95/floor (the real risk was starving promotion/carryover; it did not happen). Full writeup in `research/balance/2026-07-29-pawn-spawn-free-material.md`.
+    STANDING LESSON, worth more than the fix: the old behavior was defended for months as intentional design by citing a source comment ("pawns are meant to stand in the open") that automation had written and automation then read back as authority. Nothing outside the codebase ever said it. Before deferring a recurring report as "intentional", check whether the intent has a human source.
+    NOT closed by this: Zach's broader direction "more pawns, more terrain, never free on fodder levels -- fodder levels should play like a platformer / puzzle" is a floor-composition goal, which is design, not tuning. This removed the free material only.
 
 12. (LIVE, new 2026-07-28) Classic test suite -- "something lighter," called from the SAME scheduler job, not a new one. Classic-only tests that don't apply to narrative, holding the line Zach stated: elegance, small file size, clean HTML, a game that is simple and self-evident. Prerequisite-ish for item 8 -- the ports need something to be checked against beyond the byte cap.
 
