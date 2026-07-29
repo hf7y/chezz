@@ -101,3 +101,32 @@ test("a position URL with no move log yet leaves the param off entirely", async 
   });
   expect(search).not.toContain("last=");
 });
+
+test("a Black pawn marching off the board says so instead of just vanishing", async ({ page }) => {
+  // Tracker 2026-07-28T14:46:21: "black pawn disappeared on moving to rank 1".
+  // The disappearance is CORRECT -- a Black pawn reaching its far rank with
+  // nothing captured to promote into leaves rather than standing as a
+  // permanent blocker -- but it was silent, and a piece vanishing with no
+  // explanation reads as a bug rather than a rule. This asserts the message,
+  // not the rule; the rule itself is unchanged.
+  //
+  // Captured pool is "p", deliberately: Black promotes by spending an
+  // UPPERCASE (White) piece, so a lone black pawn in the pool is exactly the
+  // "nothing to promote into" case the reporter hit.
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-4p3-7K_w&floor=1&spawned=1&budget=1&maxRank=2&captured=p");
+
+  const result = await page.evaluate(async () => {
+    // Black's pawn on row 7 steps to row 8 (its promotion row) and, with no
+    // White piece in the pool, marches off.
+    // King is parked on the h-file, far from the pawn: adjacent squares would
+    // give Black a diagonal capture instead of the advance under test.
+    await makeMove(7, 8, 6, 8);
+    return {
+      square: state.board[8][4],
+      message: document.getElementById("floorMessage").textContent,
+    };
+  });
+
+  expect(result.square).toBe("");
+  expect(result.message).toContain("marched off the board");
+});

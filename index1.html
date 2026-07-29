@@ -1664,6 +1664,14 @@
     const el = document.getElementById("floorMessage");
     if (el) el.textContent = "No legal moves — floor reset.";
   }
+  // Same transient-text channel: a Black pawn that reaches its far rank with
+  // nothing captured to promote into leaves the board instead of standing
+  // there as a permanent blocker. Correct, but silent -- and a piece that
+  // disappears with no explanation reads as a bug, not a rule.
+  function announceBlackPawnMarchedOff() {
+    const el = document.getElementById("floorMessage");
+    if (el) el.textContent = "Black pawn marched off the board — nothing captured to promote into.";
+  }
   function clearFloorMessage() {
     const el = document.getElementById("floorMessage");
     if (el) el.textContent = "";
@@ -1833,17 +1841,31 @@
       await wait(RENDER_YIELD_MS); // lets that paint land before the search blocks the main thread
       const bm = getBlackMoveRuthless(state.board, state.captured, state.floor);
       if (thinkingEl) thinkingEl.textContent = "";
+      let blackPawnMarchedOff = false;
       if (bm) {
         // Reuses the same applyMove the search explores hypothetical lines
         // with -- Black always auto-promotes to the strongest piece
         // available, no UI prompt needed, unlike White's dialog above.
         recordMove(bm.piece, bm.fromX, bm.fromY, bm.toX, bm.toY, state.board[bm.toY][bm.toX]);
         const { nextBoard, pool } = applyMove(state.board, bm, state.captured);
+        // autoPromote marches a Black pawn off the board when there's nothing
+        // captured for it to promote INTO (see its own comment for why). That
+        // is deliberate, but it was also completely silent, so it read as a
+        // piece vanishing mid-move (tracker 2026-07-28T14:46:21). Detected
+        // here rather than inside autoPromote on purpose: the search calls
+        // autoPromote thousands of times on hypothetical boards, and only
+        // this one call site is a move that actually happened.
+        blackPawnMarchedOff = bm.piece === "p"
+          && bm.toY === BLACK_PROMOTION_ROW
+          && nextBoard[bm.toY][bm.toX] === "";
         state.board = nextBoard;
         state.captured = pool;
       }
       state.turn = "w";
       clearFloorMessage();
+      // After clearFloorMessage, so it survives the turn; before the
+      // stalemate announcement, which is the more urgent message if both fire.
+      if (blackPawnMarchedOff) announceBlackPawnMarchedOff();
       checkFloorProgression();
       if (checkStalemate()) announceStalemateReset();
       updateUrl(false); renderBoard();
