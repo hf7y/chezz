@@ -6,7 +6,16 @@ files, not here -- read them, don't duplicate them:
 
 - `.scheduler/FOCUS.md` -- what's in scope right now (short, changes often).
 - `DESIGN-NOTES.md` -- the durable vision/decision record.
-- `.scheduler/QUESTIONS.md` -- open questions awaiting a human answer.
+- **GitHub issues on `hf7y/chezz`, label `question`** -- open questions
+  awaiting a human answer. File one with `scheduler ask chezz "<question>"`;
+  Zach answers by commenting, which adds the `answered` label; the nightly
+  reads `label:question,answered`, acts, then CLOSES the issue. The repo is
+  PUBLIC -- nothing private in a question. Moved here 2026-07-28 because
+  `.scheduler/QUESTIONS.md` was read through a symlinked checkout that went
+  stale on every push and silently ate two of Zach's replies.
+- `.scheduler/QUESTIONS.md` -- FROZEN historical record of the questions
+  asked before that move. Do not append to it; do not read it for pending
+  work.
 - `.claude/commands/bug-sweep.md`, `nightly-batch.md`, `ideate.md` -- the
   three standing modes this project runs in (fast mechanical fixes,
   unattended feature implementation, interactive triage/vision).

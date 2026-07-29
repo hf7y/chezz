@@ -1,10 +1,31 @@
-# Questions for the user
+# Questions for the user — FROZEN 2026-07-28, THIS IS NOT THE ANSWER CHANNEL
 
-Running log, appended to (never overwritten or trimmed) by `/bug-sweep`
-and `/nightly-batch` whenever something bigger than a routine tracker note
-comes up.
+> **Chezz's questions moved to GitHub issues on 2026-07-28.** Open questions
+> are `question`-labelled issues on `hf7y/chezz`.
+>
+> - **To ask:** `scheduler ask chezz "<the question, in full>"`
+> - **To answer (Zach):** `scheduler -q chezz` — renders every open question
+>   into one buffer shaped like this file, posts your `> ` replies as issue
+>   comments, and deletes the buffer. Or just comment on the issue directly.
+> - **To consume (nightly):** read `label:question,answered`, act, then close.
+>
+> **Why:** this file was read by unattended runs through the scheduler's
+> `questions/chezz.md` symlink, which pointed into a local working copy that
+> went one commit stale on every push. It silently ate Zach's replies twice
+> (a header-only stub 2026-07-25; a 6-commits-behind checkout 2026-07-27 that
+> hid three questions from him outright). The fix is not a better copy, it is
+> **no copy** — issue state is rendered fresh from the API on every read and
+> never persisted. The premise expired anyway: under "dexter is the default
+> execution host" a project with no mandark checkout has no answer surface at
+> all. Caveat accepted knowingly: `hf7y/chezz` is PUBLIC, so questions and
+> answers are world-readable.
+>
+> **Everything below is history, kept verbatim.** Do not append to it and do
+> not read it for pending work. All 8 entries below were already answered
+> before the move, so nothing was stranded by it. Revert: drop
+> `ANSWER_CHANNEL="issues"` from `schedule/chezz.conf` in the scheduler repo.
 
-## How to answer (this is the interface)
+## How to answer (this was the interface, until 2026-07-28)
 
 Reply **inline, directly under the question**, on a new line starting with
 `> ` (a Markdown blockquote). That's it — you don't delete anything

@@ -21,24 +21,36 @@ rather than starting over. Also fetch the full tracker backlog with
 `&status=all&type=all` (see `leaderboard/Code.gs`'s doc comment) so
 nothing already resolved gets re-investigated.
 
-**First run `npm run check-answers`.** It verifies that the file Zach writes
-answers into (the scheduler's `questions/chezz.md` symlink) is byte-identical
-to the `.scheduler/QUESTIONS.md` this run reads. That has silently drifted
-twice — a header-only stub on 2026-07-25, and a 6-commits-behind checkout on
-2026-07-27 that hid three questions from him entirely — and in both cases the
-run read an empty-looking file and concluded "no answers tonight." If this
-check fails, fix the channel before reading anything below it; a reply you
-never saw is indistinguishable from a reply he never wrote.
+**First run `npm run check-answers`.** Questions moved to GitHub issues on
+2026-07-28 (see below); this verifies that the issues API is actually
+reachable, because an unreachable API and a genuinely quiet night both look
+like zero answers. Under the old file channel this drifted silently twice —
+a header-only stub on 2026-07-25, and a 6-commits-behind checkout on
+2026-07-27 that hid three questions from Zach entirely — and in both cases
+the run read an empty-looking file and concluded "no answers tonight." If
+this check fails, fix the channel before reading anything below it; a reply
+you never saw is indistinguishable from a reply he never wrote.
 
-**Read `.scheduler/QUESTIONS.md` and process any answers.** The user replies
-to a question inline, on a line starting with `> ` (a Markdown blockquote)
-directly under it — that file's own header documents the convention. For
-every question that now has a `> ` answer, treat it as authoritative human
+**Read the answered questions from GitHub issues and process them.**
+Chezz's questions are `question`-labelled issues on `hf7y/chezz`, NOT
+`.scheduler/QUESTIONS.md` (that file is now a frozen historical record —
+do not append to it, do not read it for pending work). Zach answers by
+commenting on the issue, and the `answered` label is what marks it ready
+for you:
+
+```
+gh issue list --repo hf7y/chezz --label question --label answered --state open \
+  --json number,title,body,comments
+```
+
+For every issue that comes back, treat the human's comment as authoritative
 direction (same standing as `FOCUS.md`): act on it as part of tonight's
 work, and if it's a standing scope/policy decision, also fold it into
-`FOCUS.md` so it persists. Once you have acted on an answered question,
-remove that question+answer block from `QUESTIONS.md` — git history and
-tonight's report keep the record. Leave unanswered questions untouched;
+`FOCUS.md` so it persists. **Once you have acted on it, close the issue**
+with a comment saying what you did — that is the same "removes the block
+once it has acted" contract the file channel had, and closing is what stops
+it being re-served to the next run. Never edit an issue's BODY; the ask
+must survive verbatim. Leave `question`-without-`answered` issues untouched;
 never re-ask or duplicate one.
 
 ## 2. Re-verify anything a previous run touched, from scratch
@@ -120,14 +132,25 @@ machine boots up -- write for that, not for completeness's own sake.
 
 For anything that genuinely needs the user to decide — an ambiguous
 policy question, a real tradeoff, a "which of these two directions" fork,
-a feature you deferred pending direction — **append it to
-`.scheduler/QUESTIONS.md`**, not just the report. Append only; never
-overwrite or trim existing entries (including any `> ` answers). Format:
-`- **YYYY-MM-DD (nightly): <question>**` followed by a short context
-paragraph, then a `  > (answer inline here)` placeholder line so the
-user's reply slot is obvious. The report should point at QUESTIONS.md for
-these, not duplicate their full text. Don't manufacture a question just to
-have an entry — a quiet night adds nothing here.
+a feature you deferred pending direction — **file it with `scheduler ask`**,
+not just the report:
+
+```
+SCHEDULER_ASK_VIA="nightly" scheduler ask chezz "<the question, in full, one line>"
+```
+
+That opens a `question`-labelled GitHub issue on `hf7y/chezz` and stamps the
+id/date/provenance for you. Pass the question text ONLY — putting the date
+or provenance first is what made ten different questions render as ten
+near-identical stubs, which is why the stamping is done by the tool and not
+by you. Add context as a follow-up comment on the issue if one line isn't
+enough. Do NOT append to `.scheduler/QUESTIONS.md`; it is frozen history.
+The report should point at the issue number, not duplicate its full text.
+Don't manufacture a question just to have an entry — a quiet night adds
+nothing here.
+
+Note `hf7y/chezz` is a PUBLIC repo, so questions and answers are
+world-readable. Don't put anything private in one.
 
 ## 6. Before finishing
 

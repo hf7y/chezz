@@ -178,25 +178,32 @@ new reports came in since last sweep. Don't resolve or reclassify more than
 a handful of reports in one sweep without flagging anything that felt like
 a judgment call in the summary, even if you didn't block on it.
 
-## 8. Flag a genuine judgment call in QUESTIONS.md (rare)
+## 8. Flag a genuine judgment call as a GitHub issue (rare)
 
 If the sweep surfaces something bigger than a routine tracker note — an
 ambiguous policy question, a real tradeoff, a "which of these two
-directions" fork — append it to `.scheduler/QUESTIONS.md` at the repo root
-(create it with a one-line header if it somehow doesn't exist). Append
-only; never overwrite or trim existing entries (including any `> ` answers
-the user has written). Format: `- **YYYY-MM-DD (bug-sweep): <question>**`
-followed by short context, then a `  > (answer inline here)` placeholder
-line so the reply slot is obvious. Most sweeps add nothing here — don't
-manufacture a question.
+directions" fork — file it with:
 
-Before appending, run `npm run check-answers` (fast, no browser). It confirms
-the file Zach reads is the same one you're about to write into — that has
-drifted twice, and a question filed into a copy he never sees is worse than
-no question at all, because the tracker note will claim it's awaiting him.
+```
+SCHEDULER_ASK_VIA="bug-sweep" scheduler ask chezz "<the question, in full, one line>"
+```
 
-Answer processing is the **nightly's** job, not this sweep's: the user
-replies inline under a question with a `> ` line (QUESTIONS.md's header
-documents the convention), and `/nightly-batch` reads those answers, acts
-on them, and clears them. This fast sweep must NOT act on or delete a
-`> ` answer itself — leave answered questions in place for the nightly.
+That opens a `question`-labelled issue on `hf7y/chezz` and stamps the
+id/date/provenance itself — pass the question text ONLY. Add context as a
+follow-up comment if one line isn't enough. Most sweeps add nothing here —
+don't manufacture a question. `hf7y/chezz` is PUBLIC; nothing private.
+
+Questions moved from `.scheduler/QUESTIONS.md` to issues on 2026-07-28.
+That file is now frozen history: do not append to it, and do not read it
+for pending work.
+
+Before filing, run `npm run check-answers` (fast, no browser). It confirms
+the issues API is actually reachable — under the old file channel the
+equivalent drifted twice, and a question filed into a copy Zach never sees
+is worse than no question at all, because the tracker note will claim it's
+awaiting him.
+
+Answer processing is the **nightly's** job, not this sweep's: Zach answers
+by commenting on the issue and it gets the `answered` label; `/nightly-batch`
+reads `label:question,answered`, acts, and closes. This fast sweep must NOT
+act on or close an answered issue itself — leave it for the nightly.
