@@ -1,9 +1,0 @@
-node_modules/
-test-results/
-playwright-report/
-.clasprc.json
-.directory
-
-# Copied in per-run by the scheduler (SECRETS_SRC_DIR -> lib/sweep-loop-common.sh).
-# Holds the Gemini API key inside a nightly clone. Must never be committed.
-.session-handoff/
