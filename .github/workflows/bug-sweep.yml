@@ -4,8 +4,27 @@ name: Bug Sweep
 # for the full triage/fix/commit/tracker-update procedure it follows. Daily,
 # 9am America/Chicago (14:00 UTC).
 on:
-  schedule:
-    - cron: '0 14 * * *'
+  # PAUSED 2026-08-01. The daily cron is commented out, deliberately, rather
+  # than disabled from the Actions tab: a workflow switched off in GitHub's UI
+  # looks scheduled to anyone reading this file, and a state the repository
+  # cannot see is a state nobody maintains.
+  #
+  # WHY IT IS PAUSED. This job ran on schedule and FAILED every run from
+  # 2026-07-29 to 2026-08-01 inclusive, at the claude-code-action step, with:
+  #
+  #     Could not fetch an OIDC token. Did you remember to add
+  #     `id-token: write` to your workflow permissions?
+  #
+  # It starts cleanly and fails late, so four days of failures accumulated
+  # unnoticed while the run history looked busy.
+  #
+  # THE FIX IS ONE LINE: add `id-token: write` to the permissions block below.
+  # anthropics/claude-code-action@v1 authenticates by OIDC and this workflow
+  # grants only `contents: write`. Restore the cron and add that line in the
+  # same commit, so the schedule never returns without the permission it needs.
+  #
+  #  schedule:
+  #    - cron: '0 14 * * *'
   workflow_dispatch:
 
 permissions:
