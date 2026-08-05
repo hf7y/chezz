@@ -1283,13 +1283,17 @@
   // Pawns are what feed the promotion and captured-pawn-carryover mechanics --
   // past the first few floors the tiered budget below spends almost entirely
   // on stronger pieces, leaving too few pawns for White to ever capture and
-  // cash in (measured: ~0.7 pawns/floor on average, over half of all floors
-  // with none at all). A separate, funded-on-top-of-the-piece-budget roll
-  // for one pawn keeps that supply flowing at roughly one a floor without
-  // pinning it to exactly one every time. Calibrated empirically (see
-  // scratchpad census in project history) to land close to a 1-pawn/floor
-  // average net of what the tiered budget below already contributes.
-  const PAWN_ALLOWANCE_CHANCE = 0.3;
+  // cash in. A separate, funded-on-top-of-the-piece-budget roll for one pawn
+  // keeps that supply flowing without pinning it to exactly one every time.
+  // 0.3 -> 0.5 (2026-08-05, research/balance/2026-08-05-pawn-allowance-bump.md):
+  // tracker report 2026-07-16T07:44 called a specific zero-pawn floor "too
+  // open," and 0.3 measured 36.5% of floors with none at all (840-spawn
+  // sweep). 0.5 lands at ~1.18 pawns/floor (up from ~0.99) and cuts zero-pawn
+  // floors to 26.3%, for a modest ~4.7% army-size increase (4.125 -> 4.317) --
+  // the smallest step in the swept range that moves the zero-pawn rate by a
+  // clearly real amount without the steeper army-size growth higher values
+  // carry. See the research entry for the full 0.3-0.7 sweep.
+  const PAWN_ALLOWANCE_CHANCE = 0.5;
 
   // --- Narrative campaign ---
   // Early/mid floors are hand-scripted -- a deliberate difficulty curve

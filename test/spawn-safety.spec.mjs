@@ -141,16 +141,18 @@ test("placing each scripted stage leaves every board row BOARD_COLS wide", async
 // Pins the pawn-supply tuning (PAWN_ALLOWANCE_CHANCE): pawns feed the
 // promotion and captured-pawn-carryover mechanics, and without a deliberate
 // allowance the tiered budget spends almost entirely on stronger pieces at
-// higher floors (measured ~0.7 pawns/floor, >50% of floors with none at
-// all). Same 30x28 sweep as the safety-invariant test above, checking the
-// resulting average lands near the "about one pawn a floor" target instead
-// of drifting back down if the spawn formula changes again later.
+// higher floors. Same 30x28 sweep as the safety-invariant test above.
+// Bumped 0.3 -> 0.5 (2026-08-05, research/balance/2026-08-05-pawn-allowance-
+// bump.md) in response to tracker 2026-07-16T07:44 ("no pawns to capture" on
+// a specific floor) -- both bounds below are tight enough that 0.3's
+// measured ~0.99 avg / 36.5% zero-pawn rate fails them, so this is a real
+// pin on the new value, not just a loose sanity range.
 test("pawn supply averages roughly one per floor across floors and days", async ({ page }) => {
   await page.goto(GAME_URL);
   const floors = await proceduralFloors(page, SWEEP_SIZE);
 
-  const avgPawnsPerFloor = await page.evaluate(([floors, days]) => {
-    let totalPawns = 0, samples = 0;
+  const { avgPawnsPerFloor, zeroPawnPct } = await page.evaluate(([floors, days]) => {
+    let totalPawns = 0, zeroPawnFloors = 0, samples = 0;
     for (const floor of floors) {
       for (const day of days) {
         todayKey = () => "dTESTpawns" + day;
@@ -159,18 +161,22 @@ test("pawn supply averages roughly one per floor across floors and days", async 
         state.floor = floor;
         state.lastSpawnBudget = 0;
         spawnBlackArmy();
-        for (const row of state.board) for (const c of row) if (c === "p") totalPawns++;
+        let pawns = 0;
+        for (const row of state.board) for (const c of row) if (c === "p") pawns++;
+        totalPawns += pawns;
+        if (pawns === 0) zeroPawnFloors++;
         samples++;
       }
     }
-    return totalPawns / samples;
+    return { avgPawnsPerFloor: totalPawns / samples, zeroPawnPct: (zeroPawnFloors / samples) * 100 };
   }, [floors, FAKE_DAYS]);
 
-  // "Approximately one" per the original ask, not pinned to exactly 1 --
-  // wide enough to allow re-tuning PAWN_ALLOWANCE_CHANCE without a false
-  // failure, tight enough to catch the allowance being lost entirely.
-  expect(avgPawnsPerFloor).toBeGreaterThan(0.8);
+  // Loose enough to allow re-tuning PAWN_ALLOWANCE_CHANCE further without a
+  // false failure, tight enough to catch the allowance drifting back toward
+  // (or past) 0.3's measured behavior.
+  expect(avgPawnsPerFloor).toBeGreaterThan(1.05);
   expect(avgPawnsPerFloor).toBeLessThan(1.4);
+  expect(zeroPawnPct).toBeLessThan(30);
 });
 
 // Regression for a reported exploit: a player's own carried-over material

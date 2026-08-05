@@ -75,16 +75,15 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 
 - [2026-07-29 — spawned pawns must never be free material](2026-07-29-pawn-spawn-free-material.md)
 - [2026-08-05 — archbishop material value: already fixed, three weeks before this lane existed](2026-08-05-archbishop-value-was-already-fixed.md)
+- [2026-08-05 — pawn supply: PAWN_ALLOWANCE_CHANCE 0.3 -> 0.5](2026-08-05-pawn-allowance-bump.md)
 
 ### Open, not yet studied
 
-Named here so the gaps are visible rather than implied. Three of the original
-four were unblocked by the 2026-07-28 delegation and are not yet done
-(archbishop material value was removed from this list 2026-08-05 -- it turned
-out to already be fixed, see the index entry above):
+Named here so the gaps are visible rather than implied. Two of the original
+four remain (archbishop material value was removed 2026-08-05, already fixed;
+pawn supply was moved to the index above the same night, first step only --
+its own entry documents why it isn't fully resolved):
 
-- **Pawn supply** — reported as too thin; `PAWN_ALLOWANCE_CHANCE` currently
-  yields ~0.95 pawns/floor (measured 2026-07-29, 840-spawn sweep).
 - **Fodder floors feel empty** — two separate reports. Relates directly to
   Zach's stated direction: "more pawns, more terrain, never free on fodder
   levels. Fodder levels should play like a platformer / puzzle."
