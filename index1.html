@@ -802,6 +802,20 @@
     return { nextBoard, pool: promo.capturedPool };
   }
 
+  // Hoisted out of getBlackMoveRuthless (pure data, no per-search state) so
+  // it's a real top-level binding a test can read directly via
+  // page.evaluate, the same way BOARD_COLS already is -- otherwise a
+  // tracker report like "archbishop is underpriced" has no number a
+  // regression test can pin, only a comment nobody re-checks.
+  const pieceValues = {
+    'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
+    // Archbishop (bishop+knight, 300+300=600 alone) undersold at 700;
+    // bumped to 780, still under chancellor's rook+knight (more mobility).
+    'm': 1300, 'c': 800, 'a': 780,
+    'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
+    'M': -1300, 'C': -800, 'A': -780
+  };
+
   // Alternating minimax with alpha-beta pruning, iteratively deepened as far
   // as the time budget allows, extended by a quiescence search through any
   // capture sequence still in progress at the horizon -- so a sacrifice's
@@ -829,15 +843,6 @@
     const NODE_BUDGET = 60000;
     let nodesSearched = 0;
     let hitDeadline = false;
-
-    const pieceValues = {
-      'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
-      // Archbishop (bishop+knight, 300+300=600 alone) undersold at 700;
-      // bumped to 780, still under chancellor's rook+knight (more mobility).
-      'm': 1300, 'c': 800, 'a': 780,
-      'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
-      'M': -1300, 'C': -800, 'A': -780
-    };
 
     // Below material values so a King step never outweighs a real capture --
     // at 2000 it did, and White shuffled the King instead of recapturing.

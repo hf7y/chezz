@@ -74,14 +74,15 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 ## Index
 
 - [2026-07-29 — spawned pawns must never be free material](2026-07-29-pawn-spawn-free-material.md)
+- [2026-08-05 — archbishop material value: already fixed, three weeks before this lane existed](2026-08-05-archbishop-value-was-already-fixed.md)
 
 ### Open, not yet studied
 
-Named here so the gaps are visible rather than implied. All four were unblocked
-by the same 2026-07-28 delegation and are not yet done:
+Named here so the gaps are visible rather than implied. Three of the original
+four were unblocked by the 2026-07-28 delegation and are not yet done
+(archbishop material value was removed from this list 2026-08-05 -- it turned
+out to already be fixed, see the index entry above):
 
-- **Archbishop material value** — reported as underpriced relative to what it
-  does on the board.
 - **Pawn supply** — reported as too thin; `PAWN_ALLOWANCE_CHANCE` currently
   yields ~0.95 pawns/floor (measured 2026-07-29, 840-spawn sweep).
 - **Fodder floors feel empty** — two separate reports. Relates directly to
