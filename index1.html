@@ -211,6 +211,22 @@
     box-shadow: 0 0 8px 2px rgba(255, 56, 96, 0.75);
   }
 
+  /* Formation-follow preview (tracker 2026-07-30T06:16): while dragging the
+     King toward a drop that would trigger formation-follow, each surviving
+     piece's computed landing square gets a small dot -- same green as an
+     ordinary legal-move target, deliberately smaller and without the glow,
+     so it reads as "this will also move" rather than "you can move here". */
+  td[data-formation-preview]::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    background: rgba(70, 255, 145, 0.65);
+  }
+
   /* inset box-shadow (not outline) so the highlight draws inside the cell --
      an outline extends past the border and gets painted over by whichever
      neighboring cell paints next. */
@@ -1701,19 +1717,27 @@
   // around the King rather than piling up wherever iteration happened to
   // reach first. A piece with no legal move onto that rank just stays put;
   // nothing here forces or fakes a move that isn't real.
-  function formationFollow(kingRow) {
+  //
+  // Pulled out of formationFollow (2026-08-05) so the King-drag preview
+  // (below) can run the exact same computation against a scratch board --
+  // one algorithm, not a preview reimplementation that could drift from
+  // what actually happens on drop. Mutates and returns `board` in place,
+  // same as the loop it replaced; callers that need the original untouched
+  // pass in a copy (see updateFormationPreview).
+  function computeFormationMoves(board, kingRow) {
     const pieces = [];
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
-        const p = state.board[y][x];
+        const p = board[y][x];
         if (p && p !== "K" && !isTerrain(p) && isWhitePiece(p) && y !== kingRow) pieces.push({ x, y, p });
       }
     }
     pieces.sort((a, b) => (FORMATION_VALUE[b.p.toLowerCase()] || 0) - (FORMATION_VALUE[a.p.toLowerCase()] || 0));
 
+    const moves = [];
     for (const { x, y, p } of pieces) {
-      const kingX = state.board[kingRow].indexOf("K");
-      const empty = legalMovesFrom(state.board, x, y).filter(m => state.board[m.y][m.x] === "");
+      const kingX = board[kingRow].indexOf("K");
+      const empty = legalMovesFrom(board, x, y).filter(m => board[m.y][m.x] === "");
       // Landing on the King's rank outright is still the preferred move. But a
       // piece too far back to reach it in one move takes the legal move that
       // gets it strictly closer instead of standing still: the old
@@ -1721,19 +1745,25 @@
       // FOREVER, since falling behind is exactly what makes the gap
       // unclosable (tracker 2026-07-28T14:47:05 -- a pawn four rows back
       // never caught up no matter how far the King walked).
-      let moves = empty.filter(m => m.y === kingRow);
-      if (!moves.length) {
+      let candidates = empty.filter(m => m.y === kingRow);
+      if (!candidates.length) {
         const gap = Math.abs(y - kingRow);
-        moves = empty.filter(m => Math.abs(m.y - kingRow) < gap);
+        candidates = empty.filter(m => Math.abs(m.y - kingRow) < gap);
       }
-      if (!moves.length) continue;
-      moves.sort((m1, m2) =>
+      if (!candidates.length) continue;
+      candidates.sort((m1, m2) =>
         (Math.abs(m1.y - kingRow) - Math.abs(m2.y - kingRow)) ||
         (Math.abs(m1.x - kingX) - Math.abs(m2.x - kingX)));
-      const dest = moves[0];
-      state.board[dest.y][dest.x] = p;
-      state.board[y][x] = "";
+      const dest = candidates[0];
+      board[dest.y][dest.x] = p;
+      board[y][x] = "";
+      moves.push({ fromX: x, fromY: y, toX: dest.x, toY: dest.y });
     }
+    return moves;
+  }
+
+  function formationFollow(kingRow) {
+    computeFormationMoves(state.board, kingRow);
   }
 
   // Floor progression.
@@ -1934,6 +1964,44 @@
     dragGhost.style.top = clientY + "px";
   }
 
+  // Formation-follow preview (tracker 2026-07-30T06:16 -- "pieces that will
+  // automove show where they will move ... small green dots"): while
+  // dragging the King toward a drop point that would trigger formation-
+  // follow, mark each follower's computed landing square so the player sees
+  // the whole reshuffle before committing to the drop, not just after.
+  // `formationPreviewKey` caches the drop square this was computed for, so
+  // dragging around within the same target cell doesn't recompute/re-render
+  // on every pointermove -- only an actual change of nearest-legal-move target does.
+  let formationPreview = null; // Set of "x,y" strings, or null when nothing to preview
+  let formationPreviewKey = null;
+
+  function clearFormationPreview() {
+    if (formationPreview) { formationPreview = null; formationPreviewKey = null; renderBoard(); }
+  }
+
+  function updateFormationPreview(e) {
+    if (!drag || !drag.dragging) return;
+    // Formation-follow only ever fires for a King move with no Black pieces
+    // left (see makeMove) -- preview nothing for any other drag.
+    if (state.board[drag.y][drag.x] !== "K" || hasBlackPieces(state.board)) {
+      clearFormationPreview();
+      return;
+    }
+    const nearest = nearestLegalMove(drag.x, drag.y, e.clientX, e.clientY);
+    const key = nearest ? `${nearest.x},${nearest.y}` : null;
+    if (key === formationPreviewKey) return; // still hovering the same drop target
+    formationPreviewKey = key;
+    if (!nearest) { formationPreview = null; renderBoard(); return; }
+    // Scratch copy: simulate the King already having landed on `nearest`,
+    // exactly the board shape formationFollow(toY) sees for real in
+    // makeMove, without touching the actual game state mid-drag.
+    const scratch = state.board.map(row => row.slice());
+    scratch[nearest.y][nearest.x] = "K";
+    scratch[drag.y][drag.x] = "";
+    formationPreview = new Set(computeFormationMoves(scratch, nearest.y).map(m => `${m.toX},${m.toY}`));
+    renderBoard();
+  }
+
   function beginDrag(e) {
     drag.dragging = true;
     selected = { x: drag.x, y: drag.y };
@@ -1958,6 +2026,7 @@
       beginDrag(e);
     }
     moveGhostTo(e.clientX, e.clientY);
+    updateFormationPreview(e);
   }
 
   function onDragEnd(e) {
@@ -1970,6 +2039,8 @@
       dragGhost.hidden = true;
       delete boardElement.rows[y].cells[x + 1].dataset.dragging;
       selected = null;
+      formationPreview = null;
+      formationPreviewKey = null;
 
       // Auto-march drag-to-step (DESIGN-NOTES.md, "Auto-march -- REFINED"):
       // a drop doesn't have to land exactly on a legal square. Instead we
@@ -2314,9 +2385,13 @@
         const threat = threats.has(`${x},${y}`) ? " data-threat" : "";
         const dangerLevel = legalTargets.get(`${x},${y}`);
         const legal = dangerLevel ? ` data-legal="${dangerLevel}"` : "";
+        // Formation-follow preview dots (see updateFormationPreview) -- never
+        // on a square that already has its own primary legal-move dot, so a
+        // King-drag target square doesn't render two overlapping markers.
+        const preview = !legal && formationPreview && formationPreview.has(`${x},${y}`) ? " data-formation-preview" : "";
         const cell = state.board[y][x];
         const terrain = cell === TERRAIN_WALL ? ` data-terrain="wall"` : cell === TERRAIN_HOLE ? ` data-terrain="hole"` : "";
-        html += `<td${sel}${threat}${legal}${terrain}>${pieceGlyphHtml(cell)}</td>`;
+        html += `<td${sel}${threat}${legal}${preview}${terrain}>${pieceGlyphHtml(cell)}</td>`;
       }
       html += `</tr>`;
     }

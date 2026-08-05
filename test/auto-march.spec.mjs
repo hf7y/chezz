@@ -71,6 +71,79 @@ test("formation-follow does not trigger while Black pieces remain", async ({ pag
   expect(board[6][7]).toBe("B");
 });
 
+test("formation-follow preview: dragging the King toward a drop shows dots on where followers will land, before release", async ({ page }) => {
+  // Same setup as the "surviving pieces rank up" test above -- Rook at
+  // (0,6), Bishop at (7,6), King at (4,7). This time we stop mid-drag
+  // (pointermove, no pointerup yet) and check the preview dots match what
+  // the drop will actually do, computed live via the same
+  // computeFormationMoves the real move uses (tracker 2026-07-30T06:16).
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-R6B-4K3-8_w&floor=1&spawned=1&budget=1&maxRank=0");
+
+  const midDrag = await page.evaluate(() => {
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const el = kingCell();
+    const r = el.getBoundingClientRect();
+    const start = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    const target = { x: start.x, y: start.y + r.height }; // one row down -- (4,8)
+    const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true };
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: start.x, clientY: start.y }));
+    document.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: target.x, clientY: target.y }));
+    const cellsWith = selector => [...document.querySelectorAll(selector)].map(td => {
+      const { x, y } = (() => ({ x: td.cellIndex - 1, y: td.parentElement.rowIndex }))();
+      return `${x},${y}`;
+    });
+    return {
+      previewCells: cellsWith("td[data-formation-preview]"),
+      legalCells: cellsWith("td[data-legal]"),
+      boardStillUnmoved: state.board[7][4] === "K",
+    };
+  });
+
+  expect(midDrag.boardStillUnmoved).toBe(true); // preview must not itself apply the move
+  // Rook's landing square (0,8) is nowhere near the King's own move set, so it
+  // gets the small preview dot outright. Bishop's landing square (5,8) is
+  // ALSO one of the King's own legal destinations (a diagonal king step) --
+  // the primary legal-move dot wins there by design (see renderBoard), so it
+  // shows as data-legal rather than data-formation-preview; the preview
+  // logic still computed it correctly, it's just not the visible attribute.
+  expect(midDrag.previewCells).toEqual(["0,8"]);
+  expect(midDrag.legalCells).toContain("5,8");
+});
+
+test("formation-follow preview: clears once the drag ends, and never appears while Black pieces remain", async ({ page }) => {
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-R6B-4K3-8_w&floor=1&spawned=1&budget=1&maxRank=0");
+
+  const afterDrop = await page.evaluate(() => {
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const el = kingCell();
+    const r = el.getBoundingClientRect();
+    const start = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    const target = { x: start.x, y: start.y + r.height };
+    const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true };
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: start.x, clientY: start.y }));
+    document.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: target.x, clientY: target.y }));
+    document.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: target.x, clientY: target.y }));
+    return document.querySelectorAll("td[data-formation-preview]").length;
+  });
+  expect(afterDrop).toBe(0);
+
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-R6B-4K3-p7_w&floor=1&spawned=1&budget=1&maxRank=0");
+  const withBlackPiece = await page.evaluate(() => {
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const el = kingCell();
+    const r = el.getBoundingClientRect();
+    const start = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    const target = { x: start.x, y: start.y + r.height };
+    const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true };
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: start.x, clientY: start.y }));
+    document.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: target.x, clientY: target.y }));
+    const count = document.querySelectorAll("td[data-formation-preview]").length;
+    document.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: target.x, clientY: target.y }));
+    return count;
+  });
+  expect(withBlackPiece).toBe(0);
+});
+
 test("formation-follow: a piece too far back to reach the King's rank still steps toward it", async ({ page }) => {
   // Tracker 2026-07-28T14:47:05 -- "pawn on f file should be automoving with
   // king". The old rank-or-nothing filter stranded any piece more than one
