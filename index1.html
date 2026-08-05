@@ -248,12 +248,46 @@
      source order then settles in terrain's favor. This is what tracker
      2026-07-28T14:47:56 hit -- "is this a failed rendering of the wall tile
      or genuine unable to move?" was BOTH: a real wall, painted as nothing. */
+  /* Wall/hole visual distinction (tracker 2026-07-29T04:39:12 -- the
+     diagonal-stripe wall and the hole's full-square fill read too close to
+     each other and to generic "hazard" texture; asked for a wall that reads
+     as a brick barrier and a hole that reads as a circular pit). A two-row
+     brick course, mortar lines only (no stagger between rows -- not worth
+     the extra background layers at 1.6em cell size, this already reads as
+     "bricks" rather than the old diagonal hazard-stripe look it replaces). */
   tr:nth-child(n) td[data-terrain="wall"] {
-    background: repeating-linear-gradient(45deg, rgba(232, 232, 232, 0.35) 0 4px, rgba(120, 120, 120, 0.35) 4px 8px);
+    background-color: rgba(150, 150, 150, 0.55);
+    /* Running-bond brick course: one full-height layer for the horizontal
+       mortar between the two rows, plus two separate vertical-mortar
+       layers -- each confined to just its own row (background-repeat:
+       repeat-x, background-size 100% 50%) and offset from each other by
+       half a brick-width -- so the bottom row's bricks sit staggered
+       against the top row's instead of lining up into a plain window-pane
+       grid. */
+    background-image:
+      repeating-linear-gradient(0deg, var(--ink) 0, var(--ink) 2px, transparent 2px, transparent 50%),
+      repeating-linear-gradient(90deg, var(--ink) 0, var(--ink) 2px, transparent 2px, transparent 25%),
+      /* Same 25%-wide brick, phase-shifted half a brick (12.5%) via the
+         gradient's own stops rather than background-position: a layer
+         already sized to span the full container width has zero range
+         left for background-position to shift it by. */
+      repeating-linear-gradient(90deg, transparent 0, transparent 12.5%, var(--ink) 12.5%, var(--ink) 14.5%, transparent 14.5%, transparent 25%);
+    background-size: 100% 100%, 100% 50%, 100% 50%;
+    background-position: 0 0, 0 0, 0 100%;
+    background-repeat: repeat, repeat-x, repeat-x;
   }
-  tr:nth-child(n) td[data-terrain="hole"] {
-    background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.55) 70%);
-    box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.6) inset;
+  /* A hole is a circular void inset within the square -- the checkerboard
+     square itself still shows (no background override here), so it reads
+     as a pit IN the tile rather than the tile itself turning into a black
+     square. ::before, not ::after: terrain never renders a piece glyph
+     inside its <td>, so there's no glyph content to sit in front of. */
+  tr:nth-child(n) td[data-terrain="hole"]::before {
+    content: "";
+    position: absolute;
+    inset: 18%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.6) 75%, rgba(0, 0, 0, 0.25) 100%);
+    box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.55) inset;
   }
 
   td[data-dragging] { opacity: 0.35; }

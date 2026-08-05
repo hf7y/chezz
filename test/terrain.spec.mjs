@@ -175,3 +175,33 @@ test("terrain actually PAINTS differently from an empty square, on both checkerb
   expect(paint.paritiesCovered).toBe(2);       // the probe really did span both colors
   expect(paint.plainPainted).toBe(0);          // and an empty square stays flat
 });
+
+test("wall and hole render as visually distinct terrain -- brick barrier vs. circular pit", async ({ page }) => {
+  // Tracker 2026-07-29T04:39:12: "holes design should look different than
+  // walls. holes are pixel circles. walls are brick barrier on tile edge."
+  // A wall paints its own backgroundImage (the brick course, asserted
+  // generically above); a hole instead paints an inset ::before circle and
+  // leaves the <td>'s own background alone so the checkerboard square still
+  // shows around the pit. This probe pins that split rather than just
+  // "terrain paints something".
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-%23X6-4PPP1-6K1_w&floor=4&spawned=1&budget=3&maxRank=24");
+
+  const shapes = await page.evaluate(() => {
+    const wall = document.querySelector('td[data-terrain="wall"]');
+    const hole = document.querySelector('td[data-terrain="hole"]');
+    const before = el => getComputedStyle(el, "::before");
+    return {
+      wallOwnBg: getComputedStyle(wall).backgroundImage,
+      holeOwnBg: getComputedStyle(hole).backgroundImage,
+      holeBeforeContent: before(hole).content,
+      holeBeforeRadius: before(hole).borderRadius,
+      wallBeforeContent: before(wall).content,
+    };
+  });
+
+  expect(shapes.wallOwnBg).not.toBe("none");     // the brick course is the wall's own background
+  expect(shapes.holeOwnBg).toBe("none");         // a hole leaves its own square unpainted...
+  expect(shapes.holeBeforeContent).not.toBe("none"); // ...and instead draws an inset circle via ::before
+  expect(shapes.holeBeforeRadius).toBe("50%");
+  expect(shapes.wallBeforeContent).toBe("none"); // a wall has no ::before circle of its own
+});
