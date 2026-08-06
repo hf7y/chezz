@@ -980,6 +980,10 @@
       let advancement = 0;
       let wKing = null;
       const blackPieces = [];
+      // Bit 0/1 = a bishop seen on an even/odd (x+y) parity square -- both
+      // set means the side holds a genuine opposite-colored pair (covers
+      // both square colors), not just two same-colored bishops.
+      let whiteBishopColors = 0, blackBishopColors = 0;
 
       for (let y = 0; y < BOARD_ROWS; y++) {
         for (let x = 0; x < BOARD_COLS; x++) {
@@ -994,6 +998,8 @@
 
           material += pieceValues[piece];
           if (piece === "K") wKing = { x, y };
+          if (piece === "B") whiteBishopColors |= 1 << ((x + y) & 1);
+          if (piece === "b") blackBishopColors |= 1 << ((x + y) & 1);
 
           if (!isWhitePiece(piece)) {
             const rowsFromExit = y - EXIT_ROW;
@@ -1004,6 +1010,18 @@
           }
         }
       }
+
+      // Tracker 2026-07-28T14:51: two bishops on opposite colors (between
+      // them, every square is covered) play stronger than 2x a lone
+      // bishop's flat value captures -- real chess engines price this the
+      // same way. Symmetric so a carried-over White pair counts too, though
+      // the report's own case is Black's scripted "Two Bishops" boss.
+      const BISHOP_PAIR_BONUS = 50;
+      // Black-positive/White-negative (same convention as pieceValues
+      // itself) -- a Black pair makes the total MORE positive (better for
+      // Black, which maximizes this), a White pair MORE negative.
+      if (blackBishopColors === 3) material += BISHOP_PAIR_BONUS;
+      if (whiteBishopColors === 3) material -= BISHOP_PAIR_BONUS;
 
       if (!wKing) return material + advancement + KING_CAPTURED_BONUS;
 
