@@ -763,6 +763,53 @@ their full writeups live in git history and DESIGN-NOTES.md.)
      for its own remaining commits tonight as a local mitigation, not a fix
      for the underlying shared-host race. -->
 
+21. DONE 2026-08-06 (seventh dispatch same day, `1af18d5`) -- tracker
+    `2026-07-30T06:18:44` ("black bishop hung") had a confirmed repro but no
+    fix from a prior session (an untracked `tmp-bishop-hang-investigation.mjs`
+    was still sitting in the working tree, unfinished, and its own note
+    flagged the risk of moving `ai-determinism.spec.mjs`'s pinned choices as
+    the reason a fix wasn't attempted). Picked it up rather than starting
+    over. The real root cause is much bigger than one hung bishop:
+    `pieceValues` has no entry for terrain (`#`/`X`), so `evaluateBoard`'s
+    `material += pieceValues[piece]` went to `NaN` on **any board with
+    terrain on it at all** -- and `NaN`'s always-false comparisons collapsed
+    every root candidate in `getBlackMoveRuthless`'s `searchRoot` to the same
+    `-Infinity` sentinel. Once every candidate ties, the deterministic
+    tie-break picks among them with zero regard for material safety,
+    captures, or king pressure -- Black's AI hasn't been slightly worse on
+    terrain floors (The Knight, Two Bishops bosses, any fodder floor that
+    rolls a wall/hole), it has been blind on every one of them, for as long
+    as terrain has shipped (item 4, 2026-07-24).
+    **Confirmed before fixing, not assumed**: reconstructed the exact
+    reported position directly from the report's own FEN (undoing the one
+    reported move), instrumented a patched copy of `getBlackMoveRuthless`
+    (via its own `toString()`, eval'd with two lines inserted) to dump every
+    root candidate's score, and ran the identical position with terrain
+    removed as a control -- confirmed all-candidates-tie-at-`-Infinity`
+    with terrain present, sane/differentiated scores without it, and the
+    correct move (a safe bishop retreat) winning once terrain no longer
+    poisons the eval.
+    **Fix**: one line, mirrors the `isTerrain()` skip already used
+    everywhere else terrain interacts with piece logic (movement, capture,
+    King-safety) -- `evaluateBoard` was the one place missing it.
+    **Checked the exact risk the prior session flagged rather than guessing
+    past it**: grepped `ai-determinism.spec.mjs`'s pinned FENs for terrain
+    characters -- none contain any, so this fix cannot move those pins, and
+    the full suite (152/152, including the new regression test) confirms it
+    didn't. `chezz-classic` has no terrain system yet (predates it), so
+    nothing to port there.
+    New test in `terrain.spec.mjs` reconstructs the report's exact position
+    and pins both a finite score (not the `NaN`-collapsed sentinel) and that
+    the chosen move doesn't leave the other bishop hanging; confirmed to
+    fail against the pre-fix code (`git stash`) before landing, not just
+    pass post-fix. Tracker resolved, verified by re-fetch.
+    Also backfilled the sixth dispatch's own report section (see its own
+    line above, item 9) before starting this -- its work was real and
+    pushed but its report writeup never got written, the same gap item 20
+    already caught once earlier the same day. Recurred within one day of
+    being named as a class; worth treating "write the report section before
+    doing anything else" as a checklist step, not just a lesson learned once.
+
 Backup work when the feature backlog (below) is empty: items 1-5, 8, 9,
 11, and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
 sprite, which needs one human `export` (item 7) and nothing else. 13 is
@@ -770,8 +817,11 @@ research, done and awaiting a human call (issue #3), not further nightly
 work. 9's own domain-serving trigger check is now wired too (sixth
 dispatch, `9cc8878`) -- item 9 is fully done, nothing left under it. 10
 (research/balance/ lane, opened and in active use -- 5 entries as of
-2026-08-06) is the remaining LIVE item. Next backup tier after that: any
-bug reports Tier 1 left open needing a human call (see below).
+2026-08-06) is the remaining LIVE item, and its own "open, not yet studied"
+index has nothing actionable beyond what's already correctly parked
+(analytic material sufficiency, research-scale). Item 21's engine fix
+(above) is also now DONE. Next backup tier after that: any bug reports
+Tier 1 left open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
 supersedes the "urgent" 2026-07-24 block that used to sit here):** the
