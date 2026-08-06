@@ -947,7 +947,13 @@
       for (let y = 0; y < BOARD_ROWS; y++) {
         for (let x = 0; x < BOARD_COLS; x++) {
           const piece = b[y][x];
-          if (!piece) continue;
+          // A wall/hole has no entry in pieceValues -- material +=
+          // pieceValues[piece] went to NaN on ANY board with terrain, and
+          // NaN's always-false comparisons collapsed every root candidate
+          // to the same -Infinity sentinel, so the search lost all
+          // tactical/positional signal (not just misjudged one move) on
+          // every terrain floor. See tracker 2026-07-30T06:18:44.
+          if (!piece || isTerrain(piece)) continue;
 
           material += pieceValues[piece];
           if (piece === "K") wKing = { x, y };

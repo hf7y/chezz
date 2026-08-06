@@ -4,7 +4,7 @@
 // piece is captured (see dropWallIfBossDefeated, wired into makeMove).
 // Both are authored directly into NARRATIVE_STAGES row FEN strings.
 import { test, expect } from "@playwright/test";
-import { GAME_URL } from "./helpers.mjs";
+import { GAME_URL, fenRowsToBoard } from "./helpers.mjs";
 
 function emptyBoard() {
   return Array.from({ length: 9 }, () => Array(8).fill(""));
@@ -204,4 +204,31 @@ test("wall and hole render as visually distinct terrain -- brick barrier vs. cir
   expect(shapes.holeBeforeContent).not.toBe("none"); // ...and instead draws an inset circle via ::before
   expect(shapes.holeBeforeRadius).toBe("50%");
   expect(shapes.wallBeforeContent).toBe("none"); // a wall has no ::before circle of its own
+});
+
+test("terrain on the board doesn't blind the AI's search (tracker 2026-07-30T06:18:44, 'black bishop hung')", async ({ page }) => {
+  // pieceValues has no entry for '#'/'X', so evaluateBoard's material sum
+  // went to NaN on ANY board with terrain -- not just this one position.
+  // NaN's always-false comparisons collapsed every root candidate to the
+  // same -Infinity sentinel, so the search picked among Black's legal moves
+  // with zero regard for material safety on every terrain floor, not just
+  // misjudging one tactic. Reconstructed directly from the report's own
+  // FEN (undoing the one reported move, bh48-g47): a Black bishop sits at
+  // c42, adjacent to and undefended against the White King at d42 -- the
+  // other Black bishop, at h48, has a fully safe retreat available.
+  const fen = "8-7b-8-8-8-4P3-###P1###-2bK4-8";
+  const board = fenRowsToBoard(fen);
+
+  const mv = await page.evaluate(([board, captured, floor]) => {
+    const chosen = getBlackMoveRuthless(board, captured, floor);
+    const next = board.map(r => r.slice());
+    next[chosen.toY][chosen.toX] = chosen.piece;
+    next[chosen.fromY][chosen.fromX] = "";
+    const hangsUndefended = (x, y) =>
+      attackersOf(next, x, y, true).length > 0 && attackersOf(next, x, y, false).length === 0;
+    return { chosen, cBishopHangs: hangsUndefended(2, 7) };
+  }, [board, "p", 6]);
+
+  expect(Number.isFinite(mv.chosen.score)).toBe(true); // not the NaN-collapsed -Infinity sentinel
+  expect(mv.cBishopHangs).toBe(false); // must not leave the OTHER bishop (c42) hanging either
 });
