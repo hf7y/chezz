@@ -11,6 +11,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  issues: write
 
 # Pages deploys are a single shared target -- queue rather than race two
 # concurrent pushes against it.
@@ -55,3 +56,13 @@ jobs:
           path: _site
       - uses: actions/deploy-pages@v4
         id: deployment
+
+      # FOCUS.md's domain-move park (item 9) named this as the trigger check
+      # that has to actually run, not just get described: does a player
+      # reach a build through both live domains right now. Runs on every
+      # deploy, so drift gets caught the next push, not the next time
+      # someone happens to look.
+      - name: Verify live domains serve nightly-builds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-live-deploy.mjs
