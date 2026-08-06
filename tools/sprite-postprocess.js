@@ -31,6 +31,14 @@
   const isBackground = (r, g, b) =>
     Math.max(r, g, b) - Math.min(r, g, b) > SATURATION_THRESHOLD;
 
+  // Fit-to-canvas scale stops short of the full size, so the cropped content
+  // sits with visible air around it instead of touching the sprite's own
+  // edges -- otherwise the piece then sits flush against its board cell's
+  // edges too, with no CSS padding to fall back on the way a Unicode glyph's
+  // font metrics give it for free (tracker 2026-07-29T04:37:19: "no padding
+  // in square").
+  const FILL_FRACTION = 0.82;
+
   // Rec. 601 luma -- matches how the eye weights the channels, so a
   // mid-yellow and a mid-blue don't both collapse to the same grey.
   const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
@@ -92,8 +100,10 @@
 
     // Scaled to FIT the square (not stretched to fill it) and centered, so a
     // tall king and a squat pawn keep their real relative proportions instead
-    // of every piece being distorted into the same silhouette.
-    const scale = Math.min(size / box.width, size / box.height);
+    // of every piece being distorted into the same silhouette. FILL_FRACTION
+    // leaves margin on the maxed dimension rather than touching the canvas
+    // edge -- see its own comment above.
+    const scale = Math.min(size / box.width, size / box.height) * FILL_FRACTION;
     const drawWidth = Math.max(1, Math.round(box.width * scale));
     const drawHeight = Math.max(1, Math.round(box.height * scale));
 

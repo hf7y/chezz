@@ -108,8 +108,10 @@ test("every opaque pixel snaps to the game's monochrome ramp", async ({ page }) 
 
 test("content is cropped out of its padding and centered, preserving aspect ratio", async ({ page }) => {
   // A 2:1 tall rectangle floating in the corner of a big frame. Correct output:
-  // 32 tall, 16 wide, horizontally centered -- NOT stretched to fill the square,
-  // which would make a squat pawn and a tall king the same silhouette.
+  // ~26 tall, ~13 wide, horizontally centered -- NOT stretched to fill the
+  // square (which would make a squat pawn and a tall king the same
+  // silhouette), and not touching either edge (FILL_FRACTION, tracker
+  // 2026-07-29T04:37:19: "no padding in square").
   const source = await syntheticGeneration(page, { rect: { x: 20, y: 30, width: 100, height: 200 } });
   const sprite = await page.evaluate((uri) => window.postprocessSprite(uri), source);
   const { width, data } = await pixelsOf(page, sprite);
@@ -121,18 +123,22 @@ test("content is cropped out of its padding and centered, preserving aspect rati
     }
   }
   const spread = opaqueColumns[opaqueColumns.length - 1] - opaqueColumns[0] + 1;
-  expect(spread).toBeGreaterThanOrEqual(14); // ~16 wide for a 2:1 piece in a 32px box
-  expect(spread).toBeLessThanOrEqual(18);
+  expect(spread).toBeGreaterThanOrEqual(11); // ~13 wide for a 2:1 piece in a 32px box at FILL_FRACTION
+  expect(spread).toBeLessThanOrEqual(15);
 
-  // Rows, by contrast, should span essentially the full height -- that's the
-  // dimension the fit-scale maxed out.
+  // Rows, by contrast, span the fit-maxed dimension -- most but not all of
+  // the canvas, with real margin above and below it now.
   const opaqueRows = [];
   for (let y = 0; y < 32; y++) {
     for (let x = 0; x < width; x++) {
       if (data[(y * width + x) * 4 + 3] === 255) { opaqueRows.push(y); break; }
     }
   }
-  expect(opaqueRows[opaqueRows.length - 1] - opaqueRows[0] + 1).toBeGreaterThanOrEqual(30);
+  expect(opaqueRows[0]).toBeGreaterThanOrEqual(2); // margin above...
+  expect(opaqueRows[opaqueRows.length - 1]).toBeLessThanOrEqual(29); // ...and below
+  const rowSpread = opaqueRows[opaqueRows.length - 1] - opaqueRows[0] + 1;
+  expect(rowSpread).toBeGreaterThanOrEqual(24);
+  expect(rowSpread).toBeLessThanOrEqual(28);
 });
 
 test("an all-background generation fails loud rather than writing an empty sprite", async ({ page }) => {
