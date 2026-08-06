@@ -854,6 +854,40 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     rather than trusting the POST response. No commits this dispatch --
     nothing in the repo needed to change.
 
+24. Nightly 2026-08-06 (tenth dispatch same day, ~15:20-15:25 UTC):
+    re-verified from scratch again (`check-answers` OK, still 5 open
+    questions #3/4/5/6/9, 0 answered; `npm run check` 152/152 and
+    `npm run check-classic` 45/45, both independently re-run, matching
+    items 21-23's claimed counts exactly). Re-fetched the tracker
+    (`?scope=bugs&status=all&type=all&limit=200`): 155 total, 19 open (11
+    feature, 8 bug) -- identical set and notes to item 23's fetch, nothing
+    stale, no `NIGHTLY:`-prefixed bug note. `research/balance/`'s index
+    still names only analytic material sufficiency as unstudied.
+    `git stash list`/`git branch -a`: same two pre-existing stashes items
+    16/20/22/23 already investigated, nothing new.
+    **New this dispatch**: read scheduler `BLOCKERS.md`'s `## chezz`
+    section in full and found an entry prior dispatches' "nothing new
+    since 2026-07-29" summary had missed -- a **private RSA key at rest in
+    `authorized_keys` on `tsunami.ocf.berkeley.edu`** (filed 2026-07-28 by
+    a chezz nightly run itself, "agent-appended", while restricting the
+    chezz deploy key), still OPEN, needing Zach to identify/rotate/delete
+    it. Not an active breach (file/dir perms are 0600/0700/0700, verified
+    at filing time) but private key material sitting in a public-keys-only
+    file on a shared host. This never made it into a chezz report or a
+    GitHub issue -- grepped every `~/reports/chezz/*.md` and
+    `.scheduler/FOCUS.md` for "PRIVATE KEY"/"authorized_keys", zero hits.
+    Not a new finding tonight and not something chezz automation should
+    act on unilaterally (no OCF access, and nobody but Zach knows what the
+    key opens or whether deleting it is safe) -- but worth surfacing here
+    since three prior same-day dispatches (21/22/23) each summarized this
+    section as "nothing new" without it being flagged anywhere a human
+    would actually see on a quick pass. `hf7y/chezz#9` (Playwright deps,
+    scheduler-write read-only from monkey, chezz.conf regression) still
+    open, still no comments -- unchanged.
+    Posted `sweep-status` (fetched 19, fixed 0, left open 19), verified by
+    re-fetching `?scope=sweep-status`. No commits needed beyond this note
+    -- nothing in the repo required a code change.
+
 Backup work when the feature backlog (below) is empty: items 1-5, 8, 9,
 11, and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
 sprite, which needs one human `export` (item 7) and nothing else. 13 is
