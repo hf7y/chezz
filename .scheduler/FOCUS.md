@@ -416,7 +416,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 6. (ANSWERED 2026-07-28; now waiting on a generated sprite, not on Zach) King->Queen -- neither option in the original question won: it is **royal progression**, the King absorbing movement from neutral pieces found on fodder floors (see resolved block above for the full answer). The 2026-07-24 DESIGN-NOTES.md spec is superseded on its central question and needs rewriting before implementation. Blocked on item 7 having actually run, because the neutral half-black/half-white piece has no Unicode glyph. Narrative only -- Classic stays always-king.
 7. (waiting: a GEMINI_API_KEY on this machine) Gemini sprite pipeline -- BUILT 2026-07-27 (`f7a2458`), gate opened by Zach's `BLOCKERS.md` reply the same day. `tools/generate-pieces.mjs` + `sprite-postprocess.js` + `wire-pieces.mjs`, and `pieceGlyphHtml` renders a sprite when one exists / the Unicode glyph when it doesn't. Zero new dependencies (Playwright's canvas replaces vkv's Pillow+numpy; plain `fetch` replaces the google-genai SDK). Monochrome is enforced by a palette snap in the pipeline, not by prompt compliance. 11 new tests; everything downstream of the API call is green. **Not shipped: any actual sprite.** No key is reachable from an unattended run, and the reply's suggestion to lift creds from `vkv-inventory` is not possible -- vkv stores no key anywhere (verified 2026-07-27: `tools/generate_sprite.py` documents `export GEMINI_API_KEY=...` as an interactive human step; no key in its repo, its scheduler conf, or the env). This needs one `export` from a human, then `npm run pieces:generate`; do not re-triage it nightly until then. Full writeup in DESIGN-NOTES.md's "Graphics pipeline" section.
 
-8. (LIVE, unblocked 2026-07-28; 2 of 5 shipped 2026-08-06, see item 17) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run.
+8. (LIVE, unblocked 2026-07-28; 3 of 5 shipped as of 2026-08-06, see items 17 and 18) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run. **Only real remainder: move-into-check** (tracker `2026-07-26T02:38:04`) -- needs a classic-appropriate deadlock fallback built first (item 17's finding), which is ordinary engineering, not a Zach-level question; don't re-park it as blocked-on-a-person.
 
 9. (LIVE, new 2026-07-28) Nightly-builds folder -- Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." This is where an over-cap `chezz-classic` port goes instead of being merged or discarded, so item 8 has a real destination rather than a dead-end branch. Needs: a published path (GitHub Pages already serves this repo), one HTML per build with enough label to tell builds apart, and an index page listing them. Keep it dumb -- static files, no build system, no new dependency. The loud overage announcement from item 8 lives in the build's own HTML, where a beta tester will actually see it.
 
@@ -570,6 +570,61 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     Script flakiness tonight, several other calls also timed out and
     needed 2-3 retries; all confirmed to have eventually landed correctly).
 
+18. Nightly 2026-08-06 (third dispatch same day): re-verified everything
+    from scratch first (`check-answers` OK, 5 open questions #3/4/5/6/9, 0
+    answered; full 142-test suite green). Re-fetched the tracker
+    (`&status=all&type=all`): 13 open bugs, 11 open features, all already
+    correctly triaged with no stale notes and no `NIGHTLY:`-prefixed bug
+    (confirmed by reading every open report's note, not by trusting last
+    run's count) -- so tonight's primary and backup tiers were both
+    already exhausted before this run started, and everything actionable
+    came from item 8's remainder and the standing Ideas queue.
+    **Shipped item 8's third chezz-classic port**: pawn-scarcity
+    progression (tracker `2026-07-26T02:06:18`, "net zero edit... check
+    for elegance"). Classic's `spawnBlackArmy` turned out to be the exact
+    same tiered-budget generator narrative had before the 2026-08-05
+    `PAWN_ALLOWANCE_CHANCE` bump (`research/balance/2026-08-05-pawn-
+    allowance-bump.md`), including the same stale 0.3 value -- so this
+    was a real port, not a from-scratch tuning pass. Measured directly on
+    classic (same 30x28 sweep) rather than assuming narrative's numbers
+    transferred: 0.3 -> 37.9% zero-pawn floors / 0.98 avg pawns / 2.90 avg
+    army; 0.5 -> 26.8% / 1.18 / 3.11 -- same shape, close enough in
+    magnitude to narrative's 36.5%->26.3% that the same value carries
+    over. Shipped `hf7y/chezz@ca29e86` (chezz-classic branch). Tightened
+    `spawn-safety.spec.mjs`'s loose 0.8-1.4 pawn-supply bound (passed at
+    both 0.3 and 0.5, so it wouldn't have caught a regression) to >1.05/
+    <1.4 plus a new zero-rate assertion; verified it fails against 0.3
+    before landing at 0.5. Full 39-test classic suite green, 65165B,
+    under the 100000B cap. Tracker resolved, verified by re-fetch.
+    **Item 8's only real remainder is now move-into-check** -- see the
+    priority-queue entry above; not attempted tonight, same scoping
+    reason item 17 already found (needs a classic-appropriate deadlock
+    fallback built first, which is more than a session's worth of new
+    design surface, not a quick follow-on to the pawn-scarcity port).
+    **Also closed the standing `scheduler -i` idea** (2026-07-28 13:34,
+    Playwright `workers` derivation) that had sat unaddressed for 9 days
+    -- `playwright.config.mjs` still hard-coded `workers: 2` with a
+    comment claiming "6 on this machine," which was true on mandark where
+    it was tuned but already false on both hosts chezz has run on since
+    (monkey, this host, 4 cores; dexter, 16). Per FOCUS.md's own rule
+    (never quietly decline a `scheduler -i`), implemented the filing's own
+    suggested shape: `workers` now derives from
+    `os.availableParallelism() / 3`, floored at a minimum of 2 so it
+    reproduces the already-verified-safe value on both mandark (6/3=2)
+    and monkey (4/3 floored up to 2) without changing behavior on either,
+    plus a `CHEZZ_TEST_WORKERS` env override. Verified the override works
+    and the full 142-test suite stays green (still deriving to 2 on this
+    host). Shipped `hf7y/chezz@368fd1a` (main).
+    STANDING LESSON, small but real: this run initially ran `git commit`
+    for the classic port without exporting `LD_LIBRARY_PATH` first, and
+    the repo's own pre-commit hook (`npm run check`) failed loud in
+    exactly the "every test fails in ~2ms" shape the monkey-host-infra-
+    gaps memory already documents -- the hook runs in its own subshell
+    that doesn't inherit a shell-only `export` from the invoking session.
+    No harm done (git correctly refused the commit on hook failure,
+    nothing was lost), but re-export before every `git commit` on this
+    host, not just before `npm run check` itself.
+
 <!-- HISTORY CORRECTION 2026-08-06 -- the commit that carries the item 16
      text above, `4b59192`, is titled "FOCUS.md/QUESTIONS.md: flag missing
      .session-handoff on the new baudin/monkey account (26th pass)" and its
@@ -719,7 +774,7 @@ reads/writes hit the real files; see QUESTIONS.md's 2026-07-25 entry.
 
 ## Ideas (added via `scheduler -i`)
 
-- **2026-07-28 13:34 (via `scheduler -i`):** playwright.config.mjs: derive `workers` from the host's core count, not a magic 2 (2026-07-28, Zach-directed via realisateur /ideate; filed through the front door because chezz had a live interactive session at the time).
+- **2026-07-28 13:34 (via `scheduler -i`): DONE 2026-08-06 (nightly, `368fd1a`, see item 18).** playwright.config.mjs: derive `workers` from the host's core count, not a magic 2 (2026-07-28, Zach-directed via realisateur /ideate; filed through the front door because chezz had a live interactive session at the time).
 
 WHAT'S THERE NOW. `workers: 2`, with a good comment explaining it: at full concurrency ai-determinism.spec.mjs races material-tuning.spec.mjs for CPU, the AI's wall-clock search deadline lands at a different depth on its second of two same-position calls, and a test that isn't testing concurrency fails reliably. The reasoning is sound and should be kept. The problem is the number, and specifically this clause: "default is CPU-count-based, 6 on this machine".
 
