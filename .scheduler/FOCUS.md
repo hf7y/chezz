@@ -714,11 +714,26 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     dispatch triggered through to `success`, then curled both live domains
     directly -- `zach.audio/chezz/nightly-builds/` and
     `hf7y.github.io/chezz/nightly-builds/` both 200 today, page title
-    renders. NOT done: the item-9-block-above's own "assert the domain can
-    serve a build directly, FAILS LOUD the first time it cannot" trigger is
-    still not wired as an automated, recurring check -- tonight's
-    verification was a one-time manual curl, not a mechanism a future run
-    or CI job re-runs on its own. That remains open.
+    renders. NOT done at that dispatch: the item-9-block-above's own "assert
+    the domain can serve a build directly, FAILS LOUD the first time it
+    cannot" trigger was still not wired as an automated, recurring check --
+    that verification was a one-time manual curl.
+    DONE 2026-08-06 (sixth dispatch, `9cc8878`): `scripts/check-live-
+    deploy.mjs` checks both `hf7y.github.io` and `zach.audio` for a 200 on
+    `nightly-builds/`, runs as a step in `deploy-narrative-pages.yml` after
+    every deploy (recurring falls out of the existing push-to-main trigger,
+    no separate cron needed), and files/closes a labelled
+    `nightly-builds-domain-down` issue on `hf7y/chezz` rather than only
+    failing CI red. 4 new tests pin `checkDomain()`'s 200/non-200/network-
+    error cases; the gh issue filing/closing halves are deliberately not
+    unit-tested (would leave real issue debris on a public repo) -- noted as
+    a known limit in the test file. Full 151-test suite green. Live-
+    verified, not just committed: the very next deploy this dispatch
+    triggered (`9cc8878`'s own CI run, `31097481707`) ran the new step for
+    real and logged "check-live-deploy: OK — hf7y.github.io, zach.audio all
+    serving nightly-builds/." Item 9 is now fully done, including its own
+    trigger mechanism -- the domain-move park (see its own block above) has
+    a live wire, not just a note.
 
 <!-- HISTORY CORRECTION 2026-08-06 -- the commit that carries the item 16
      text above, `4b59192`, is titled "FOCUS.md/QUESTIONS.md: flag missing
@@ -752,11 +767,11 @@ Backup work when the feature backlog (below) is empty: items 1-5, 8, 9,
 11, and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
 sprite, which needs one human `export` (item 7) and nothing else. 13 is
 research, done and awaiting a human call (issue #3), not further nightly
-work. 10 (research/balance/ lane, opened and in active use -- 5 entries as
-of 2026-08-06) is the remaining LIVE item. Item 9's own domain-serving
-trigger check (see its block above) is still not wired as an automated
-recurring assertion -- a real gap if picked up. Next backup tier after
-those: any bug reports Tier 1 left open needing a human call (see below).
+work. 9's own domain-serving trigger check is now wired too (sixth
+dispatch, `9cc8878`) -- item 9 is fully done, nothing left under it. 10
+(research/balance/ lane, opened and in active use -- 5 entries as of
+2026-08-06) is the remaining LIVE item. Next backup tier after that: any
+bug reports Tier 1 left open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
 supersedes the "urgent" 2026-07-24 block that used to sit here):** the
