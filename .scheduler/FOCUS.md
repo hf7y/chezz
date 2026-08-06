@@ -418,7 +418,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 
 8. DONE 2026-08-06 (fourth nightly dispatch, `69bfd80` on `chezz-classic`, see item 19) -- `chezz-classic` ports: all 5 reports Zach filed 2026-07-26 from mandark dispositioned. 4 shipped (mobile text-highlighting, color-coded move dots, pawn-scarcity progression, and the last remainder -- move-into-check + a classic-appropriate stalemate/floor-reset fallback, item 19). The 5th (analytic material-sufficiency theory, tracker `2026-07-26T02:42:34`) stays open, correctly: it's research-scale, not a mechanical port, and was never in this item's scope to ship.
 
-9. (LIVE, new 2026-07-28) Nightly-builds folder -- Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." This is where an over-cap `chezz-classic` port goes instead of being merged or discarded, so item 8 has a real destination rather than a dead-end branch. Needs: a published path (GitHub Pages already serves this repo), one HTML per build with enough label to tell builds apart, and an index page listing them. Keep it dumb -- static files, no build system, no new dependency. The loud overage announcement from item 8 lives in the build's own HTML, where a beta tester will actually see it.
+9. DONE 2026-08-06 (fifth nightly dispatch, `849dbd5`, see item 20) -- Nightly-builds folder. Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." `nightly-builds/index.html` + `manifest.js` (empty for now), wired into the Pages deploy alongside `index1.html`, live-verified on both domains. This is where an over-cap `chezz-classic` port goes instead of being merged or discarded (item 8's policy), so that policy now has a real destination -- nothing has gone over cap yet, so the manifest is empty. NOT done: the domain-serving trigger check named when this item was opened is still a one-time manual verification, not an automated recurring assertion.
 
 10. OPENED 2026-07-29 (`50c0c3e`), and now the STANDING ROUTE for every tuning change -- `research/balance/`. README states the bounded-tuning rule (a run may change what a number IS, never what a piece DOES or how a floor is STRUCTURED), explains Chezz to a cold reader, and records method notes: sweep 30 floors x 28 days rather than sample, offset past NARRATIVE_STAGES so you measure the procedural system and not authored content, define a test's probe locally so it can fail against the pre-change build, and read the measurement rather than the reporter's diff-line count. First entry is item 11, written in full. The four still-unstudied questions the delegation unblocked (archbishop value, pawn supply, the two empty-fodder-floor reports, analytic material sufficiency) are named in the README's index as open, so the gaps stay visible. Every future tuning change lands through here.
 
@@ -673,6 +673,53 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     the just-pushed `chezz-classic` commit fresh from origin and re-ran the
     suite through `npm run check-classic` from `main`, green.
 
+20. Nightly 2026-08-06 (fifth dispatch same day): re-oriented from `git log`
+    and this file, then found the fourth dispatch's own report section had
+    never been written -- item 19 above shipped and is real (verified by
+    re-reading the commits it names), but `~/reports/chezz/2026-08-06.md`
+    stopped after the third dispatch. Backfilled it before doing anything
+    else so the report doesn't silently undercount what `git log` shows.
+    Re-verified from scratch (`check-answers` OK, same 5 questions, 0
+    answered; `npm run check` 142/142 and `npm run check-classic` 45/45,
+    both matching item 19's claim) -- first `check` attempt used the wrong
+    monkey `LD_LIBRARY_PATH` path and hit the exact "every test fails in
+    ~2ms" false-alarm shape [[monkey-host-infra-gaps]] warns about; caught
+    it as an environment gap, not a regression, before it wasted a
+    debugging pass. `git stash list`: same two pre-existing stashes item 16
+    already investigated, nothing new.
+    **Found and fixed a stale-note instance items 15/17 already named as a
+    recurring class**: the two "fodder floors feel empty" bug reports
+    (`2026-07-20T04:06:37`/`04:55:20`) still pointed at the 2026-07-28-
+    answered balance-tuning question. Rather than just correcting the note,
+    measured it (`research/balance/` methodology, 30 floors x 28 days,
+    offset past `NARRATIVE_STAGES`): **0 of 840 procedural floors spawn
+    zero non-pawn pieces**, and it's a closed-form guarantee given current
+    constants (min budget at the first procedural floor, 13, is 12 -- 4x
+    `PIECE_SPAWN_COST.minor`), not a sampling result. The campaign's growth
+    to 12 scripted floors closed this gap as a side effect; neither report
+    reproduces under current code. Third "already fixed before this lane
+    could study it" finding in `research/balance/`, after the archbishop
+    and bishop-pair entries. `research/balance/2026-08-06-fodder-floors-
+    no-longer-reproduce.md` (`d1e1356`), README index updated, both tracker
+    reports resolved and verified by re-fetch.
+    **Shipped priority queue item 9**: `nightly-builds/` folder + index
+    page (`849dbd5`) -- `index.html` renders `window.NIGHTLY_BUILDS` (from
+    `manifest.js`, empty) via a plain `<script src>`, after confirming
+    Chromium blocks same-origin `fetch()` from a `file://` page (this
+    folder loads both off GitHub Pages and straight off disk in tests).
+    `deploy-narrative-pages.yml` now copies `nightly-builds/` alongside
+    `index1.html` and verifies the copied manifest parses before deploying.
+    5 new tests, full suite 147/147 green post-change. **Verified the live
+    deploy, not just the commit**: watched both GitHub Actions runs this
+    dispatch triggered through to `success`, then curled both live domains
+    directly -- `zach.audio/chezz/nightly-builds/` and
+    `hf7y.github.io/chezz/nightly-builds/` both 200 today, page title
+    renders. NOT done: the item-9-block-above's own "assert the domain can
+    serve a build directly, FAILS LOUD the first time it cannot" trigger is
+    still not wired as an automated, recurring check -- tonight's
+    verification was a one-time manual curl, not a mechanism a future run
+    or CI job re-runs on its own. That remains open.
+
 <!-- HISTORY CORRECTION 2026-08-06 -- the commit that carries the item 16
      text above, `4b59192`, is titled "FOCUS.md/QUESTIONS.md: flag missing
      .session-handoff on the new baudin/monkey account (26th pass)" and its
@@ -701,14 +748,15 @@ their full writeups live in git history and DESIGN-NOTES.md.)
      for its own remaining commits tonight as a local mitigation, not a fix
      for the underlying shared-host race. -->
 
-Backup work when the feature backlog (below) is empty: items 1-5, 8, 11,
-and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
+Backup work when the feature backlog (below) is empty: items 1-5, 8, 9,
+11, and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
 sprite, which needs one human `export` (item 7) and nothing else. 13 is
 research, done and awaiting a human call (issue #3), not further nightly
-work. 9 (nightly-builds folder) and 10 (research/balance/ lane, already
-opened and in use) are the remaining LIVE items -- 9 has no work queued
-against it yet beyond its own spec. Next backup tier after those: any
-bug reports Tier 1 left open needing a human call (see below).
+work. 10 (research/balance/ lane, opened and in active use -- 5 entries as
+of 2026-08-06) is the remaining LIVE item. Item 9's own domain-serving
+trigger check (see its block above) is still not wired as an automated
+recurring assertion -- a real gap if picked up. Next backup tier after
+those: any bug reports Tier 1 left open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
 supersedes the "urgent" 2026-07-24 block that used to sit here):** the
