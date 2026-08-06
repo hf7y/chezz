@@ -77,6 +77,10 @@
     color: #666;
   }
 
+  /* A stalemate reset is otherwise silent and reads as a free move. */
+  #floorMessage { font-size: 12px; color: #666; min-height: 0; }
+  #floorMessage:empty { display: none; }
+
   td {
     position: relative;
     cursor: pointer;
@@ -178,6 +182,7 @@
 <body>
 
 <h1><a href="#" id="resetLink">Chezz</a></h1>
+<div id="floorMessage" aria-live="polite"></div>
 
 <table aria-label="Chess board"></table>
 <p>Captured: <output></output></p>
@@ -313,16 +318,34 @@
     return isWhite ? moves : moves.filter(m => m.y !== EXIT_ROW);
   }
 
+  // Would White's King be capturable next turn if `piece` made this move?
+  // Real chess-style legality, King-only (ported from narrative, tracker
+  // 2026-07-26T02:38:04 -- other White pieces stay hangable on purpose, so
+  // this only ever restricts a move that leaves the King itself attacked,
+  // including a pin, since the check re-simulates the whole board either
+  // way. Black has no king on this board and no equivalent rule.
+  function kingSafeAfterMove(board, piece, fromX, fromY, toX, toY) {
+    const next = board.map(row => [...row]);
+    next[toY][toX] = piece;
+    next[fromY][fromX] = "";
+    const king = piece === "K" ? { x: toX, y: toY } : findWhiteKing(next);
+    if (!king) return true; // no king on the board, nothing to protect
+    return attackersOf(next, king.x, king.y, false).length === 0;
+  }
+
   // Derived queries, all built on top of legalMovesForPiece.
   function isLegalMove(board, fromX, fromY, toX, toY) {
     const piece = board[fromY][fromX];
     if (!piece) return false;
-    return legalMovesForPiece(board, piece, fromX, fromY).some(m => m.x === toX && m.y === toY);
+    if (!legalMovesForPiece(board, piece, fromX, fromY).some(m => m.x === toX && m.y === toY)) return false;
+    return isWhitePiece(piece) ? kingSafeAfterMove(board, piece, fromX, fromY, toX, toY) : true;
   }
 
   function legalMovesFrom(board, fromX, fromY) {
     const piece = board[fromY][fromX];
-    return piece ? legalMovesForPiece(board, piece, fromX, fromY) : [];
+    if (!piece) return [];
+    const moves = legalMovesForPiece(board, piece, fromX, fromY);
+    return isWhitePiece(piece) ? moves.filter(m => kingSafeAfterMove(board, piece, fromX, fromY, m.x, m.y)) : moves;
   }
 
   // Squares of every byWhite-colored piece that can legally move onto (x, y)
@@ -366,26 +389,29 @@
     return attackersOf(captureBoard, toX, toY, true).length ? "covered" : "hanging";
   }
 
-  // Does White have any legal move after which the King isn't attacked by
-  // any black piece? Not an enforced check/checkmate rule -- used only to
-  // reject a freshly spawned floor that's already dead on arrival.
-  function whiteSurvivesNextMove(board) {
-    const king = findWhiteKing(board);
-    if (!king) return true; // nothing for this check to protect
+  // Does `isWhite`'s side have any move at all? For Black this stays
+  // pseudo-legal (no king on this board to protect). For White this goes
+  // through legalMovesFrom, so a position where every pseudo-legal move
+  // hangs the King correctly reads as "no move" here, not just at the
+  // point of clicking one.
+  function hasAnyLegalMove(board, isWhite) {
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
         const piece = board[y][x];
-        if (!piece || !isWhitePiece(piece)) continue;
-        for (const m of legalMovesForPiece(board, piece, x, y)) {
-          const next = board.map(row => [...row]);
-          next[m.y][m.x] = piece;
-          next[y][x] = "";
-          const kingPos = piece === "K" ? { x: m.x, y: m.y } : king;
-          if (attackersOf(next, kingPos.x, kingPos.y, false).length === 0) return true;
-        }
+        if (!piece || isWhitePiece(piece) !== isWhite) continue;
+        const moves = isWhite ? legalMovesFrom(board, x, y) : legalMovesForPiece(board, piece, x, y);
+        if (moves.length) return true;
       }
     }
     return false;
+  }
+
+  // Not an enforced check/checkmate rule -- used only to reject a freshly
+  // spawned floor that's already dead on arrival. Now the same question
+  // hasAnyLegalMove(board, true) answers once King-safety is baked into
+  // legalMovesFrom, so this just names that call for its one caller.
+  function whiteSurvivesNextMove(board) {
+    return hasAnyLegalMove(board, true);
   }
 
   const PROMOTION_PRIORITY = ["m", "q", "c", "a", "r", "b", "n"]; // strongest first
@@ -741,6 +767,9 @@
   // promotionResolve, declared further down, are this same kind of thing).
   let selected = null, promotion = null;
   let floorJustSpawned = false; // consumed once by the next renderBoard()
+  // Snapshot of this floor's spawn, used by checkStalemate to reset a
+  // deadlocked White back to a playable position instead of a dead end.
+  let floorStart = null;
 
   // Board <-> compact string conversion, used to reshuffle rows on a floor
   // transition (see newFloor below).
@@ -1045,6 +1074,7 @@
 
     state.spawned = true;
     floorJustSpawned = true;
+    floorStart = boardToFen();
   }
 
   // Floor progression.
@@ -1081,6 +1111,41 @@
     state.floor++;
     state.spawned = false;
     spawnBlackArmy();
+  }
+
+  // A deadlock is only ever checked/fixed for White (the human) -- Black
+  // having no moves is fine (nothing forces the AI to reply) and just
+  // leaves White free to keep marching. A White deadlock has no such
+  // fallback, so it resets this floor fresh: to floorStart if this session
+  // spawned it, or by respawning the black army onto White's current
+  // survivors otherwise (e.g. right after a page load where floorStart
+  // hasn't been set yet). Ported from narrative main (tracker
+  // 2026-07-26T02:38:04) -- same standing rule: the run itself always
+  // stays alive, never ends, never restarts from floor 1.
+  function checkStalemate() {
+    if (state.turn !== "w" || hasAnyLegalMove(state.board, true)) return false;
+    if (floorStart) {
+      loadFen(floorStart);
+      state.turn = "w";
+    } else {
+      for (let y = 1; y <= 6; y++) state.board[y] = Array(BOARD_COLS).fill("");
+      state.spawned = false;
+      spawnBlackArmy();
+      state.turn = "w";
+    }
+    return true;
+  }
+
+  // Stalemate silently resetting the floor would read as a free move with
+  // no feedback -- a plain transient-text message, clears itself on the
+  // next real move.
+  function announceStalemateReset() {
+    const el = document.getElementById("floorMessage");
+    if (el) el.textContent = "No legal moves — floor reset.";
+  }
+  function clearFloorMessage() {
+    const el = document.getElementById("floorMessage");
+    if (el) el.textContent = "";
   }
 
   // Promotion UI: pending choice, and the dialog that offers it.
@@ -1157,7 +1222,10 @@
         state.captured = pool;
       }
       state.turn = "w";
-      checkFloorProgression(); updateUrl(false); renderBoard();
+      clearFloorMessage();
+      checkFloorProgression();
+      if (checkStalemate()) announceStalemateReset();
+      updateUrl(false); renderBoard();
       await wait(MOVE_PACING_MS);
     }
   }
@@ -1471,6 +1539,7 @@
     selected = null; promotion = null;
     promotionElement.close();
     if (!state.spawned) spawnBlackArmy();
+    if (checkStalemate()) announceStalemateReset();
     updateUrl();
     renderBoard();
   }
