@@ -416,7 +416,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 6. (ANSWERED 2026-07-28; now waiting on a generated sprite, not on Zach) King->Queen -- neither option in the original question won: it is **royal progression**, the King absorbing movement from neutral pieces found on fodder floors (see resolved block above for the full answer). The 2026-07-24 DESIGN-NOTES.md spec is superseded on its central question and needs rewriting before implementation. Blocked on item 7 having actually run, because the neutral half-black/half-white piece has no Unicode glyph. Narrative only -- Classic stays always-king.
 7. (waiting: a GEMINI_API_KEY on this machine) Gemini sprite pipeline -- BUILT 2026-07-27 (`f7a2458`), gate opened by Zach's `BLOCKERS.md` reply the same day. `tools/generate-pieces.mjs` + `sprite-postprocess.js` + `wire-pieces.mjs`, and `pieceGlyphHtml` renders a sprite when one exists / the Unicode glyph when it doesn't. Zero new dependencies (Playwright's canvas replaces vkv's Pillow+numpy; plain `fetch` replaces the google-genai SDK). Monochrome is enforced by a palette snap in the pipeline, not by prompt compliance. 11 new tests; everything downstream of the API call is green. **Not shipped: any actual sprite.** No key is reachable from an unattended run, and the reply's suggestion to lift creds from `vkv-inventory` is not possible -- vkv stores no key anywhere (verified 2026-07-27: `tools/generate_sprite.py` documents `export GEMINI_API_KEY=...` as an interactive human step; no key in its repo, its scheduler conf, or the env). This needs one `export` from a human, then `npm run pieces:generate`; do not re-triage it nightly until then. Full writeup in DESIGN-NOTES.md's "Graphics pipeline" section.
 
-8. (LIVE, unblocked 2026-07-28) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run.
+8. (LIVE, unblocked 2026-07-28; 2 of 5 shipped 2026-08-06, see item 17) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run.
 
 9. (LIVE, new 2026-07-28) Nightly-builds folder -- Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." This is where an over-cap `chezz-classic` port goes instead of being merged or discarded, so item 8 has a real destination rather than a dead-end branch. Needs: a published path (GitHub Pages already serves this repo), one HTML per build with enough label to tell builds apart, and an index page listing them. Keep it dumb -- static files, no build system, no new dependency. The loud overage announcement from item 8 lives in the build's own HTML, where a beta tester will actually see it.
 
@@ -510,6 +510,65 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     both). Left that half open, correctly reasoned as still blocked on a
     GEMINI_API_KEY to regenerate the actual asset (same gate as item 7),
     not on more pipeline work.
+
+17. Nightly 2026-08-06 (second dispatch same day): found three tracker
+    reports with STALE "waiting on Zach" notes -- same failure class item
+    15 already named, recurring. `2026-07-20T03:59:26`/`17:54:49` and
+    `2026-07-26T02:35:50` ("black pawn spawns hanging") all still claimed
+    to be blocked on a design fork that was actually answered and SHIPPED
+    a week earlier (item 11, `50c0c3e`, 2026-07-29). Resolved all three on
+    the tracker, citing the shipped commit and its regression test. Same
+    thing found on two of item 8's five chezz-classic reports
+    (`2026-07-26T02:06:18`, `2026-07-26T02:38:04`): both still said
+    "blocked on whether nightly runs should touch chezz-classic," a
+    question Zach answered 2026-07-28. Corrected both notes to "unblocked,
+    queued" rather than leaving the stale claim standing.
+    STANDING LESSON, same shape as item 15's: a note that says "waiting on
+    Zach" is a claim about a QUESTION's state, not the WORK's state --
+    once the question is answered, the note needs updating even if nobody
+    has gotten to the work yet. Re-verify before repeating a "blocked"
+    claim more than a few days old, the same discipline item 15 already
+    established for feature-backlog notes now also applies to the bug
+    queue.
+    Then actually worked item 8, unblocked-but-not-yet-done: shipped 2 of
+    the 5 chezz-classic ports. **Text-selection** (`8f46f5b`, chezz-classic
+    branch): ported narrative's `user-select: text` exception for
+    `#instructions`/`#leaderboard` (classic has no featureChat/changelog/
+    sweepStatus/appVersion panels, so only these two). **Color-coded move
+    dots** (`0065e6d`, same branch): ported `moveDangerLevel` cleanly,
+    zero new dependency (reuses classic's existing `attackersOf`). Both:
+    regression test added and confirmed to FAIL against pre-port code
+    (not just pass post-port -- build-discipline rule), full classic suite
+    green (39 tests), size well under the 100000-byte hard cap (64842B).
+    **Move-into-check deliberately NOT ported**, and this is a real scoping
+    finding, not a stall: classic (cut 2026-07-16) predates narrative's
+    entire stalemate/floor-reset system. Narrative bundled move-into-check
+    with stalemate-reset as ONE item on purpose (priority queue item 2,
+    `2783c357`) because King-only `kingSafeAfterMove` can produce a genuine
+    zero-legal-move King deadlock -- without a floor-reset fallback,
+    porting it alone would soft-lock a classic player with no move to
+    click. Left open on the tracker (`2026-07-26T02:38:04`) with this
+    scoping written down so the next run doesn't have to re-derive it: the
+    remaining work is "port or build a classic-appropriate deadlock
+    fallback first," not "port move-into-check."
+    **Pawn-scarcity progression** (`2026-07-26T02:06:18`) NOT attempted --
+    the reporter explicitly asked for "a net zero edit... check for
+    elegance," which is a measured tuning pass in the `research/balance/`
+    spirit, not a mechanical port; didn't rush it under this session's
+    remaining time.
+    **Item 12 (classic test suite) is still not built as a durable,
+    from-the-main-job mechanism** -- tonight's testing used an ad hoc
+    `git worktree` checkout of `chezz-classic`, run and torn down by hand.
+    It worked (caught both regressions pre-fix, confirmed both fixes), but
+    isn't wired into `npm run check` or anything the scheduler calls
+    automatically. Worth automating along these lines, not yet done.
+    Corrected 3 pawn-hang notes + 1 chezz-classic note; resolved 4 reports
+    total (3 pawn-hang duplicates + text-selection). Verified every POST
+    by re-fetching state after, not by trusting the response body --
+    caught one silent write that returned a Google Drive error page
+    instead of the expected JSON on the first attempt (transient Apps
+    Script flakiness tonight, several other calls also timed out and
+    needed 2-3 retries; all confirmed to have eventually landed correctly).
 
 <!-- HISTORY CORRECTION 2026-08-06 -- the commit that carries the item 16
      text above, `4b59192`, is titled "FOCUS.md/QUESTIONS.md: flag missing
