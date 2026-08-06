@@ -416,7 +416,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
 6. (ANSWERED 2026-07-28; now waiting on a generated sprite, not on Zach) King->Queen -- neither option in the original question won: it is **royal progression**, the King absorbing movement from neutral pieces found on fodder floors (see resolved block above for the full answer). The 2026-07-24 DESIGN-NOTES.md spec is superseded on its central question and needs rewriting before implementation. Blocked on item 7 having actually run, because the neutral half-black/half-white piece has no Unicode glyph. Narrative only -- Classic stays always-king.
 7. (waiting: a GEMINI_API_KEY on this machine) Gemini sprite pipeline -- BUILT 2026-07-27 (`f7a2458`), gate opened by Zach's `BLOCKERS.md` reply the same day. `tools/generate-pieces.mjs` + `sprite-postprocess.js` + `wire-pieces.mjs`, and `pieceGlyphHtml` renders a sprite when one exists / the Unicode glyph when it doesn't. Zero new dependencies (Playwright's canvas replaces vkv's Pillow+numpy; plain `fetch` replaces the google-genai SDK). Monochrome is enforced by a palette snap in the pipeline, not by prompt compliance. 11 new tests; everything downstream of the API call is green. **Not shipped: any actual sprite.** No key is reachable from an unattended run, and the reply's suggestion to lift creds from `vkv-inventory` is not possible -- vkv stores no key anywhere (verified 2026-07-27: `tools/generate_sprite.py` documents `export GEMINI_API_KEY=...` as an interactive human step; no key in its repo, its scheduler conf, or the env). This needs one `export` from a human, then `npm run pieces:generate`; do not re-triage it nightly until then. Full writeup in DESIGN-NOTES.md's "Graphics pipeline" section.
 
-8. (LIVE, unblocked 2026-07-28; 3 of 5 shipped as of 2026-08-06, see items 17 and 18) `chezz-classic` ports -- work the five reports Zach filed 2026-07-26 from mandark: import narrative's color-coded move dots, mobile text-highlighting bugs, pawn-scarcity progression gating, the materials-theory one, and pawn spawn. Check out `chezz-classic`, port, run the size-ENFORCING checks, push. A port that works but busts the cap is kept and NOT merged, with a loud in-HTML overage announcement -- see the unparked note above for the full standing rules. Take them one at a time; each is independently shippable, so a run that lands one and leaves four is a good run. **Only real remainder: move-into-check** (tracker `2026-07-26T02:38:04`) -- needs a classic-appropriate deadlock fallback built first (item 17's finding), which is ordinary engineering, not a Zach-level question; don't re-park it as blocked-on-a-person.
+8. DONE 2026-08-06 (fourth nightly dispatch, `69bfd80` on `chezz-classic`, see item 19) -- `chezz-classic` ports: all 5 reports Zach filed 2026-07-26 from mandark dispositioned. 4 shipped (mobile text-highlighting, color-coded move dots, pawn-scarcity progression, and the last remainder -- move-into-check + a classic-appropriate stalemate/floor-reset fallback, item 19). The 5th (analytic material-sufficiency theory, tracker `2026-07-26T02:42:34`) stays open, correctly: it's research-scale, not a mechanical port, and was never in this item's scope to ship.
 
 9. (LIVE, new 2026-07-28) Nightly-builds folder -- Zach: "Eventually we'll have a nightly builds folder of the html pages where beta testers can explore different builds." This is where an over-cap `chezz-classic` port goes instead of being merged or discarded, so item 8 has a real destination rather than a dead-end branch. Needs: a published path (GitHub Pages already serves this repo), one HTML per build with enough label to tell builds apart, and an index page listing them. Keep it dumb -- static files, no build system, no new dependency. The loud overage announcement from item 8 lives in the build's own HTML, where a beta tester will actually see it.
 
@@ -426,7 +426,7 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     STANDING LESSON, worth more than the fix: the old behavior was defended for months as intentional design by citing a source comment ("pawns are meant to stand in the open") that automation had written and automation then read back as authority. Nothing outside the codebase ever said it. Before deferring a recurring report as "intentional", check whether the intent has a human source.
     NOT closed by this: Zach's broader direction "more pawns, more terrain, never free on fodder levels -- fodder levels should play like a platformer / puzzle" is a floor-composition goal, which is design, not tuning. This removed the free material only.
 
-12. (LIVE, new 2026-07-28) Classic test suite -- "something lighter," called from the SAME scheduler job, not a new one. Classic-only tests that don't apply to narrative, holding the line Zach stated: elegance, small file size, clean HTML, a game that is simple and self-evident. Prerequisite-ish for item 8 -- the ports need something to be checked against beyond the byte cap.
+12. DONE 2026-08-06 (fourth nightly dispatch, `2bbf84a`, see item 19) -- Classic test suite is now a durable, from-the-main-job mechanism: `npm run check-classic` (`scripts/check-classic.mjs`) fetches `origin/chezz-classic`, checks it out into a disposable PID/random-named worktree, reuses main's node_modules, runs classic's own `npm run check`, and always tears the worktree down (including on a failure before the worktree existed). Replaces the ad hoc by-hand `git worktree` + manual teardown items 17/18 used. Deliberately NOT folded into main's own `npm run check`/pre-commit hook -- that runs on every commit, most of which never touch classic.
 
 13. RESEARCH DONE 2026-07-29, AWAITING A HUMAN CALL (issue #3) -- White move-hint. The piggyback hypothesis is HALF real. Yes, the information is computed: Black's search does evaluate White's replies under the same eval, so NO second engine call is needed. But it is not retained (`search()` returns a scalar; there is no PV table and no transposition table anywhere) and most of it is not an answer (alpha-beta cut nodes yield a move sufficient to REFUTE the line, not White's best). Three correctness conditions any implementation must meet, each a way it ships subtly wrong: restrict PV collection to exact-window nodes; filter through `legalMovesFrom` before display, because `collectMoves` builds from `legalMovesForPiece` and so enumerates King-hanging moves the player may not play (measured: 208 of 1312, 15.9%, across 60 spawned boards); and suppress a hint when the search hit `NODE_BUDGET`, since the line is then partial. Timing does line up as Zach thought -- the node wanted is exactly the child of the Black move played, searched at full window on the first deepening iteration. NOT BUILT: his instruction was to build only on a clean yes, and this is a qualified yes, so it goes back to him rather than an unattended run deciding. Full writeup: `research/engine/2026-07-29-white-move-hint-hypothesis.md`.
 
@@ -625,6 +625,54 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     nothing was lost), but re-export before every `git commit` on this
     host, not just before `npm run check` itself.
 
+19. Nightly 2026-08-06 (fourth dispatch same day): re-verified from scratch
+    first (`check-answers` OK, still 5 open questions #3/4/5/6/9, 0
+    answered; full 142-test suite green, independent re-run). Re-fetched
+    the tracker (`&status=all&type=all`): 23 open (12 bug, 11 feature),
+    identical in content to the third dispatch's own fetch -- every open
+    report's note read individually, all still correctly triaged, nothing
+    stale, no `NIGHTLY:` bug notes. So for the fourth dispatch running in
+    the same day, the feature backlog and bug queue were exhausted before
+    this run even started; both remaining LIVE backup-tier items (8 and
+    12) got worked instead.
+    **Shipped item 12**: `scripts/check-classic.mjs` / `npm run
+    check-classic` (`2bbf84a` on `main`) -- see item 12's own line above
+    for what it does. Verified both the success path (39/39 green, clean
+    teardown) and a forced failure path (bad branch name: exits 1 loud,
+    still leaves no tmpdir) before committing.
+    **Shipped item 8's last remainder**: move-into-check + a classic-
+    appropriate stalemate/floor-reset fallback (`69bfd80` on
+    `chezz-classic`) -- see item 8's own line above. The "classic-
+    appropriate deadlock fallback" items 17/18 flagged as the blocker
+    turned out to need no new design: classic already had `attackersOf`,
+    `findWhiteKing`, `boardToFen`/`loadFen`, and (unexpectedly)
+    `whiteSurvivesNextMove`, which hand-rolled the exact same King-safety
+    check `kingSafeAfterMove` performs, just inlined for one caller. So
+    this was narrative's already-answered 2026-07-19/20 design (King-only
+    hang restriction + floor-reset-not-run-reset) ported mechanically, not
+    a fresh design pass -- the "more than a session's worth of new design
+    surface" the two prior dispatches correctly declined turned out to be
+    smaller once actually scoped, which is itself worth naming: a
+    "needs design work first" scoping note is a hypothesis, re-check it
+    against the actual code before re-deferring a third time.
+    Verified with the same rigor as the two prior classic ports: 6 new
+    tests in `test/stalemate.spec.mjs`, confirmed to fail
+    (`ReferenceError`, not just a wrong assertion) against the pre-port
+    code via `git stash` before landing them; full 45-test suite green
+    post-port (39 existing + 6 new), `ai-determinism.spec.mjs`'s pinned
+    regression values and the 840-combination spawn-safety sweep both
+    unchanged (confirms `whiteSurvivesNextMove`'s refactor is behavior-
+    preserving, not just passing); size 68456B, under the 100000B cap.
+    Verified narrative's own AI search (`collectMoves`) also leaves Black's
+    hypothetical-reply generation unfiltered by King-safety before assuming
+    that was safe to leave alone in the port, rather than just copying the
+    pattern on faith. Tracker `2026-07-26T02:38:04` resolved, verified by
+    re-fetch.
+    Confirmed the new `check-classic` mechanism (item 12, shipped earlier
+    the same dispatch) against this real port before relying on it: fetched
+    the just-pushed `chezz-classic` commit fresh from origin and re-ran the
+    suite through `npm run check-classic` from `main`, green.
+
 <!-- HISTORY CORRECTION 2026-08-06 -- the commit that carries the item 16
      text above, `4b59192`, is titled "FOCUS.md/QUESTIONS.md: flag missing
      .session-handoff on the new baudin/monkey account (26th pass)" and its
@@ -653,12 +701,13 @@ their full writeups live in git history and DESIGN-NOTES.md.)
      for its own remaining commits tonight as a local mitigation, not a fix
      for the underlying shared-host race. -->
 
-Backup work when the feature backlog (below) is empty: items 8-13 are all
-LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are DONE;
-6 and 7 are both now gated on the same thing, a generated sprite, which
-needs one human `export` (item 7) and nothing else. Cheapest real wins in
-that set: item 11 (a bounded correctness fix with a clear test) and item
-13 (pure research, no shipping risk). Next backup tier after those: any
+Backup work when the feature backlog (below) is empty: items 1-5, 8, 11,
+and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
+sprite, which needs one human `export` (item 7) and nothing else. 13 is
+research, done and awaiting a human call (issue #3), not further nightly
+work. 9 (nightly-builds folder) and 10 (research/balance/ lane, already
+opened and in use) are the remaining LIVE items -- 9 has no work queued
+against it yet beyond its own spec. Next backup tier after those: any
 bug reports Tier 1 left open needing a human call (see below).
 
 **Size policy — RESOLVED 2026-07-25 (human reply in that day's report,
