@@ -29,10 +29,25 @@ jobs:
 
       # index1.html is the whole game (self-contained, no local assets) --
       # Pages just needs it served as index.html at the site root.
+      #
+      # nightly-builds/ (priority queue item 9, FOCUS.md) is a standing,
+      # dumb static folder for over-cap chezz-classic ports that were kept
+      # rather than merged or discarded -- copied as-is, no build step.
       - name: Prepare site
         run: |
           mkdir _site
           cp index1.html _site/index.html
+          cp -r nightly-builds _site/nightly-builds
+
+      - name: Verify site has what it should
+        run: |
+          test -f _site/nightly-builds/index.html
+          test -f _site/nightly-builds/manifest.js
+          node -e "
+            const window = {};
+            eval(require('fs').readFileSync('_site/nightly-builds/manifest.js', 'utf8'));
+            if (!Array.isArray(window.NIGHTLY_BUILDS)) throw new Error('NIGHTLY_BUILDS is not an array');
+          "
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
