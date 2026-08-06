@@ -76,6 +76,7 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 - [2026-07-29 — spawned pawns must never be free material](2026-07-29-pawn-spawn-free-material.md)
 - [2026-08-05 — archbishop material value: already fixed, three weeks before this lane existed](2026-08-05-archbishop-value-was-already-fixed.md)
 - [2026-08-05 — pawn supply: PAWN_ALLOWANCE_CHANCE 0.3 -> 0.5](2026-08-05-pawn-allowance-bump.md)
+- [2026-08-06 — opposite-color bishop pair: no change, and here's why](2026-08-06-opposite-color-bishop-pair-value.md)
 
 ### Open, not yet studied
 
