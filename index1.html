@@ -816,13 +816,17 @@
   // Pawns are what feed the promotion and captured-pawn-carryover mechanics --
   // past the first few floors the tiered budget below spends almost entirely
   // on stronger pieces, leaving too few pawns for White to ever capture and
-  // cash in (measured: ~0.7 pawns/floor on average, over half of all floors
-  // with none at all). A separate, funded-on-top-of-the-piece-budget roll
-  // for one pawn keeps that supply flowing at roughly one a floor without
-  // pinning it to exactly one every time. Calibrated empirically (see
-  // scratchpad census in project history) to land close to a 1-pawn/floor
-  // average net of what the tiered budget below already contributes.
-  const PAWN_ALLOWANCE_CHANCE = 0.3;
+  // cash in. A separate, funded-on-top-of-the-piece-budget roll for one pawn
+  // keeps that supply flowing without pinning it to exactly one every time.
+  // 0.3 -> 0.5 (2026-08-06, tracker 2026-07-26T02:06:18, porting narrative's
+  // already-measured research/balance/2026-08-05-pawn-allowance-bump.md fix):
+  // classic's own 30-floor x 28-day sweep (same harness as the "pawn supply"
+  // test below, offset past nothing since classic has no scripted stages)
+  // measured 0.3 at 37.9% zero-pawn floors / 0.98 avg pawns/floor / 2.90 avg
+  // army size, and 0.5 at 26.8% / 1.18 / 3.11 -- same shape and roughly the
+  // same magnitude as narrative's 36.5%->26.3% result, so the same value
+  // carries over rather than re-deriving a different one from scratch.
+  const PAWN_ALLOWANCE_CHANCE = 0.5;
 
   // World generation: populate the floor with a random black army, sized to
   // the floor number so the dungeon gets harder as White climbs.
