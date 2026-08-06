@@ -511,6 +511,34 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     GEMINI_API_KEY to regenerate the actual asset (same gate as item 7),
     not on more pipeline work.
 
+<!-- HISTORY CORRECTION 2026-08-06 -- the commit that carries the item 16
+     text above, `4b59192`, is titled "FOCUS.md/QUESTIONS.md: flag missing
+     .session-handoff on the new baudin/monkey account (26th pass)" and its
+     body is about a DIFFERENT project's Home Assistant credentials. Neither
+     the title nor body has anything to do with chezz or item 16; the DIFF
+     it carries is exactly the item 16 text above and nothing else (verified:
+     `git show --stat` touches only .scheduler/FOCUS.md, +40/-0). Cause: this
+     run's own `cat > /tmp/focus-commit-msg.txt` failed with "Permission
+     denied" (the file already existed, owned by a different unix user,
+     `baudin`, group-writable but not writable by `chezz`) -- `focus-commit`
+     then read that STALE, WORLD-READABLE, unrelated file as its msgfile
+     argument without complaint, because reading it needs no special
+     permission, only overwriting it does. `/tmp` on this host is shared
+     across many concurrently-scheduled projects running as distinct unix
+     accounts (`ecosim`, `bibliothecaire`, `vim-arcade`, `baudin`, `chezz`,
+     at least), several of which independently reuse predictable names like
+     `commit-msg.txt`/`focus-commit-msg.txt` -- a real collision, not a
+     one-off fluke, and every one of those projects' own commit-message
+     tooling on this host is exposed to the same failure mode chezz just hit,
+     not just chezz's. NOT rewritten here, deliberately: `4b59192` was
+     already pushed, and force-pushing a ref other clones may hold is a
+     bigger risk than a wrong label -- same call as the `e3590c3` correction
+     above. Filed to senechal (`notify-senechal`, 2026-08-06) as a
+     shared-host hazard since it is a machine-wide /tmp collision risk, not
+     a chezz-only bug; this run also switched to a PID-qualified tmp path
+     for its own remaining commits tonight as a local mitigation, not a fix
+     for the underlying shared-host race. -->
+
 Backup work when the feature backlog (below) is empty: items 8-13 are all
 LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are DONE;
 6 and 7 are both now gated on the same thing, a generated sprite, which
