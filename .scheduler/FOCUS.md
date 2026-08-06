@@ -471,6 +471,46 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     default on/off + FM-synthesis bytes), #6 (difficulty theory: separate
     math branch or the research lane, and is agent playtesting in scope).
 
+16. Nightly 2026-08-06 (first dispatch of the run, chezz's new `monkey`
+    host): recovered a prior run's finished, tested commit that never
+    reached `main` -- it survived only as a local
+    `rescue/chezz-nightly-batch-20260806000011` branch (harness safety net,
+    not a scheduler mechanism), one commit ahead of `main`, terrain
+    brick-wall/circular-hole visual distinction (tracker
+    2026-07-29T04:39:12). Re-verified independently (full 142-test suite,
+    not just the prior commit's own claim), merged, pushed as `ba0972d`,
+    tracker resolved. STANDING LESSON: this run also found TWO STALE
+    scheduler auto-stash entries (`git stash list`, both titled
+    "sweep-loop-common.sh auto-stash before reset") predating tonight --
+    one was a second, worse, independent attempt at the exact same terrain
+    report (different CSS, no tests, correctly superseded by the merged
+    fix above, left untouched); the other (2026-08-05T18:00) was an
+    UNTESTED, UNSWEPT bishop-pair evaluation bonus for tracker
+    2026-07-28T14:51 that a LATER same-day research pass (`760684f`,
+    "opposite-color bishop pair: no change, and here's why") investigated
+    independently and fixed on -- without knowing this stash existed,
+    since a stash is invisible to a fresh session starting from `main`.
+    The later research's reasoning stands (no measured case for a bonus,
+    and it is a new conditional term past bounded tuning either way), so
+    the stash was correctly left unmerged, but check `git stash list`
+    going forward before re-investigating a report from scratch -- a
+    stash is exactly the kind of prior-run state step 1's "pick up don't
+    restart" instruction means, and it will not show up in `git log`.
+    Also re-triaged tracker 2026-07-29T04:37:19 (black pawn sprite):
+    the standing note called it "blocked on the sprite pipeline" when the
+    pipeline had actually already shipped that exact sprite in `9bfd8e8`
+    (2026-07-28) -- the report was about the LIVE sprite's quality, not a
+    pending pipeline. Fixed the "no padding in square" half in `d4cd05b`
+    (postprocess now reserves real margin instead of touching the sprite's
+    own canvas edges), regression-pinned. Investigated "white ghost pixels
+    around edges" as a downsample/chroma-key blend and could not
+    substantiate it -- worked the arithmetic and ran two synthetic repros,
+    both came back clean against the OLD code, so a test claiming to pin a
+    fix for it would not have been a real pin (would have passed against
+    both). Left that half open, correctly reasoned as still blocked on a
+    GEMINI_API_KEY to regenerate the actual asset (same gate as item 7),
+    not on more pipeline work.
+
 Backup work when the feature backlog (below) is empty: items 8-13 are all
 LIVE as of 2026-07-28 and are the top of the queue -- items 1-5 are DONE;
 6 and 7 are both now gated on the same thing, a generated sprite, which
