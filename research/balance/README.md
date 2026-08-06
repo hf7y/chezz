@@ -77,17 +77,15 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 - [2026-08-05 — archbishop material value: already fixed, three weeks before this lane existed](2026-08-05-archbishop-value-was-already-fixed.md)
 - [2026-08-05 — pawn supply: PAWN_ALLOWANCE_CHANCE 0.3 -> 0.5](2026-08-05-pawn-allowance-bump.md)
 - [2026-08-06 — opposite-color bishop pair: no change, and here's why](2026-08-06-opposite-color-bishop-pair-value.md)
+- [2026-08-06 — "fodder floors feel empty": doesn't reproduce under current code](2026-08-06-fodder-floors-no-longer-reproduce.md)
 
 ### Open, not yet studied
 
-Named here so the gaps are visible rather than implied. Two of the original
-four remain (archbishop material value was removed 2026-08-05, already fixed;
-pawn supply was moved to the index above the same night, first step only --
-its own entry documents why it isn't fully resolved):
+Named here so the gaps are visible rather than implied. One of the original
+four remains (archbishop material value was removed 2026-08-05, already
+fixed; pawn supply moved to the index the same night; fodder floors moved to
+the index 2026-08-06, doesn't reproduce):
 
-- **Fodder floors feel empty** — two separate reports. Relates directly to
-  Zach's stated direction: "more pawns, more terrain, never free on fodder
-  levels. Fodder levels should play like a platformer / puzzle."
 - **Analytic material sufficiency** — the long-term ask: solve analytically
   what White material is actually needed to beat a given Black composition,
   rather than inferring difficulty from a search proxy. Research-scale.
