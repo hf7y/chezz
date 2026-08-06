@@ -134,6 +134,19 @@
     padding: 4px;
   }
 
+  /* Selection is blocked page-wide (see body) so a drag drifting off the
+     board can't start a native selection/search gesture -- but that also
+     made genuinely readable prose uncopyable (tracker 2026-07-26T02:01:09,
+     ported from narrative main's daffb82 fix). These panels sit below the
+     board, are not drag-drift targets, and hold text a player actually
+     wants to copy (instructions, a leaderboard name), so selection comes
+     back on for them specifically. */
+  #instructions, #leaderboard {
+    user-select: text;
+    -webkit-user-select: text;
+    -webkit-touch-callout: default;
+  }
+
   #instructions { max-width: 380px; font-size: 14px; }
 
   #leaderboard dt { font-weight: bold; }
