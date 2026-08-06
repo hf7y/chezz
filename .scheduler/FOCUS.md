@@ -830,6 +830,30 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     Full writeup in `~/reports/chezz/2026-08-06.md`'s "Eighth dispatch"
     section.
 
+23. Nightly 2026-08-06 (ninth dispatch same day, ~13:30-14:24 UTC):
+    re-verified from scratch again (`check-answers` OK, still 5 open
+    questions #3/4/5/6/9, 0 answered; `gh issue list --label
+    question --label answered` empty; `npm run check` 152/152 and
+    `npm run check-classic` 45/45, both independently re-run, matching
+    item 21/22's claimed counts exactly). Re-fetched the tracker
+    (`?scope=bugs&status=all&type=all&limit=200`): 155 total, 19 open (11
+    feature, 8 bug) -- read every open report's note individually and
+    compared against item 22's own write-up: identical set, identical
+    notes, nothing stale, no `NIGHTLY:`-prefixed bug note. `research/
+    balance/`'s index still names only analytic material sufficiency as
+    unstudied. `git stash list`/`git branch -a`: same two pre-existing
+    stashes items 16/20 already investigated, nothing new. Read scheduler
+    `BLOCKERS.md`'s `## chezz` section directly, full text this time (not
+    just the tail) -- nothing posted since the 2026-07-29 reply already
+    folded into this file's history.
+    **Net result: same as the eighth dispatch, independently
+    re-confirmed rather than assumed stale.** Nothing changed in the four
+    hours between dispatches -- no new tracker reports, no answered
+    questions, no BLOCKERS.md reply. Posted `sweep-status` (fetched 19,
+    fixed 0, left open 19), verified by re-fetching `?scope=sweep-status`
+    rather than trusting the POST response. No commits this dispatch --
+    nothing in the repo needed to change.
+
 Backup work when the feature backlog (below) is empty: items 1-5, 8, 9,
 11, and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
 sprite, which needs one human `export` (item 7) and nothing else. 13 is
