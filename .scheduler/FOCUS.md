@@ -810,6 +810,26 @@ their full writeups live in git history and DESIGN-NOTES.md.)
     being named as a class; worth treating "write the report section before
     doing anything else" as a checklist step, not just a lesson learned once.
 
+22. Nightly 2026-08-06 (eighth dispatch same day): re-verified from scratch
+    (`check-answers` OK, still 5 open questions #3/4/5/6/9, 0 answered;
+    `npm run check` 152/152 and `npm run check-classic` 45/45, both
+    independently re-run, matching item 21's claim). Re-fetched the tracker
+    (`&status=all&type=all`): 19 open (11 feature, 8 bug), every note read
+    individually -- all correctly triaged, nothing stale, no `NIGHTLY:` bug
+    note. `research/balance/`'s index still names only analytic material
+    sufficiency as unstudied. `git stash list`: same two known stashes,
+    nothing new. Also found the real scheduler checkout on this host
+    (`/home/chezz/Documents/Projects/scheduler` -- `check-answers`' FOCUS-pair
+    half looks at a different, non-existent default path and SKIPS; worth a
+    `CHEZZ_SCHEDULER_DIR` env fix at the cron level, filed as a note here
+    rather than guessed at) and read `BLOCKERS.md`'s `## chezz` section
+    directly: nothing posted there since the already-folded-in 2026-07-29
+    reply. Re-confirmed (not re-assumed) the write-access gap with
+    `git push --dry-run` -- still read-only, still tracked on `hf7y/chezz#9`,
+    nothing new to file. Zero commits: nothing in the repo needed to change.
+    Full writeup in `~/reports/chezz/2026-08-06.md`'s "Eighth dispatch"
+    section.
+
 Backup work when the feature backlog (below) is empty: items 1-5, 8, 9,
 11, and 12 are DONE. 6 and 7 are both gated on the same thing, a generated
 sprite, which needs one human `export` (item 7) and nothing else. 13 is
