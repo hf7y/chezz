@@ -4,8 +4,8 @@
 // (item 9) is live and beta testers are actually fetching builds through the
 // domain." The same note insisted the trigger be "a real check, not a note
 // nobody reads" -- so this asserts, on every deploy, that both domains
-// actually serve nightly-builds/ right now, and fails LOUD the first time
-// either one doesn't.
+// actually serve nightly-builds/ right now. It also checks the two public
+// game routes so a Pages artifact that omits either mode fails loud.
 //
 // Deliberately NOT part of `npm run check`: like check-answer-channel.mjs,
 // this hits live network, and a transient blip must not block the commit
@@ -27,6 +27,11 @@ const LABEL = "nightly-builds-domain-down";
 export const DOMAINS = [
   { name: "hf7y.github.io", url: "https://hf7y.github.io/chezz/nightly-builds/" },
   { name: "zach.audio", url: "https://zach.audio/chezz/nightly-builds/" },
+];
+
+export const GAME_PATHS = [
+  { name: "hf7y.com narrative", url: "https://hf7y.com/chezz/" },
+  { name: "hf7y.com classic", url: "https://hf7y.com/chezz/classic.html" },
 ];
 
 export async function checkDomain({ name, url }, fetchImpl = fetch) {
@@ -84,7 +89,7 @@ function closeStaleIssue(number) {
 }
 
 async function main() {
-  const results = await Promise.all(DOMAINS.map((d) => checkDomain(d)));
+  const results = await Promise.all([...DOMAINS, ...GAME_PATHS].map((d) => checkDomain(d)));
   const failures = results.filter((r) => !r.ok);
 
   if (failures.length === 0) {
@@ -100,7 +105,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.error("\ncheck-live-deploy: A LIVE DOMAIN IS NOT SERVING nightly-builds/\n");
+  console.error("\ncheck-live-deploy: A LIVE PAGES ROUTE IS NOT SERVING\n");
   for (const f of failures) console.error(`  - ${f.name} (${f.url}): ${f.detail}`);
   console.error("");
 

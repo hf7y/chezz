@@ -13,7 +13,7 @@
  * Known limit, not an oversight.
  */
 import { test, expect } from "@playwright/test";
-import { checkDomain, DOMAINS } from "../scripts/check-live-deploy.mjs";
+import { checkDomain, DOMAINS, GAME_PATHS } from "../scripts/check-live-deploy.mjs";
 
 test("a 200 response is reported ok", async () => {
   const fakeFetch = async () => ({ status: 200 });
@@ -42,4 +42,10 @@ test("both live domains FOCUS.md item 9 names are wired into the check", () => {
   for (const d of DOMAINS) {
     expect(d.url).toContain("/nightly-builds/");
   }
+});
+
+test("both Narrative and Classic public routes are checked after every deploy", () => {
+  const routes = Object.fromEntries(GAME_PATHS.map((path) => [path.name, path.url]));
+  expect(routes["hf7y.com narrative"]).toBe("https://hf7y.com/chezz/");
+  expect(routes["hf7y.com classic"]).toBe("https://hf7y.com/chezz/classic.html");
 });
