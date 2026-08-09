@@ -93,6 +93,22 @@ const MAX_TEXT_LENGTH = 2000; // bug report url/description/note
 const DEFAULT_LIMIT = 20;
 const SWEEP_STATUS_KEY = "sweepStatus";
 
+// Keys used by the issue-triggered sweep debounce. Both live in Script
+// Properties (never in source) alongside SWEEP_STATUS_KEY above.
+//   GH_DISPATCH_TOKEN -- a GitHub fine-grained PAT with Actions: write on
+//     hf7y/chezz. Set manually in the Apps Script editor:
+//     Project Settings → Script properties → Add row.
+//   lastReportAt     -- ISO timestamp of the most-recently-filed report;
+//     cleared once the dispatch fires so the next batch starts fresh.
+//   sweepScheduledFor -- ISO timestamp 60 min after lastReportAt; the
+//     time-based trigger is reset to this each time a new report arrives.
+const GH_DISPATCH_TOKEN_KEY = "GH_DISPATCH_TOKEN";
+const LAST_REPORT_AT_KEY = "lastReportAt";
+const SWEEP_SCHEDULED_FOR_KEY = "sweepScheduledFor";
+const GH_REPO = "hf7y/chezz";
+const GH_WORKFLOW_FILE = "issue-sweep.yml";
+const DEBOUNCE_MS = 60 * 60 * 1000; // 1 hour
+
 function getOrCreateSheet_(name, headers) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(name);
@@ -158,8 +174,84 @@ function submitBugReport_(body) {
 
   sheet.appendRow([new Date(), name, url, description, DEFAULT_BUG_STATUS, "", kind]);
 
+  maybeTriggerSweep_();
+
   return ContentService.createTextOutput(JSON.stringify({ ok: true }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Called on every bug/feature submission. Maintains a rolling 1-hour
+// debounce: the first report in a quiet period arms a time-based trigger;
+// each subsequent report within that hour resets the trigger to fire 1 hour
+// after itself instead. When the trigger fires, dispatchSweepIfReady_
+// calls the GitHub Actions workflow_dispatch REST endpoint and clears state.
+//
+// If GH_DISPATCH_TOKEN is not set, the function is a no-op -- the sheet
+// still records the report, the sweep just won't auto-trigger.
+function maybeTriggerSweep_() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty(GH_DISPATCH_TOKEN_KEY);
+  if (!token) return; // not configured yet; skip silently
+
+  const now = new Date();
+  const fireAt = new Date(now.getTime() + DEBOUNCE_MS);
+
+  // Delete any existing dispatchSweepIfReady_ trigger so we can replace it
+  // with one timed to the new fireAt. ScriptApp.getProjectTriggers() returns
+  // all time-based triggers for this project; filter to the one function name.
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === "dispatchSweepIfReady_") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  props.setProperty(LAST_REPORT_AT_KEY, now.toISOString());
+  props.setProperty(SWEEP_SCHEDULED_FOR_KEY, fireAt.toISOString());
+
+  ScriptApp.newTrigger("dispatchSweepIfReady_")
+    .timeBased()
+    .at(fireAt)
+    .create();
+}
+
+// Called by the time-based trigger created in maybeTriggerSweep_. Verifies
+// we are past the scheduled fire time (guards against clock skew re-delivery),
+// then POSTs a workflow_dispatch to the issue-sweep workflow on GitHub.
+// Cleans up Script Properties and its own trigger after firing.
+function dispatchSweepIfReady_() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty(GH_DISPATCH_TOKEN_KEY);
+  if (!token) return;
+
+  const scheduledFor = props.getProperty(SWEEP_SCHEDULED_FOR_KEY);
+  if (scheduledFor && new Date() < new Date(scheduledFor)) {
+    // Called too early (clock skew); leave the trigger in place and bail.
+    return;
+  }
+
+  // Dispatch the workflow.
+  const url = "https://api.github.com/repos/" + GH_REPO + "/actions/workflows/" + GH_WORKFLOW_FILE + "/dispatches";
+  UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": "Bearer " + token,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    payload: JSON.stringify({ ref: "main" }),
+    muteHttpExceptions: true,
+  });
+
+  // Clear debounce state so the next batch starts fresh.
+  props.deleteProperty(LAST_REPORT_AT_KEY);
+  props.deleteProperty(SWEEP_SCHEDULED_FOR_KEY);
+
+  // Delete this trigger so it doesn't re-fire.
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === "dispatchSweepIfReady_") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
 }
 
 function recordSweepStatus_(body) {
