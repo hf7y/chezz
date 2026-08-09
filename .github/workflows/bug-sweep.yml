@@ -4,9 +4,15 @@ name: Bug Sweep
 # for the full triage/fix/commit/tracker-update procedure it follows. Daily,
 # 9am America/Chicago (14:00 UTC).
 on:
-  # Restored 2026-08-09: added `id-token: write` to permissions (was the sole
-  # cause of every failure 2026-07-29–2026-08-01; anthropics/claude-code-action
-  # @v1 authenticates via OIDC and the old block only granted `contents: write`).
+  # 2026-08-09 failure diagnosis: `claude-code-action@v1` always attempts an
+  # OIDC→app-token exchange (for git auth) even when `anthropic_api_key` is
+  # set. That exchange requires the Claude Code GitHub App to be installed on
+  # the repo — it isn't. Fix: pass `github_token: ${{ github.token }}` to the
+  # action step, which skips the app-token exchange and uses the workflow's
+  # own token for git operations instead.
+  # Earlier fix (2026-07-29–2026-08-01): `id-token: write` was missing and
+  # the action couldn't obtain an OIDC token at all. That is still required
+  # for the workload-identity-federation path, so it stays.
   schedule:
     - cron: '0 14 * * *'
   workflow_dispatch:
@@ -41,6 +47,7 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ github.token }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: >-
             /bug-sweep
