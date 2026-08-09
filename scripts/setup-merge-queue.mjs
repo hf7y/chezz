@@ -96,10 +96,10 @@ if (dryRun) {
 }
 
 const created = await graphql(
-  "mutation($input: CreateRepositoryRulesetInput!) { createRepositoryRuleset(input: $input) { repositoryRuleset { id name enforcement } } }",
+  "mutation($input: CreateRepositoryRulesetInput!) { createRepositoryRuleset(input: $input) { ruleset { id name enforcement } } }",
   { input }
 );
 if (created.errors) throw new Error(JSON.stringify(created.errors));
 
-const ruleset = created.data.createRepositoryRuleset.repositoryRuleset;
+const ruleset = created.data.createRepositoryRuleset.ruleset;
 console.log(`Created ${ruleset.name} (${ruleset.id}, ${ruleset.enforcement}).`);
