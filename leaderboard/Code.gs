@@ -231,7 +231,7 @@ function dispatchSweepIfReady_() {
 
   // Dispatch the workflow.
   const url = "https://api.github.com/repos/" + GH_REPO + "/actions/workflows/" + GH_WORKFLOW_FILE + "/dispatches";
-  UrlFetchApp.fetch(url, {
+  const response = UrlFetchApp.fetch(url, {
     method: "post",
     headers: {
       "Accept": "application/vnd.github+json",
@@ -241,6 +241,16 @@ function dispatchSweepIfReady_() {
     payload: JSON.stringify({ ref: "main" }),
     muteHttpExceptions: true,
   });
+
+  // GitHub returns 204 No Content on success. Any other status means the
+  // dispatch did not happen -- leave debounce state intact so the next
+  // report submission will re-arm the trigger and retry rather than silently
+  // dropping the batch. Log to Apps Script execution log for visibility.
+  if (response.getResponseCode() !== 204) {
+    console.error("issue-sweep dispatch failed: HTTP " + response.getResponseCode() + " -- " + response.getContentText().slice(0, 500));
+    // Don't delete the trigger or clear state; let the next submission retry.
+    return;
+  }
 
   // Clear debounce state so the next batch starts fresh.
   props.deleteProperty(LAST_REPORT_AT_KEY);
