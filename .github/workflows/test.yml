@@ -9,6 +9,10 @@ on:
     - cron: "17 9 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: read
+
 concurrency:
   group: test-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -32,6 +36,10 @@ jobs:
   playwright:
     needs: preflight
     runs-on: ubuntu-latest
+    env:
+      # answer-channel.spec.mjs runs the production guard against GitHub
+      # issues; gh intentionally refuses Actions jobs without this token.
+      GH_TOKEN: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
