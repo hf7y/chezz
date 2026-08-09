@@ -1,26 +1,28 @@
-name: Bug Sweep
+name: Issue-Triggered Sweep
 
-# Runs the /bug-sweep custom command unattended -- see .claude/commands/bug-sweep.md
-# for the full triage/fix/commit/tracker-update procedure it follows. Daily,
-# 9am America/Chicago (14:00 UTC).
+# Dispatched by the Google Apps Script backend (leaderboard/Code.gs →
+# dispatchSweepIfReady_) after a 1-hour debounce window since the last
+# bug/feature report was filed via the in-game portal. Runs the same
+# /bug-sweep command as the daily cron but fires on a playtester-batch
+# cadence rather than a fixed schedule.
+#
+# The dispatch is triggered by a GitHub fine-grained PAT stored as the
+# Script Property GH_DISPATCH_TOKEN in the Apps Script project. See the
+# PR description for the exact steps to create and register that secret.
 on:
-  # Restored 2026-08-09: added `id-token: write` to permissions (was the sole
-  # cause of every failure 2026-07-29–2026-08-01; anthropics/claude-code-action
-  # @v1 authenticates via OIDC and the old block only granted `contents: write`).
-  schedule:
-    - cron: '0 14 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: issue-sweep
+  cancel-in-progress: false
 
 permissions:
   contents: write
   id-token: write  # required by anthropics/claude-code-action@v1 for OIDC auth
-  # Needed only to nudge deploy-narrative-pages.yml afterward -- a push made
-  # with the default GITHUB_TOKEN doesn't cascade-trigger other workflows'
-  # `on: push` listeners, so a fresh commit here wouldn't otherwise redeploy.
-  actions: write
+  actions: write   # to trigger deploy-narrative-pages.yml after a commit
 
 jobs:
-  bug-sweep:
+  issue-sweep:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -45,9 +47,10 @@ jobs:
           prompt: >-
             /bug-sweep
 
-            This is a fully unattended run with no human review step. Once
-            npm run check passes and you've committed your fixes, run
-            `git push origin HEAD:main` yourself so the fixes go live
+            This is a fully unattended run triggered by a batch of player-filed
+            reports (1-hour debounce window after the last submission). No human
+            review step. Once npm run check passes and you've committed your
+            fixes, run `git push origin HEAD:main` yourself so the fixes go live
             immediately. Never resolve or reclassify a report you aren't
             confident about -- leave it open with a note instead, per the
             command file's own guidance.
