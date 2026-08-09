@@ -46,11 +46,12 @@ jobs:
             /bug-sweep
 
             This is a fully unattended run with no human review step. Once
-            npm run check passes and you've committed your fixes, run
-            `git push origin HEAD:main` yourself so the fixes go live
-            immediately. Never resolve or reclassify a report you aren't
-            confident about -- leave it open with a note instead, per the
-            command file's own guidance.
+            npm run check passes and you've committed your fixes, create a
+            uniquely named branch, push it, open a pull request into main,
+            and run `gh pr merge --auto --squash` to enter GitHub's merge
+            queue. Do not push directly to main. Never resolve or
+            reclassify a report you aren't confident about -- leave it open
+            with a note instead, per the command file's own guidance.
           claude_args: >-
             --model claude-sonnet-5
             --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
