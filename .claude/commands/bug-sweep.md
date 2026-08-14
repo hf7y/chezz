@@ -204,6 +204,7 @@ is worse than no question at all, because the tracker note will claim it's
 awaiting him.
 
 Answer processing is the **nightly's** job, not this sweep's: Zach answers
-by commenting on the issue and it gets the `answered` label; `/nightly-batch`
-reads `label:question,answered`, acts, and closes. This fast sweep must NOT
-act on or close an answered issue itself — leave it for the nightly.
+by commenting on the issue and LEAVING IT OPEN — no label, no close.
+`/nightly-batch` finds those by reading comments across all states (an
+unstamped `hf7y` comment IS the answer), acts, and closes. This fast sweep
+must NOT act on or close an answered issue itself — leave it for the nightly.

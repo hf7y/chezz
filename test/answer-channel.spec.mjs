@@ -21,8 +21,17 @@
  * The failing cases below are the point of the file. A guard that only proves
  * it can say OK hasn't been tested at all -- so each drift mode gets its own
  * fixture and each one must exit non-zero with a message that names the defect.
+ *
+ * 2026-08-14: a THIRD loss, and this file did not catch it either. The
+ * questions half counted an answer as the `answered` LABEL, which nothing
+ * has ever applied -- so "reports the questions half OK" below passed
+ * happily while four issues held real answers from Zach. The label is gone
+ * from the predicate; `scripts/answered-issues.mjs` reads COMMENTS across
+ * ALL states, and gets its own fixtures here so this file can fail for the
+ * right reason next time.
  */
 import { test, expect } from "@playwright/test";
+import { isStamped, isAnswered } from "../scripts/answered-issues.mjs";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -98,8 +107,10 @@ test("fails loud when the issues API cannot be reached (the questions half)", ()
   const dir = fakeScheduler();
   try {
     const { code, output } = runGuard(dir, { CHEZZ_ISSUES_REPO: UNREACHABLE_REPO });
-    expect(code).toBe(1);
-    expect(output).toContain("ANSWER CHANNEL IS BROKEN");
+    // 2 (BLIND), not 1 (BROKEN) and emphatically not 0: "could not look" is
+    // its own outcome, and a caller must be able to branch on it.
+    expect(code).toBe(2);
+    expect(output).toContain("COULD NOT LOOK");
     expect(output).toContain(UNREACHABLE_REPO);
     // It must distinguish the two indistinguishable-looking cases by name,
     // and say what gh actually reported, or the reader can't act on it.
@@ -117,10 +128,60 @@ test("reports the questions half OK against the real issues repo", () => {
   try {
     const { output } = runGuard(dir);
     expect(output).toContain("questions channel OK");
-    expect(output).toContain("open question(s)");
+    expect(output).toContain("question issue(s) across all states");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+/* THE REGRESSION. Zach answered #3 on 2026-07-29 and #4/#5/#6 on 2026-08-11,
+ * by commenting and leaving them OPEN. The label-gated guard reported "0 of
+ * them answered" every night regardless. These four are real, live issues on
+ * hf7y/chezz; if a run ever again reports zero answers while they sit there,
+ * this fails. */
+test("sees the real answers Zach left in comments on open, unlabelled issues", () => {
+  const dir = fakeScheduler();
+  try {
+    const { code, output } = runGuard(dir);
+    expect(code).toBe(0);
+    expect(output).toMatch(/[1-9]\d* still OPEN and awaiting this run/);
+    expect(output).toContain("carrying an answer from hf7y");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/* The predicate itself, on fixtures -- the live test above proves it works
+ * today, these prove WHY, and keep working with no network. */
+const STAMP = "<!-- agent: chezz/nightly 2026-08-14T00:00:00Z -->";
+const issue = (comments, { labels = [], state = "OPEN" } = {}) => ({
+  state,
+  labels: labels.map((name) => ({ name })),
+  comments: comments.map(([login, body]) => ({ author: { login }, body })),
+});
+
+test("isStamped only reads the last non-blank line", () => {
+  expect(isStamped(`did the thing\n\n${STAMP}`)).toBe(true);
+  expect(isStamped(`did the thing\n\n${STAMP}\n\n`)).toBe(true);
+  // A stamp QUOTED out of an earlier comment must not launder a human reply
+  // into an agent one -- vim-arcade#77's whole reason for last-line-only.
+  expect(isStamped(`> ${STAMP}\n\nyes, do it`)).toBe(false);
+  expect(isStamped("")).toBe(false);
+});
+
+test("an unstamped owner comment is an answer, label or no label, open or closed", () => {
+  expect(isAnswered(issue([["hf7y", "do it"]]), "hf7y")).toBe(true);
+  expect(isAnswered(issue([["hf7y", "do it"]], { state: "CLOSED" }), "hf7y")).toBe(true);
+});
+
+test("the agent's own stamped comment is not an answer", () => {
+  expect(isAnswered(issue([["hf7y", `asking: which way?\n\n${STAMP}`]]), "hf7y")).toBe(false);
+  expect(isAnswered(issue([]), "hf7y")).toBe(false);
+  expect(isAnswered(issue([["somebody-else", "drive-by"]]), "hf7y")).toBe(false);
+});
+
+test("the `answered` label still works as an optional override", () => {
+  expect(isAnswered(issue([], { labels: ["question", "answered"] }), "hf7y")).toBe(true);
 });
 
 test("fails loud when the human's FOCUS.md is stale, not just QUESTIONS.md", () => {

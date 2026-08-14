@@ -26,6 +26,22 @@
 // FOCUS.md is still on the file/symlink channel and is still checked the old
 // way — only questions moved.
 //
+// 2026-08-14: A THIRD silent loss, this one on the issues channel and caused
+// by this very file. It counted an answer as `labels.includes("answered")`,
+// a label nothing has ever applied, so it printed "N open question(s), 0 of
+// them answered" and exited OK while #3/#4/#5/#6 held real direction in
+// their comments — #3's since 2026-07-29, sixteen days. A check that passes
+// on the exact failure it exists to catch is worse than no check. The
+// predicate now lives in `answered-issues.mjs` and reads COMMENTS, not
+// labels, across ALL issue states.
+//
+// EXIT CODES — a pass that reached nothing is not a clean pass:
+//   0  reached GitHub (and the FOCUS pair), everything readable
+//   1  the channel is BROKEN: something Zach writes cannot reach this run
+//   2  BLIND: could not look at all (gh missing, network, auth, no issues
+//      came back). Distinct from 0 on purpose — "no answers tonight" and
+//      "could not look" are the two things this file exists to tell apart.
+//
 // Deliberately NOT part of `npm run check`: `check` runs in the pre-commit
 // hook, and a network blip or an expired token must not block the very commit
 // that fixes it. It is wired into the two standing run modes instead
@@ -35,6 +51,7 @@ import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { isAnswered } from "./answered-issues.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -48,8 +65,12 @@ const schedulerDir =
 // disagree; the literal below is only the fallback for a checkout with no
 // scheduler beside it.
 const ISSUES_REPO = process.env.CHEZZ_ISSUES_REPO || "hf7y/chezz";
+// The account whose unstamped comments ARE the answers. Same source as the
+// repo, so the two cannot disagree.
+const OWNER = ISSUES_REPO.split("/")[0];
 
 const problems = [];
+const blind = [];
 
 // --- half 1: questions, on the issues channel --------------------------
 //
@@ -60,13 +81,17 @@ function checkIssuesChannel() {
   try {
     out = execFileSync(
       "gh",
+      // ALL states. `--state open` would miss an answer left on an issue a
+      // previous run already closed; `--state closed` would miss the four
+      // open ones Zach answered in place. Both have dropped answers.
       ["issue", "list", "--repo", ISSUES_REPO, "--label", "question",
-       "--state", "open", "--limit", "200", "--json", "number,labels"],
+       "--state", "all", "--limit", "200",
+       "--json", "number,state,labels,comments,title"],
       { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30000 }
     );
   } catch (err) {
     const detail = (err.stderr || err.message || "").toString().trim();
-    problems.push(
+    blind.push(
       `cannot reach the GitHub issues for ${ISSUES_REPO}, where Zach's answers live.\n` +
       `      This run CANNOT tell "no answers tonight" from "could not look".\n` +
       `      gh said: ${detail || "(no output)"}\n` +
@@ -81,19 +106,32 @@ function checkIssuesChannel() {
   try {
     issues = JSON.parse(out);
   } catch {
-    problems.push(`gh returned output that is not JSON for ${ISSUES_REPO}. Raw: ${out.slice(0, 200)}`);
+    blind.push(`gh returned output that is not JSON for ${ISSUES_REPO}. Raw: ${out.slice(0, 200)}`);
     return;
   }
 
-  const answered = issues.filter((i) =>
-    (i.labels || []).some((l) => l.name === "answered")
-  );
+  if (issues.length === 0) {
+    blind.push(
+      `zero \`question\`-labelled issues came back from ${ISSUES_REPO}.\n` +
+      `      That is not "a quiet night" — chezz's questions have never been\n` +
+      `      empty since the channel moved to issues on 2026-07-28. Either the\n` +
+      `      label was renamed, the repo is wrong, or the token can read the\n` +
+      `      repo but not its issues. This run CANNOT tell "no answers" from\n` +
+      `      "could not look", so it refuses to report OK.`
+    );
+    return;
+  }
+
+  const answered = issues.filter((i) => isAnswered(i, OWNER));
+  const openAnswered = answered.filter((i) => i.state === "OPEN");
   console.log(
     `check-answer-channel: questions channel OK — ${ISSUES_REPO} reachable, ` +
-    `${issues.length} open question(s), ${answered.length} of them answered ` +
-    `and awaiting this run` +
-    (answered.length
-      ? `: #${answered.map((i) => i.number).join(", #")}`
+    `${issues.length} question issue(s) across all states, ` +
+    `${answered.length} carrying an answer from ${OWNER}` +
+    (answered.length ? ` (#${answered.map((i) => i.number).join(", #")})` : "") +
+    `; ${openAnswered.length} still OPEN and awaiting this run` +
+    (openAnswered.length
+      ? `: #${openAnswered.map((i) => i.number).join(", #")}`
       : ".")
   );
 }
@@ -139,8 +177,17 @@ function checkFocusChannel() {
 checkIssuesChannel();
 checkFocusChannel();
 
-if (problems.length === 0) process.exit(0);
+// Both sections are always printed before exiting: a broken half must not
+// mask a blind one, or a run that fixes what the first message named is
+// still flying blind on the second. The exit code reports the worse of the
+// two, BROKEN over BLIND.
+if (problems.length) {
+  console.error("\ncheck-answer-channel: THE ANSWER CHANNEL IS BROKEN\n");
+  for (const p of problems) console.error(`  - ${p}\n`);
+}
+if (blind.length) {
+  console.error("\ncheck-answer-channel: BLIND — THIS RUN COULD NOT LOOK\n");
+  for (const b of blind) console.error(`  - ${b}\n`);
+}
 
-console.error("\ncheck-answer-channel: THE ANSWER CHANNEL IS BROKEN\n");
-for (const p of problems) console.error(`  - ${p}\n`);
-process.exit(1);
+process.exit(problems.length ? 1 : blind.length ? 2 : 0);
