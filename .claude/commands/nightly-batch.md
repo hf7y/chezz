@@ -9,8 +9,9 @@ just because it is easy or already sitting there.
 
 This command is designed to run unattended overnight, with no human
 review step until the morning. When something needs a human call, defer
-it with a clear note in the report AND append it to `.scheduler/QUESTIONS.md`
-(see step 1 and step 5) rather than guessing.
+it with a clear note in the report AND file it as a `question`-labelled
+GitHub issue on `hf7y/chezz` (see step 1 and step 5) rather than guessing.
+`.scheduler/QUESTIONS.md` is frozen history -- do not append to it.
 
 ## 1. Orient
 
