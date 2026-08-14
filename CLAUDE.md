@@ -8,8 +8,13 @@ files, not here -- read them, don't duplicate them:
 - `DESIGN-NOTES.md` -- the durable vision/decision record.
 - **GitHub issues on `hf7y/chezz`, label `question`** -- open questions
   awaiting a human answer. File one with `scheduler ask chezz "<question>"`;
-  Zach answers by commenting, which adds the `answered` label; the nightly
-  reads `label:question,answered`, acts, then CLOSES the issue. The repo is
+  Zach answers by **commenting and leaving the issue OPEN** — no label, no
+  close. Nothing applies an `answered` label and he does not want to; state
+  and labels carry NO information about whether he answered. An issue is
+  answered iff it has a comment from `hf7y` that is not agent-stamped
+  (`scripts/answered-issues.mjs`, checked across ALL states). The label
+  gate that used to be documented here was never real and silently ate
+  four of his answers for up to 16 days. The repo is
   PUBLIC -- nothing private in a question. Moved here 2026-07-28 because
   `.scheduler/QUESTIONS.md` was read through a symlinked checkout that went
   stale on every push and silently ate two of Zach's replies.

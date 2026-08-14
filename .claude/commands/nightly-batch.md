@@ -36,13 +36,23 @@ you never saw is indistinguishable from a reply he never wrote.
 Chezz's questions are `question`-labelled issues on `hf7y/chezz`, NOT
 `.scheduler/QUESTIONS.md` (that file is now a frozen historical record —
 do not append to it, do not read it for pending work). Zach answers by
-commenting on the issue, and the `answered` label is what marks it ready
-for you:
+commenting on the issue and LEAVING IT OPEN. There is no `answered` label —
+nothing applies one, and he does not want to. **An issue is answered iff it
+carries a comment from `hf7y` that is not agent-stamped**, whatever its
+labels and whatever its state. Read them across ALL states:
 
 ```
-gh issue list --repo hf7y/chezz --label question --label answered --state open \
-  --json number,title,body,comments
+gh issue list --repo hf7y/chezz --label question --state all --limit 200 \
+  --json number,state,title,body,labels,comments
 ```
+
+then filter with `isAnswered` from `scripts/answered-issues.mjs` (the same
+predicate `npm run check-answers` reports, so the two cannot disagree). Do
+NOT filter by `--label answered` or by `--state open`: each of those has
+already dropped Zach's answers on the floor — the label gate ate four of
+them for up to 16 days, which is why this section was rewritten 2026-08-14.
+`npm run check-answers` above names the open answered issues by number;
+that list is what you act on.
 
 For every issue that comes back, treat the human's comment as authoritative
 direction (same standing as `FOCUS.md`): act on it as part of tonight's
@@ -51,8 +61,8 @@ work, and if it's a standing scope/policy decision, also fold it into
 with a comment saying what you did — that is the same "removes the block
 once it has acted" contract the file channel had, and closing is what stops
 it being re-served to the next run. Never edit an issue's BODY; the ask
-must survive verbatim. Leave `question`-without-`answered` issues untouched;
-never re-ask or duplicate one.
+must survive verbatim. Leave issues with NO unstamped `hf7y` comment
+untouched; never re-ask or duplicate one.
 
 ## 2. Re-verify anything a previous run touched, from scratch
 
