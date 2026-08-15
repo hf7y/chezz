@@ -56,10 +56,10 @@ jobs:
 
             This is a fully unattended run with no human review step.
 
-            Scope note, overriding the command file: `.scheduler/FOCUS.md` is
-            RETIRED and is frozen history -- do not read it for pending work
-            and do not treat it as the scoping authority. The open GitHub
-            issues on hf7y/chezz are the backlog. Scope yourself to the
+            Scope note: the open GitHub issues on hf7y/chezz are the
+            backlog and the scoping authority. The retired coordination
+            files were deleted 2026-08-15; a reference to one in an old
+            report or commit points at nothing. Scope yourself to the
             answered ones first (a non-agent-stamped comment from `hf7y` IS
             the answer, whatever the issue's labels or state).
 

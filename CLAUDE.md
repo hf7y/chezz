@@ -4,7 +4,8 @@ A daily-seeded roguelike built on chess rules. Live at
 https://hf7y.github.io/chezz/. Full context lives in a few specific
 files, not here -- read them, don't duplicate them:
 
-- `.scheduler/FOCUS.md` -- what's in scope right now (short, changes often).
+- **Open GitHub issues on `hf7y/chezz`** -- what's in scope right now.
+  They are the backlog and the priority queue; there is no file channel.
 - `DESIGN-NOTES.md` -- the durable vision/decision record.
 - **GitHub issues on `hf7y/chezz`, label `question`** -- open questions
   awaiting a human answer. File one with `scheduler ask chezz "<question>"`;
@@ -16,11 +17,10 @@ files, not here -- read them, don't duplicate them:
   gate that used to be documented here was never real and silently ate
   four of his answers for up to 16 days. The repo is
   PUBLIC -- nothing private in a question. Moved here 2026-07-28 because
-  `.scheduler/QUESTIONS.md` was read through a symlinked checkout that went
-  stale on every push and silently ate two of Zach's replies.
-- `.scheduler/QUESTIONS.md` -- FROZEN historical record of the questions
-  asked before that move. Do not append to it; do not read it for pending
-  work.
+  the old on-disk question file was read through a symlinked checkout that
+  went stale on every push and silently ate two of Zach's replies. The
+  retired coordination files were deleted 2026-08-15 (realisateur#293);
+  their history is in git, not on disk.
 - `.claude/commands/bug-sweep.md`, `nightly-batch.md`, `ideate.md` -- the
   three standing modes this project runs in (fast mechanical fixes,
   unattended feature implementation, interactive triage/vision).
@@ -37,7 +37,7 @@ specific, do that normally, in the same session, no detour required.
 real forks, and recording/queuing decisions for `/nightly-batch` to
 implement -- not something to silently emulate inline without actually
 invoking it, since part of its value is the durable record it leaves in
-`DESIGN-NOTES.md`/`FOCUS.md`.
+`DESIGN-NOTES.md` and the issue tracker.
 
 ## Push permission (2026-07-22, human-directed)
 

@@ -29,17 +29,15 @@ question; that half is Zach's call, not this file's.)
 
 Pull real, current state before saying anything about status:
 - `git log --oneline -10`, `git status`, and diff local `main` against
-  `origin/main` -- sync first if behind (stash/pop around any uncommitted
-  `QUESTIONS.md` answer if one is sitting there, same as any other run).
+  `origin/main` -- sync first if behind, same as any other run.
 - The live tracker, `&status=all&type=all` (see `leaderboard/Code.gs`'s
   doc comment) -- don't trust a stale count from a prior report.
-- `DESIGN-NOTES.md`, `.scheduler/FOCUS.md`, `.scheduler/QUESTIONS.md` -- the
-  existing priority queue and any already-decided direction. Don't re-ask
-  a settled decision.
-- Scheduler cross-project state, read-only: `~/Documents/Project
-  Archive/scheduler/BLOCKERS.md`'s `## chezz` section, and whether the
-  account-wide usage/spend picture (see prior reports/sweep.log
-  `WARNING`/`spend limit` lines) explains anything that looks stalled.
+- `DESIGN-NOTES.md` and the open GitHub issues on `hf7y/chezz` (`gh issue
+  list --repo hf7y/chezz --state open`) -- the existing priority queue and
+  any already-decided direction. Don't re-ask a settled decision.
+- Cross-project state, read-only: whether the account-wide usage/spend
+  picture (see prior reports/sweep.log `WARNING`/`spend limit` lines)
+  explains anything that looks stalled.
   Never edit another project's files directly from here -- see step 5.
 
 ## 2. Find what's actually worth surfacing
@@ -53,8 +51,8 @@ Not everything open needs a question. Sort what you find into:
   a big unbuilt system several reports assume exists. These are what
   `AskUserQuestion` is for. Ground each question in real counts/quotes
   from the tracker, not vibes -- cite which reports, how many, since when.
-- **Already-settled** -- matches something already in `DESIGN-NOTES.md`/
-  `FOCUS.md`. Don't re-litigate; note it's unchanged and move on.
+- **Already-settled** -- matches something already in `DESIGN-NOTES.md` or
+  an existing issue. Don't re-litigate; note it's unchanged and move on.
 
 ## 3. Ask, don't guess
 
@@ -65,7 +63,7 @@ options with real tradeoffs). Don't implement speculatively while waiting
 ## 4. Record and queue, don't build
 
 **Park-by-default triage (do this for every idea before recording it).**
-Against FOCUS.md's current `## Stability milestone` bar, judge each idea:
+Against DESIGN-NOTES.md's current `## Stability milestone` bar, judge each idea:
 required to reach that bar? If yes it's `active`; if no, tag it
 `(parked)` (or `(waiting: <dep>)` if blocked externally rather than by
 choice) with one line of why it's past the bar. Parking is the default
@@ -78,7 +76,7 @@ decision, never a silent reorder.
 
 **Standard entry shape -- vision, then milestones, then blockers.** When
 a session records a real direction (not just a one-line decision), shape
-the DESIGN-NOTES.md/FOCUS.md entry as: (1) **Vision** -- the goal in
+the DESIGN-NOTES.md entry as: (1) **Vision** -- the goal in
 plain terms, naming what is NOT decided yet rather than letting silence
 imply it is; (2) **Milestone chain** -- numbered, working backward from
 the vision, each step concrete enough that "is this idea required for
@@ -93,13 +91,13 @@ re-confirmed):
   future sessions and nightly-batch need the "why," not just the "what."
   If a decision corrects or refines an earlier entry, say so explicitly
   and mark what changed rather than silently overwriting it.
-- Add or update the ordered priority list in `.scheduler/FOCUS.md`'s
-  PRIORITY QUEUE block, pointing back at `DESIGN-NOTES.md` for detail --
-  keep FOCUS.md itself short.
+- Open or update a GitHub issue on `hf7y/chezz` for each queued item,
+  pointing back at `DESIGN-NOTES.md` for detail -- the open issues ARE the
+  priority queue; keep each issue itself short.
 - If a decision needs a follow-up the user (not nightly-batch) must
-  answer -- scope, credentials, something outside this repo -- append a
-  real entry to `.scheduler/QUESTIONS.md`, not just a mention in this
-  session's chat output.
+  answer -- scope, credentials, something outside this repo -- file a real
+  `question`-labelled issue with `scheduler ask chezz "<question>"`, not
+  just a mention in this session's chat output.
 - **Do not write feature/game code in this step.** Implementation is
   `/nightly-batch`'s job, working the priority queue on its own schedule.
   Exception: something explicitly urgent and small the user asks you to
@@ -112,7 +110,7 @@ user generates ideas faster than any implementation cadence can stabilize
 them, so a priority queue that only ever grows is not a sign this command
 is failing — it's the expected shape of the problem. What *would* be a
 failure: letting that gap stay invisible. When updating the PRIORITY
-QUEUE block, if it's been growing for a while without much draining,
+the open issue list, if it's been growing for a while without much draining,
 **say so explicitly** in this session's summary (step 6) — oldest
 un-started item's age, rough queue depth trend — rather than silently
 folding another item in. The user's own call whether that's fine (a
@@ -123,7 +121,7 @@ just to make the gap visible, not to solve it unilaterally.
 be said out loud.** When a newer idea deserves to jump ahead of an older
 one (it unblocks something active, or the older item aged specifically
 because it's a bigger/vaguer dream -- see 4.6), state explicitly in the
-FOCUS.md entry which older item got passed over and why. A silent
+issue which older item got passed over and why. A silent
 reorder is indistinguishable from forgetting the older item existed.
 
 ## 4.6. Stable build vs. bigger dream -- the distinction that drives pacing
@@ -133,7 +131,7 @@ core** (defined near-term shape; building now is unlikely to be
 discarded by the idea itself changing -- fine for nightly-batch to keep
 iterating unattended) vs. **part of a bigger, still-forming dream**
 (likely to morph before anything built against today's shape survives --
-e.g. the King->Queen fork before its QUESTIONS.md answer lands). For the
+e.g. the King->Queen fork before its question issue is answered). For the
 second kind, slower-paced iteration is the right lever, not "don't build
 at all." Chezz can't edit scheduler's `_paced.conf` weight itself from
 here -- if a session concludes the whole project should pace differently,
@@ -152,10 +150,10 @@ in this ecosystem uses to suggest something to another.
 
 ## 6. Commit, push, and stop
 
-Commit `DESIGN-NOTES.md`/`FOCUS.md`/`QUESTIONS.md` changes (expect the
+Commit `DESIGN-NOTES.md` changes (expect the
 pre-commit hook's full test suite to take a few minutes -- run `git
 commit` with a long timeout, not `--no-verify`). Push. End with a short
-summary: what's now queued and in what order, what's still open in
-`QUESTIONS.md` for the user's own ritual, and explicitly confirm no game
+summary: what's now queued and in what order, which `question`-labelled
+issues are still open for the user's own ritual, and explicitly confirm no game
 code was touched (or, if the user asked for an inline fix along the way,
 what that was and that it's separate from the scheduled queue).

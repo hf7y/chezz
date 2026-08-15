@@ -201,9 +201,9 @@ id/date/provenance itself — pass the question text ONLY. Add context as a
 follow-up comment if one line isn't enough. Most sweeps add nothing here —
 don't manufacture a question. `hf7y/chezz` is PUBLIC; nothing private.
 
-GitHub issues are the question channel. There is no file channel; any
-`FOCUS.md` / `QUESTIONS.md` / `BLOCKERS.md` you find in this repo is frozen
-history — do not read it for pending work, and do not append to it.
+GitHub issues are the question channel, and the backlog. There is no file
+channel: the retired coordination files were deleted 2026-08-15, so a
+reference to one in an old report or commit points at nothing.
 
 Before filing, run `npm run check-answers` (fast, no browser). It confirms
 the issues API is actually reachable — under the old file channel the
