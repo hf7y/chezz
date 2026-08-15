@@ -106,7 +106,7 @@ const GH_DISPATCH_TOKEN_KEY = "GH_DISPATCH_TOKEN";
 const LAST_REPORT_AT_KEY = "lastReportAt";
 const SWEEP_SCHEDULED_FOR_KEY = "sweepScheduledFor";
 const GH_REPO = "hf7y/chezz";
-const GH_WORKFLOW_FILE = "issue-sweep.yml";
+const GH_WORKFLOW_FILE = "sweep.yml";
 const DEBOUNCE_MS = 60 * 60 * 1000; // 1 hour
 
 function getOrCreateSheet_(name, headers) {
