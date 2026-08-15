@@ -1,11 +1,11 @@
-// The domain-move park (FOCUS.md, "PARKED WITH A TRIGGER 2026-07-28") named
-// a concrete condition under which moving the hf7y domain off its OCF
-// redirect onto GitHub Pages becomes worth doing: "the nightly-builds folder
-// (item 9) is live and beta testers are actually fetching builds through the
-// domain." The same note insisted the trigger be "a real check, not a note
-// nobody reads" -- so this asserts, on every deploy, that both domains
-// actually serve nightly-builds/ right now. It also checks the two public
-// game routes so a Pages artifact that omits either mode fails loud.
+// Asserts, on every deploy, that a player can actually reach nightly-builds/
+// through each live domain right now -- "a real check, not a note nobody
+// reads". It also checks the two public game routes so a Pages artifact that
+// omits either mode fails loud.
+//
+// The OCF/zach.audio domain-move park this check was born from is CLOSED
+// (Zach, chezz#19, 2026-08-14): "it is hf7y.com/ now. no ocf no zach.audio".
+// zach.audio was serving a permanent 404 and filing a nightly issue for it.
 //
 // Deliberately NOT part of `npm run check`: like check-answer-channel.mjs,
 // this hits live network, and a transient blip must not block the commit
@@ -18,15 +18,12 @@ import { execFileSync } from "node:child_process";
 const REPO = process.env.CHEZZ_ISSUES_REPO || "hf7y/chezz";
 const LABEL = "nightly-builds-domain-down";
 
-// Both are named explicitly in FOCUS.md's item 9 writeup as the two domains
-// the folder is verified live on. hf7y.github.io is this repo's own Pages
-// deploy; zach.audio is the OCF-Berkeley-hosted mirror the domain-move park
-// is about -- if the OCF hop breaks, that's exactly the second milestone
-// trigger the park names ("the OCF ssh key breaks... two rescues means the
-// redirect is costing more than the move"), so it belongs in the same check.
+// hf7y.com is the public domain; hf7y.github.io is this repo's own Pages
+// deploy, kept as the canary that separates "Pages build broke" from "the
+// domain in front of it broke".
 export const DOMAINS = [
+  { name: "hf7y.com", url: "https://hf7y.com/chezz/nightly-builds/" },
   { name: "hf7y.github.io", url: "https://hf7y.github.io/chezz/nightly-builds/" },
-  { name: "zach.audio", url: "https://zach.audio/chezz/nightly-builds/" },
 ];
 
 export const GAME_PATHS = [
@@ -60,15 +57,12 @@ function findOpenIssue() {
 function fileBlocker(failures) {
   const body = [
     "Automated check (scripts/check-live-deploy.mjs, run from the Pages deploy",
-    "workflow) found a domain that isn't serving nightly-builds/ where FOCUS.md's",
-    "item 9 says it should be live:",
+    "workflow) found a live route that isn't serving:",
     "",
     ...failures.map((f) => `- ${f.name} (${f.url}): ${f.detail}`),
     "",
-    "This is the trigger FOCUS.md's domain-move park names for the OCF hop",
-    "specifically -- see the 'PARKED WITH A TRIGGER 2026-07-28' block. If",
-    "zach.audio is the one failing, that's a live milestone signal, not just",
-    "an outage to fix.",
+    "If hf7y.github.io is serving but hf7y.com is not, the Pages build is fine",
+    "and the domain in front of it is the fault.",
   ].join("\n");
   execFileSync(
     "gh",
@@ -83,7 +77,7 @@ function closeStaleIssue(number) {
   execFileSync(
     "gh",
     ["issue", "close", String(number), "--repo", REPO,
-     "--comment", "check-live-deploy: both domains serving nightly-builds/ again as of this deploy."],
+     "--comment", "check-live-deploy: every domain is serving nightly-builds/ again as of this deploy."],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30000 }
   );
 }
