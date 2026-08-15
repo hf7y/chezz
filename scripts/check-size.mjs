@@ -44,8 +44,8 @@ if (size > HARD_CAP_BYTES) {
   console.error(
     `check-size: chezz-classic is over the ${HARD_CAP_BYTES}-byte hard cap ` +
     `by ${size - HARD_CAP_BYTES} bytes. Do NOT trim to fit on your own ` +
-    `judgment — file a blocker to Zach (scheduler BLOCKERS.md, ## chezz) ` +
-    `to raise the threshold before continuing.`
+    `judgment — file an issue for Zach (\`scheduler ask chezz "..."\`, or ` +
+    `\`gh issue create --repo hf7y/chezz\`) to raise the threshold before continuing.`
   );
   process.exit(1);
 }

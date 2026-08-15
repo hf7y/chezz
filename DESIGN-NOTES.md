@@ -2,13 +2,14 @@
 
 The durable "big picture" doc for this project, mirroring how the
 `scheduler` project keeps its own `DESIGN-NOTES.md` at repo root, outside
-`.claude/`. `.scheduler/FOCUS.md` is the short, frequently-rewritten "what's
-in scope right now" pointer nightly-batch reads first; this file is the
+`.claude/`. The open GitHub issues on `hf7y/chezz` are the short,
+frequently-changing "what's in scope right now" queue nightly-batch reads
+first; this file is the
 longer-lived record of *why*, for a human or an autonomous run trying to
 reconstruct the whole shape of the project without re-deriving it from
 scratch. Update it when a real direction gets decided, not every night —
 it should read as a slower-moving log of decisions, not a duplicate of
-FOCUS.md's day-to-day scope.
+the tracker's day-to-day scope.
 
 ## What this game is
 
@@ -171,18 +172,18 @@ or re-ask:
    Given this changes the core tension of the game (the King's fragility
    *is* the game today), this needs a **design spec written and reviewed
    before any implementation starts** — same irreversibility instinct
-   FOCUS.md's own redesign-defer criterion already applies to
+   the standing redesign-defer criterion already applies to
    core-rule-touching work, now explicitly greenlit for exploration rather
    than indefinite deferral. Nightly-batch's job here is to draft the
    spec into this file (what changes, what stays, how it interacts with
    the King's exit-row win condition, spawn/threat balance, etc.) and
-   surface it via `QUESTIONS.md` for a checkpoint — not to start writing
+   surface it as a `question`-labelled issue for a checkpoint — not to start writing
    game code against a redesign this size without one.
 
 ## King→Queen — design spec draft (2026-07-24, spec-first per priority queue item 6)
 
-Not implementation scope. Per FOCUS.md's priority queue item 6, this is a
-draft spec to review at a `QUESTIONS.md` checkpoint before any game code
+Not implementation scope. Per priority-queue item 6, this is a
+draft spec to review at a `question`-issue checkpoint before any game code
 changes — the point of writing it down is to make the tradeoff concrete
 enough for the user to actually react to, not to pre-decide it.
 
@@ -230,7 +231,7 @@ meaning anything.
 Black's own piece roster and movement rules, the floor-progression/
 carry-over structure, the daily-seed determinism.
 
-**Open question to put in `QUESTIONS.md`:** is the goal "same game,
+**Open question to file as an issue:** is the goal "same game,
 stronger player piece" (Queen replaces King 1:1, everything above just
 gets re-tuned around a Queen's higher survivability), or "a genuinely
 different mode" (two-piece objective, Queen escorts a separate fragile
@@ -265,7 +266,7 @@ list nightly-batch should start executing against.
   rule entirely).
 - **Graphics pipeline — SIGN-OFF GRANTED 2026-07-27, track 1 built.** Zach
   answered the standing new-external-dependency gate in scheduler
-  `BLOCKERS.md` (`## chezz`): *"Yes, pursue the gemini path, safe bounded
+  the then-current file channel: *"Yes, pursue the gemini path, safe bounded
   account balance exists for testing precisely this. Lift creds from
   vkv-inventory if possible pending the creation of chezz specific ones."*
   Track 1 is now implemented (see below for what was built and the one
@@ -318,7 +319,7 @@ list nightly-batch should start executing against.
   1. **Autonomous AI-generated sprites**, extracting and adapting the
      pixel-art Gemini API workflow already built in the `vkv-inventory`
      project, made autonomous for chezz. **This is a NEW external service
-     dependency** (an image-generation API call) — FOCUS.md's own gate
+     dependency** (an image-generation API call) — the standing gate
      already reserves this for explicit user sign-off, no autopilot
      exception (this is the same gate the tracker's existing
      `2026-07-17T07:25:16.315Z` sprite-replacement report is deferred
@@ -369,7 +370,7 @@ alone is solid enough to act on.
    regardless of what automation does?
 3. What does "its own production stream" mean concretely — a new
    registered project in the `scheduler` ecosystem (its own repo/branch,
-   `FOCUS.md`, nightly cadence, sharing the same constrained account
+   its own backlog, nightly cadence, sharing the same constrained account
    budget every other registered project already competes for — see
    [[project-chezz-automation]]'s spend-limit note), or something lighter
    (e.g. occasional manual/interactive sessions against the new
@@ -379,7 +380,7 @@ Not acted on further until 2/3 are answered — the branch now exists and
 is safe either way, but registering it into the scheduler ecosystem is a
 real recurring-budget commitment that shouldn't be guessed into.
 
-## Priority order this unlocks (see `.scheduler/FOCUS.md` for the live queue)
+## Priority order this unlocks (see the open GitHub issues for the live queue)
 
 Nightly-batch's ordinary job (oldest-first through the tracker, four-
 outcome triage) continues for everything not covered by this list — this
@@ -394,7 +395,7 @@ same account-wide usage budget both projects share).
    bug-reporting into the feature chat box.
 2. Already-queued near-term (decided earlier the same day, smaller in
    scope than the vision items below): move-into-check King-only
-   legality, the `.scheduler/` layout migration.
+   legality, the coordination-file layout migration.
 3. Auto-march: drag-to-step interaction (King first, then generalize to
    sliding pieces; Knight's pathing is a flagged follow-up, not a blocker
    for the rest), formation-follow as the natural consequence.
@@ -403,7 +404,7 @@ same account-wide usage budget both projects share).
 5. Material-sufficiency tuning-proxy strengthening (parallel/backup —
    doesn't block 3/4).
 6. **DONE 2026-07-24 (nightly-batch): spec draft written**, see "King→Queen
-   — design spec draft" above. Surfaced as a `QUESTIONS.md` checkpoint
+   — design spec draft" above. Surfaced as a question checkpoint
    (1:1 replacement vs. two-piece escort mode) — no implementation yet,
    awaiting that answer.
 
@@ -419,9 +420,9 @@ headroom, urgent" framing is retired: `scripts/check-size.mjs` now
 prints the size on every run (creep stays visible) but never fails the
 narrative build, and size must never again be the reason a feature is
 pre-deferred — do the work, run the checks after, and if a real limit is
-ever exceeded, be noisy about it (file a blocker to Zach in the
-scheduler repo's `BLOCKERS.md` `## chezz` section to raise the threshold
-before continuing) rather than quietly deferring or trimming.
+ever exceeded, be noisy about it (file an issue for Zach with
+`scheduler ask chezz "..."` to raise the threshold before continuing)
+rather than quietly deferring or trimming.
 
 The limit stays **enforced only on the `chezz-classic` branch**. Classic
 is the elegance/efficiency track: future dev passes there work to make
@@ -432,5 +433,29 @@ target is an aspiration to design toward, not tonight's threshold).
 
 This supersedes: the 2026-07-14 "stop and revisit rather than cut
 comments" call (narrative side — moot now that nothing needs cutting),
-and closes the 2026-07-24 QUESTIONS.md size question (answered; removed
-from QUESTIONS.md 2026-07-25).
+and closes the 2026-07-24 size question (answered 2026-07-25).
+
+## Stability milestone
+
+**Current:** the autopilot loop is stable — players file ideas in-game,
+unattended nightly runs ship or triage them, and anything needing Zach
+reaches him as a `question`-labelled GitHub issue on `hf7y/chezz` instead
+of stalling silently. Judge every new idea against this bar: required to
+hold it → `active`; past it → `(parked)` (or `(waiting: <dep>)`) with one
+line of why.
+
+## Standing design rules (migrated off the retired file channel, 2026-08-15)
+
+Resolved human design calls that were living only in the coordination
+files deleted in realisateur#293 (their history is in git). They are decisions, not backlog:
+
+- **Stalemate:** a White-side (player) zero-legal-moves deadlock resets the
+  CURRENT floor fresh. The run always stays alive — it never ends and never
+  restarts from floor 1 (`checkStalemate()`/`floorStart`).
+- **Scripted bosses:** a `NARRATIVE_STAGES` boss must never be capturable on
+  move 1; `placeScriptedStage` is capture-aware against the carried army.
+- **Colour scheme is monochrome** — an explicit, repeated human ask. Do not
+  reintroduce a saturated or hued palette without a fresh one.
+- **Move-into-check:** hanging the KING ONLY is illegal (a move leaving the
+  King capturable next turn is rejected). Other pieces stay hangable —
+  unchanged risk/reward. Done 2026-07-24 (`2783c357`), `isLegalMove`.
