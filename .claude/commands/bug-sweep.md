@@ -55,9 +55,7 @@ description anyway, since a reporter can still misjudge their own report.
   nonetheless needs more implementation depth than a quick sweep budget
   covers (e.g. touches move-generation/legality core logic, spans several
   functions, needs new test scaffolding beyond a one-off regression case).
-  Punt it to the nightly run (human-directed 2026-07-24, via
-  QUESTIONS.md: "bug sweeps should punt large bugs to nightly; nightly
-  should gain the power to address bugs") rather than leaving it as a
+  Punt it to the nightly run rather than leaving it as a
   vague "needs a human call" note — prefix the tracker note with
   `NIGHTLY:` (see step 5) so `/nightly-batch`'s backup-work pass picks it
   up and actually implements the fix, no human call required unless the
@@ -67,10 +65,9 @@ description anyway, since a reporter can still misjudge their own report.
   relevant logic and `test/*.spec.mjs` first).
 
 Don't resolve balance/design/feature-idea reports as "fixed" on your own
-judgment, and don't implement a feature idea here in the Tier 1 sweep —
-that's deliberately not this tier's job even now that autopilot is on
-(see `.scheduler/FOCUS.md`): reclassifying into the feature backlog is what
-hands it to the nightly Tier 2 run (`.claude/commands/nightly-batch.md`),
+judgment, and don't implement a feature idea here in the fast sweep — that's
+deliberately not this tier's job. Reclassifying into the feature backlog is
+what hands it to the nightly run (`.claude/commands/nightly-batch.md`),
 which is where feature implementation actually happens.
 
 ## 3. Implement each mechanical fix
@@ -95,12 +92,23 @@ which is where feature implementation actually happens.
 - Run `npm run check` (syntax + size + full Playwright suite). All tests
   must pass; the pre-commit hook will enforce this again anyway.
 
-## 4. Commit
+## 4. Commit, branch, PR
 
 One commit for the sweep (or several if the fixes are unrelated enough to
 tell apart in history — use judgment), following this repo's commit style:
 short imperative summary line, a body explaining *why* each fix matters,
 not just what changed.
+
+Then push a uniquely named branch, open a PR into `main`, and run
+`gh pr merge --auto --squash`.
+
+**`main` is protected and requires the `gate` check** (ruleset "Chezz main
+protection", 2026-08-15). A direct push is rejected, and auto-merge waits
+for CI. Before that ruleset existed, `--auto` on an unprotected branch
+merged *immediately and unreviewed* while printing nothing and leaving
+`autoMergeRequest: null` — so a run could believe it had been refused when
+it had in fact already landed. That is fixed, but don't reintroduce it:
+never `--admin`, never push `main` directly.
 
 ## 5. Update the tracker
 
@@ -193,9 +201,9 @@ id/date/provenance itself — pass the question text ONLY. Add context as a
 follow-up comment if one line isn't enough. Most sweeps add nothing here —
 don't manufacture a question. `hf7y/chezz` is PUBLIC; nothing private.
 
-Questions moved from `.scheduler/QUESTIONS.md` to issues on 2026-07-28.
-That file is now frozen history: do not append to it, and do not read it
-for pending work.
+GitHub issues are the question channel. There is no file channel; any
+`FOCUS.md` / `QUESTIONS.md` / `BLOCKERS.md` you find in this repo is frozen
+history — do not read it for pending work, and do not append to it.
 
 Before filing, run `npm run check-answers` (fast, no browser). It confirms
 the issues API is actually reachable — under the old file channel the
@@ -203,8 +211,16 @@ equivalent drifted twice, and a question filed into a copy Zach never sees
 is worse than no question at all, because the tracker note will claim it's
 awaiting him.
 
-Answer processing is the **nightly's** job, not this sweep's: Zach answers
-by commenting on the issue and LEAVING IT OPEN — no label, no close.
-`/nightly-batch` finds those by reading comments across all states (an
-unstamped `hf7y` comment IS the answer), acts, and closes. This fast sweep
-must NOT act on or close an answered issue itself — leave it for the nightly.
+Answer processing is the **nightly's** job, not this sweep's. Zach answers
+by commenting on the issue and LEAVING IT OPEN — no label, no close. An
+unstamped `hf7y` comment IS the answer, whatever the issue's labels or
+state. `/nightly-batch` reads those across all states, acts, and closes.
+This fast sweep must NOT act on or close an answered issue itself.
+
+That handoff is real as of 2026-08-15 and was not before: `/nightly-batch`
+had no workflow running it, so this sweep was correctly declining answered
+issues and passing them to a consumer that never ran. Four issues Zach had
+greenlit sat unbuilt for four days. It is now scheduled
+(`.github/workflows/nightly-batch.yml`, 07:00 UTC daily). If you are
+tempted to relax this rule, check that workflow still exists first — the
+rule is only safe while something on the other side of it is running.
