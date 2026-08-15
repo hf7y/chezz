@@ -1,7 +1,5 @@
-/* Covers scripts/check-live-deploy.mjs -- the domain-serving trigger check
- * FOCUS.md's "PARKED WITH A TRIGGER 2026-07-28" block named for the hf7y
- * domain move and priority queue item 9 left unwired: does a player actually
- * reach nightly-builds/ through both live domains right now.
+/* Covers scripts/check-live-deploy.mjs -- the domain-serving check: does a
+ * player actually reach nightly-builds/ through every live domain right now.
  *
  * Only checkDomain() is pinned here, via a fake fetch -- it's the part with
  * no side effects and a clear contract (status code in, ok/detail out). The
@@ -35,10 +33,11 @@ test("a network error (fetch throws) is reported not-ok, not an uncaught excepti
   expect(result.detail).toContain("ENOTFOUND");
 });
 
-test("both live domains FOCUS.md item 9 names are wired into the check", () => {
+test("every live domain is wired into the check, and the retired one is not", () => {
   const names = DOMAINS.map((d) => d.name);
+  expect(names).toContain("hf7y.com");
   expect(names).toContain("hf7y.github.io");
-  expect(names).toContain("zach.audio");
+  expect(names).not.toContain("zach.audio");
   for (const d of DOMAINS) {
     expect(d.url).toContain("/nightly-builds/");
   }
