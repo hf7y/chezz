@@ -89,3 +89,13 @@ the index 2026-08-06, doesn't reproduce):
 - **Analytic material sufficiency** — the long-term ask: solve analytically
   what White material is actually needed to beat a given Black composition,
   rather than inferring difficulty from a search proxy. Research-scale.
+  **Direction confirmed 2026-08-16 (human reply, GitHub issue #6):** this
+  folder is the right home — no separate theory/math branch. And the
+  method must be **analytic proofs, not playtesting or statistics**: "I
+  want real analytic math, not playtesting or statistics." That rules out
+  AGENT playtesting (an unattended run burning turns self-playing floors)
+  as a way to study this question — it's the wrong tool for what's being
+  asked, not just out of scope for tonight. Zach also asked that an issue
+  be filed with a project called "bibliothecaire" to request research
+  help on this; see the note below on why that couldn't be done directly
+  tonight.
