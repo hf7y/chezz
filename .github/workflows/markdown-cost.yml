@@ -22,3 +22,12 @@ jobs:
 
       - name: Price the prose in this diff
         run: bash tools/markdown-cost.sh
+
+      # BOTH STEPS, OR THE RATCHET IS A FILE NOTHING READS. The diff check
+      # prices what this PR adds; --census holds the TREE against
+      # tools/markdown-cost.ratchet, which only falls. Shipping the ratchet
+      # without this step is build-but-don't-wire: the port wrote a baseline
+      # and nothing ever compared against it. Found by hf7y/ecosim, which
+      # caught it while validating its own port (hf7y/ecosim#73).
+      - name: Prose ratchet -- the tree may not grow
+        run: bash tools/markdown-cost.sh --census
