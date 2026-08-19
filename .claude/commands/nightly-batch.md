@@ -117,14 +117,19 @@ need widened
 or decided — a decline that only lives in a report is a decline he never
 agreed to.
 
-**Also check the bug queue for `NIGHTLY:`-prefixed notes** (human-directed
-2026-07-24: bug sweeps punt real-but-too-big bugs here instead of leaving
-them as vague human-call items -- see `/bug-sweep`'s triage step). These
-are unambiguous defects, not policy questions -- fetch `&type=bug&status=open`,
-find any with a `NIGHTLY:`-prefixed note, and implement them with the same
-rigor as a feature (regression test, commit, resolve on the tracker). Treat
-this as part of the same backup-work tier as the feature backlog's
-overflow, not a lower priority than it.
+**Sweep the WHOLE open bug queue, first, before the feature backlog.** This
+run is the only consumer of player reports: the two GitHub Actions runners
+were deleted 2026-08-19 (their `ANTHROPIC_API_KEY` had been failing every
+run since 2026-08-16, and Actions is blocked from opening PRs on this repo
+anyway -- #36, #29), and the Apps Script sweep dispatch went with them.
+Nothing else reads the tracker, so a report left unfetched here is a report
+nobody ever sees.
+
+Fetch `&type=bug&status=open` and triage every report through
+`/bug-sweep`'s step 2 buckets, then implement, note, or reclassify it by
+that command's steps 3 and 5 -- it is still the procedure, it just has no
+separate runner any more. `NIGHTLY:`-prefixed notes are the same tier, not
+a lower one: those are unambiguous defects a past sweep punted here.
 
 ## 4. Stress-test what you built
 

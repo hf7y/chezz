@@ -3,9 +3,13 @@ description: Fetch open Chezz bug reports, fix the mechanical ones, leave notes 
 ---
 
 Run one sweep of the live Chezz bug tracker. This command is designed to run
-unattended (manually, via `/loop`, or on a cron schedule) — don't block on
-interactive confirmation; when something needs a human call, leave it open
-with a note instead of guessing.
+unattended — don't block on interactive confirmation; when something needs
+a human call, leave it open with a note instead of guessing.
+
+**This command has no runner of its own as of 2026-08-19.** Its Actions
+workflow was deleted with `nightly-batch.yml`; `/nightly-batch` on monkey's
+self-dev tick now sweeps the bug queue itself and follows the steps below.
+Run this by hand when you want a sweep between ticks.
 
 ## 1. Fetch open reports
 
