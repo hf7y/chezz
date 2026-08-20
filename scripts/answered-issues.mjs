@@ -31,6 +31,25 @@
 
 const STAMP_RE = /^<!--\s*agent:\s*\S+\/\S+\s+\S+\s*-->$/;
 
+/**
+ * The stamp this project's own automation appends to anything it posts
+ * (hf7y/chezz#21). JOB identifies the script or run doing the posting.
+ *
+ * It lives here, next to `isStamped`, because the reader and the writer of a
+ * grammar drifting apart is the whole failure this file documents: ecosim's
+ * Zach-blocked sensor read chezz's unstamped agent comments as answers from
+ * Zach and reported BLIND_NO_STAMP_DISCIPLINE instead of a real ratio.
+ * `isStamped(stamp(job))` is true by construction, and there is a test on it.
+ */
+export function stamp(job, now = new Date()) {
+  return `<!-- agent: chezz/${job} ${now.toISOString()} -->`;
+}
+
+/** BODY with a provenance stamp as its last non-blank line. */
+export function stamped(body, job, now = new Date()) {
+  return `${body}\n\n${stamp(job, now)}`;
+}
+
 /** True iff BODY's last non-blank line is an agent provenance stamp. */
 export function isStamped(body) {
   const lines = String(body || "")
