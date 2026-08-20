@@ -86,7 +86,7 @@ resolved on the tracker the same way `/bug-sweep` resolves bug reports:
 
 ```
 curl -sL "$URL" -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","timestamp":"<exact timestamp>","status":"resolved","note":"Shipped in <hash>: <one-line summary>"}'
+  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp>","status":"resolved","note":"Shipped in <hash>: <one-line summary>"}'
 ```
 
 (No `-X POST` — curl already POSTs when given a body, and an explicit
