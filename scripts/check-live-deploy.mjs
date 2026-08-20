@@ -14,9 +14,14 @@
 // already runs on every push to main -- so this is the "recurring" half of
 // "recurring assertion" for free, no separate cron needed.
 import { execFileSync } from "node:child_process";
+import { stamped } from "./answered-issues.mjs";
 
 const REPO = process.env.CHEZZ_ISSUES_REPO || "hf7y/chezz";
 const LABEL = "nightly-builds-domain-down";
+// Provenance stamp job id (hf7y/chezz#21). Without it, everything this script
+// posts under the shared `hf7y` token is indistinguishable from a reply Zach
+// wrote by hand -- which is what `isAnswered` in answered-issues.mjs keys on.
+const JOB = "check-live-deploy";
 
 // hf7y.com is the public domain; hf7y.github.io is this repo's own Pages
 // deploy, kept as the canary that separates "Pages build broke" from "the
@@ -68,7 +73,7 @@ function fileBlocker(failures) {
     "gh",
     ["issue", "create", "--repo", REPO, "--label", LABEL,
      "--title", "nightly-builds domain check failed",
-     "--body", body],
+     "--body", stamped(body, JOB)],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30000 }
   );
 }
@@ -77,7 +82,7 @@ function closeStaleIssue(number) {
   execFileSync(
     "gh",
     ["issue", "close", String(number), "--repo", REPO,
-     "--comment", "check-live-deploy: every domain is serving nightly-builds/ again as of this deploy."],
+     "--comment", stamped("check-live-deploy: every domain is serving nightly-builds/ again as of this deploy.", JOB)],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30000 }
   );
 }

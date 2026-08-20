@@ -40,7 +40,7 @@
  * right reason next time.
  */
 import { test, expect } from "@playwright/test";
-import { isStamped, isAnswered } from "../scripts/answered-issues.mjs";
+import { isStamped, isAnswered, stamped } from "../scripts/answered-issues.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -159,4 +159,21 @@ test("the guard keeps no on-disk copy of the channel", () => {
     .join("\n");
   expect(code).not.toMatch(/\.scheduler|FOCUS\.md|QUESTIONS\.md|BLOCKERS\.md/);
   expect(code).not.toContain("CHEZZ_SCHEDULER_DIR");
+});
+
+// hf7y/chezz#21: this project's own automation had never stamped a comment it
+// posted, so ecosim's Zach-blocked sensor read agent replies as answers from
+// Zach and reported BLIND_NO_STAMP_DISCIPLINE instead of a ratio. The writer
+// and the reader of the stamp grammar now live in one file; these pin that
+// they agree.
+test("a stamp this project writes is a stamp this project recognises", () => {
+  const body = stamped("check-live-deploy: everything is serving again.", "check-live-deploy");
+  expect(isStamped(body)).toBe(true);
+  expect(body.split("\n").pop()).toMatch(/^<!-- agent: chezz\/check-live-deploy \S+ -->$/);
+});
+
+test("a stamped agent comment is never mistaken for Zach's answer", () => {
+  const agentReply = stamped("Acted on tonight; leaving open.", "nightly-batch");
+  expect(isAnswered(issue([["hf7y", agentReply]]), "hf7y")).toBe(false);
+  expect(isAnswered(issue([["hf7y", agentReply], ["hf7y", "do the thing"]]), "hf7y")).toBe(true);
 });
