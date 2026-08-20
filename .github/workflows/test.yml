@@ -3,8 +3,6 @@ name: Test
 on:
   pull_request:
     branches: ["main"]
-  merge_group:
-    types: [checks_requested]
   schedule:
     - cron: "17 9 * * *"
   workflow_dispatch:
@@ -14,7 +12,7 @@ permissions:
   issues: read
 
 concurrency:
-  group: test-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.ref }}
+  group: test-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
