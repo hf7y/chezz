@@ -120,7 +120,7 @@ For each report you fixed, mark it resolved, referencing the commit hash:
 
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","timestamp":"<exact timestamp string>","status":"resolved","note":"Fixed in <hash>: <one-line summary>"}'
+  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"resolved","note":"Fixed in <hash>: <one-line summary>"}'
 ```
 
 For a report that's actually a feature idea, reclassify it instead of
@@ -130,7 +130,7 @@ sweep:
 
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","timestamp":"<exact timestamp string>","status":"open","reportType":"feature","note":"<why this is an idea, not a defect>"}'
+  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"open","reportType":"feature","note":"<why this is an idea, not a defect>"}'
 ```
 
 For a genuine bug that needs a human call on the fix itself, attach a note
@@ -138,7 +138,7 @@ but leave it in the bug queue, status open:
 
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","timestamp":"<exact timestamp string>","status":"open","note":"Needs: <what a real fix/decision would require>"}'
+  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"open","note":"Needs: <what a real fix/decision would require>"}'
 ```
 
 For a genuine bug that's unambiguous but too big for this sweep, same
@@ -148,7 +148,7 @@ human-call item:
 
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","timestamp":"<exact timestamp string>","status":"open","note":"NIGHTLY: <what the real fix needs -- scope, affected functions>"}'
+  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"open","note":"NIGHTLY: <what the real fix needs -- scope, affected functions>"}'
 ```
 
 **Gotcha**: the POST response through Apps Script's redirect chain is
@@ -166,7 +166,7 @@ nobody's watching:
 
 ```
 curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"sweep-status","fetched":<N>,"fixed":<F>,"reclassified":<R>,"leftOpen":<L>}'
+  --data-raw '{"type":"sweep-status","token":"'"$CHEZZ_WRITE_TOKEN"'","fetched":<N>,"fixed":<F>,"reclassified":<R>,"leftOpen":<L>}'
 ```
 
 Use the same counts as the summary line below. This overwrites the single

@@ -33,8 +33,13 @@
 //   fetch(WEB_APP_URL, {
 //     method: "POST",
 //     headers: { "Content-Type": "text/plain" },
-//     body: JSON.stringify({ type: "resolve", timestamp, status, note, reportType }),
+//     body: JSON.stringify({ type: "resolve", token, timestamp, status, note, reportType }),
 //   });
+//   `token` is REQUIRED and must equal the WRITE_TOKEN script property --
+//   `resolve` and `sweep-status` are the two writes the browser never makes
+//   and the two that can falsify the record, so they are the two that are
+//   gated. See the comment above doPost. With no WRITE_TOKEN set, both are
+//   refused outright.
 //   `status` defaults to "resolved" if omitted -- pass "open" instead to
 //   reopen it. `note` is optional free text, e.g. a commit hash or one-line
 //   summary of what was done. `reportType` is optional -- pass "feature" to
@@ -128,11 +133,55 @@ function getScoresSheet_() {
   return sheet;
 }
 
+// PRIVILEGED WRITES (hf7y/chezz#40). The deployment is ANYONE_ANONYMOUS and
+// cannot stop being: the /exec id is in browser JS and in ~90 blobs of
+// index1.html, so it is public by construction. Protection has to be
+// server-side, and it can only cover the writes that are NOT made by the
+// browser.
+//
+// `resolve` and `sweep-status` are exactly those two. Both are called only by
+// the sweep/nightly runner (curl, from .claude/commands/*.md), never by the
+// page. They are also the two that CORRUPT the record rather than merely add
+// to it -- rewriting a report's status/note/kind, or overwriting the proof-of-
+// life readout the live page shows. Gating them on a shared secret costs the
+// page nothing because the page never calls them.
+//
+// `score` and `bug` stay open. They are browser-called, so any token they
+// carried would ship in page source, and the blast radius is noise (a spammed
+// sheet) rather than a falsified record.
+//
+// FAILS CLOSED. If the WRITE_TOKEN script property is unset, every privileged
+// write is refused. An auth check that passes when it is unconfigured is not
+// an auth check -- and an unset property is precisely the state this repo was
+// in when #40 was filed.
+//
+// To configure: Apps Script > Project Settings > Script Properties, add
+// WRITE_TOKEN = <a long random string>, then redeploy. Give the same value to
+// the runner as CHEZZ_WRITE_TOKEN.
+const WRITE_TOKEN_KEY = "WRITE_TOKEN";
+
+function isAuthorizedWrite_(body) {
+  const expected = PropertiesService.getScriptProperties().getProperty(WRITE_TOKEN_KEY);
+  if (!expected) return false;
+  const given = String(body.token || "");
+  // Length-first, then a constant-time-ish compare over the whole string:
+  // returning early on the first mismatching character leaks the prefix.
+  if (given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+function refused_() {
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unauthorized" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   const body = JSON.parse(e.postData.contents);
   if (body.type === "bug") return submitBugReport_(body);
-  if (body.type === "resolve") return resolveBugReport_(body);
-  if (body.type === "sweep-status") return recordSweepStatus_(body);
+  if (body.type === "resolve") return isAuthorizedWrite_(body) ? resolveBugReport_(body) : refused_();
+  if (body.type === "sweep-status") return isAuthorizedWrite_(body) ? recordSweepStatus_(body) : refused_();
   return submitScore_(body);
 }
 
