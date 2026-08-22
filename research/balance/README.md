@@ -78,24 +78,9 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 - [2026-08-05 — pawn supply: PAWN_ALLOWANCE_CHANCE 0.3 -> 0.5](2026-08-05-pawn-allowance-bump.md)
 - [2026-08-06 — opposite-color bishop pair: no change, and here's why](2026-08-06-opposite-color-bishop-pair-value.md)
 - [2026-08-06 — "fodder floors feel empty": doesn't reproduce under current code](2026-08-06-fodder-floors-no-longer-reproduce.md)
+- [2026-08-22 — analytic material sufficiency: a decision procedure, one proven small case, and a non-monotonicity](2026-08-22-analytic-material-sufficiency.md)
 
 ### Open, not yet studied
 
-Named here so the gaps are visible rather than implied. One of the original
-four remains (archbishop material value was removed 2026-08-05, already
-fixed; pawn supply moved to the index the same night; fodder floors moved to
-the index 2026-08-06, doesn't reproduce):
-
-- **Analytic material sufficiency** — the long-term ask: solve analytically
-  what White material is actually needed to beat a given Black composition,
-  rather than inferring difficulty from a search proxy. Research-scale.
-  **Direction confirmed 2026-08-16 (human reply, GitHub issue #6):** this
-  folder is the right home — no separate theory/math branch. And the
-  method must be **analytic proofs, not playtesting or statistics**: "I
-  want real analytic math, not playtesting or statistics." That rules out
-  AGENT playtesting (an unattended run burning turns self-playing floors)
-  as a way to study this question — it's the wrong tool for what's being
-  asked, not just out of scope for tonight. Zach also asked that an issue
-  be filed with a project called "bibliothecaire" to request research
-  help on this; see the note below on why that couldn't be done directly
-  tonight.
+None. The last of the original four (analytic material sufficiency) was
+answered 2026-08-22 via hf7y/bibliothecaire#57.
