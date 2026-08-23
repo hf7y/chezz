@@ -14,6 +14,8 @@
     "pieces:generate": "node tools/generate-pieces.mjs",
     "pieces:wire": "node tools/wire-pieces.mjs",
     "pieces:spend": "node tools/gemini-budget.mjs",
+    "earcons:generate": "node tools/generate-earcons.mjs",
+    "earcons:wire": "node tools/wire-earcons.mjs",
     "sheet:push": "clasp push --force",
     "sheet:status": "clasp status"
   },
