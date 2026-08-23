@@ -913,14 +913,28 @@
 
       // Could White capture here for free before Black even gets a turn?
       // Checks the square as occupied (not empty) so a pawn's diagonal only
-      // counts once there's really a piece to capture. Only consulted for
-      // non-pawn pieces -- pawns are meant to stand in the open.
+      // counts once there's really a piece to capture. Used by the procedural
+      // spawner and by placeScriptedStage (every scripted piece).
       function isSafeSquare(x, y) {
         const occupant = state.board[y][x];
         state.board[y][x] = "p";
         const attackers = attackersOf(state.board, x, y, true);
         state.board[y][x] = occupant;
         return attackers.length === 0;
+      }
+
+      // Would White's capture here be answered? The mirror of isSafeSquare, from
+      // the other side: probes with a WHITE occupant, because a Black defender
+      // can only "move onto" a square its own colour doesn't already hold, so
+      // asking with a black piece there would report zero defenders every time.
+      // "Attacked but defended" is an ordinary trade; "attacked and undefended"
+      // is free material, which is what the spawner must never produce.
+      function isDefendedSquare(x, y) {
+        const occupant = state.board[y][x];
+        state.board[y][x] = "P";
+        const defenders = attackersOf(state.board, x, y, false);
+        state.board[y][x] = occupant;
+        return defenders.length > 0;
       }
 
       // Black's back rank (row 1) holds the stronger pieces, mirroring
@@ -959,13 +973,31 @@
         return cols[cols.length - 1];
       }
 
-      // Drops one pawn on the first empty square found (columns in random
-      // order per row) -- no safety check, pawns stand in the open. Returns
-      // false only once there's truly nowhere left to put one.
+      // Drops one pawn on an acceptable empty square (columns in random order
+      // per row). A spawned pawn must NEVER be free material: it may stand
+      // attacked only when a Black piece defends it. Human call, 2026-07-24
+      // ("No. Never. Pawns can spawn under threat if they are defended by
+      // another piece ... free material on level load is not a good design").
+      // The rule this replaces -- "pawns stand in the open" -- was an
+      // inference nobody authorized, and it made this the one spawn path that
+      // dropped material for free while the non-pawn path above already
+      // spent budget shielding a piece rather than scrap it.
+      //
+      // Unattacked squares win outright; a defended-but-attacked square is
+      // only a fallback, so a trade is the exception rather than the norm.
+      // Returns false when neither exists -- the caller then stops placing
+      // pawns, which is the intended outcome: no pawn beats a free pawn.
       function placePawn() {
         for (const y of pawnRanks) {
           for (const x of shuffledCols()) {
-            if (state.board[y][x] === "") { state.board[y][x] = "p"; markCovered("p", x, y); return true; }
+            if (state.board[y][x] !== "") continue;
+            if (isSafeSquare(x, y)) { state.board[y][x] = "p"; markCovered("p", x, y); return true; }
+          }
+        }
+        for (const y of pawnRanks) {
+          for (const x of shuffledCols()) {
+            if (state.board[y][x] !== "") continue;
+            if (isDefendedSquare(x, y)) { state.board[y][x] = "p"; markCovered("p", x, y); return true; }
           }
         }
         return false;
@@ -1028,17 +1060,25 @@
 
           // A shield pawn only blocks a same-file attack -- a diagonal or
           // knight-vector threat jumps or angles past it and leaves the
-          // piece hanging anyway. Only accept a column the shield actually clears.
+          // piece hanging anyway. Only accept a column the shield actually
+          // clears AND where the shield is not itself free material: the
+          // never-free-pawn rule placePawn enforces applies here too, since
+          // this path places a pawn without going through it. The piece being
+          // shielded is put on the board for the probe because it is usually
+          // the shield's own defender (a rook or queen behind it on the file).
           const cols = shuffledCols();
           let shieldableCol = -1, anyEmpty = false;
           for (const x of cols) {
             if (state.board[BACK_RANK][x] !== "") continue;
             anyEmpty = true;
             if (state.board[PAWN_RANK][x] !== "") continue;
+            state.board[BACK_RANK][x] = type;
             state.board[PAWN_RANK][x] = "p";
-            const safe = isSafeSquare(x, BACK_RANK);
+            const ok = isSafeSquare(x, BACK_RANK) &&
+              (isSafeSquare(x, PAWN_RANK) || isDefendedSquare(x, PAWN_RANK));
             state.board[PAWN_RANK][x] = "";
-            if (safe) { shieldableCol = x; break; }
+            state.board[BACK_RANK][x] = "";
+            if (ok) { shieldableCol = x; break; }
           }
 
           if (shieldableCol !== -1 && remaining >= cost + PIECE_SPAWN_COST.p) {
