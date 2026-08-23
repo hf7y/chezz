@@ -220,6 +220,26 @@
     box-shadow: 0 0 8px 2px rgba(255, 56, 96, 0.75);
   }
 
+  /* White move-hint (hf7y/chezz#3, human-directed 2026-08-23: "always on",
+     a shape riding the existing legal-move highlight rather than a
+     separate marker). Replaces that square's dot with a star -- overrides
+     the dot's fixed circle geometry with a centering transform instead, so
+     it works regardless of which data-legal color it's layered on top of. */
+  td[data-legal][data-hint]::after {
+    content: "★";
+    width: auto;
+    height: auto;
+    margin: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 18px;
+    line-height: 1;
+    color: rgba(255, 215, 0, 0.95);
+    text-shadow: 0 0 6px rgba(255, 215, 0, 0.85);
+    transform: translate(-50%, -50%);
+  }
+
   /* Formation-follow preview (tracker 2026-07-30T06:16): while dragging the
      King toward a drop that would trigger formation-follow, each surviving
      piece's computed landing square gets a small dot -- same green as an
@@ -1103,6 +1123,63 @@
       return best;
     }
 
+    // White move-hint (hf7y/chezz#3, human-directed 2026-08-23: "build it,
+    // always on"). The piggyback hypothesis measured in
+    // research/engine/2026-07-29-white-move-hint-hypothesis.md is half
+    // real: the node this needs -- White's reply to the Black move actually
+    // played, one ply below the root -- is already being searched for real
+    // gameplay purposes, so this doesn't add a second engine call. What it
+    // does add is bookkeeping at exactly that one node: a near-duplicate of
+    // search()'s own top-of-node loop (same moves, same order, same
+    // alpha-beta bounds -- so its returned `value` is bit-identical to what
+    // plain search() would return, and the move actually chosen is
+    // untouched) plus a second, independent tracked minimum restricted to
+    // moves that are legal FOR THE PLAYER.
+    //
+    // Two of the three correctness conditions the finding flagged live
+    // here:
+    //  - Refutations mistaken for best moves: `exact` is only true if this
+    //    node's loop ran to completion without a beta cutoff. A cutoff
+    //    means the search stopped at "good enough to refute," not "best" --
+    //    every sibling after it went unexamined, so nothing here can be
+    //    trusted as the true minimum. Discard the hint outright rather than
+    //    show a refutation dressed up as advice.
+    //  - Illegal hints: collectMoves reuses legalMovesForPiece for both
+    //    sides, which (unlike legalMovesFrom) does not filter out moves
+    //    that hang White's own King -- fine for the search's own purposes,
+    //    wrong to ever put in front of the player. isLegalMove re-checks
+    //    that restriction before a move is allowed to become the hint.
+    // The third condition (a hint from a deadline-truncated depth) is
+    // handled by the caller: iterative deepening already discards any depth
+    // round that hit NODE_BUDGET and falls back to the last clean one, and
+    // this hint rides along on the same candidate object as that round's
+    // score -- so a stale hint and a stale move can never separate.
+    function searchWithHint(b, depth, alpha, beta, pool) {
+      nodesSearched++;
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return { value: quiesce(b, alpha, beta, true, pool), hint: null }; }
+
+      const moves = collectMoves(b, true);
+      if (!moves.length) return { value: search(b, depth - 1, alpha, beta, false, pool), hint: null };
+
+      let best = Infinity;
+      let hintMove = null, hintValue = Infinity;
+      let exact = true;
+      for (const mv of moves) {
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = (mv.piece === "K" && mv.toY === EXIT_ROW)
+          ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard)
+          : search(nextBoard, depth - 1, alpha, beta, false, nextPool);
+        if (val < best) best = val;
+        if (val < beta) beta = val;
+        if (val < hintValue && isLegalMove(b, mv.fromX, mv.fromY, mv.toX, mv.toY)) {
+          hintValue = val;
+          hintMove = mv;
+        }
+        if (beta <= alpha) { exact = false; break; }
+      }
+      return { value: best, hint: exact && hintMove ? { fromX: hintMove.fromX, fromY: hintMove.fromY, toX: hintMove.toX, toY: hintMove.toY } : null };
+    }
+
     // Too narrow and most moves fail it, paying for both a wasted narrow
     // search and the full-width fallback -- measured at 100, 65-75% of moves
     // failed, net slower than no window at all. 400 keeps the fail rate
@@ -1130,17 +1207,25 @@
       for (const mv of moves) {
         const { nextBoard, pool } = applyMove(board, mv, capturedPool);
         const prevScore = prevScores && prevScores.get(moveKey(mv));
-        let moveValue;
+        let moveValue, moveHint;
         if (prevScore === undefined) {
-          moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
+          const r = searchWithHint(nextBoard, depth - 1, -Infinity, Infinity, pool);
+          moveValue = r.value; moveHint = r.hint;
         } else {
           const lo = prevScore - ASPIRATION_WINDOW, hi = prevScore + ASPIRATION_WINDOW;
-          moveValue = search(nextBoard, depth - 1, lo, hi, true, pool);
+          const r = searchWithHint(nextBoard, depth - 1, lo, hi, pool);
+          moveValue = r.value; moveHint = r.hint;
           if (moveValue <= lo || moveValue >= hi) {
-            moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
+            const r2 = searchWithHint(nextBoard, depth - 1, -Infinity, Infinity, pool);
+            moveValue = r2.value; moveHint = r2.hint;
           }
         }
-        const candidate = { piece: mv.piece, fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
+        // hint: White's best reply to this Black move, per searchWithHint --
+        // rides on the same candidate object as the score it was measured
+        // alongside, so whichever candidate is ultimately chosen (below,
+        // and in the iterative-deepening/tie-break logic that follows)
+        // carries a hint from the exact same search pass, never a stale one.
+        const candidate = { piece: mv.piece, fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue, hint: moveHint };
         all.push(candidate);
 
         if (moveValue > maxEvaluation) {
@@ -1316,6 +1401,12 @@
   // promotionResolve, declared further down, are this same kind of thing).
   let selected = null, promotion = null;
   let floorJustSpawned = false; // consumed once by the next renderBoard()
+  // White's best-reply hint (hf7y/chezz#3), from the search pass that chose
+  // Black's last move -- {fromX, fromY, toX, toY} or null when no exact,
+  // legal-for-the-player hint survived that search. Cleared on the player's
+  // own move and re-set only after Black's next reply, so it never outlives
+  // the position it was computed for.
+  let whiteHint = null;
 
   // Expands one FEN row ("12345678" digits are empty-square run-lengths)
   // into an 8-element array of squares -- shared by loadFen and the
@@ -2000,6 +2091,11 @@
     state.board[toY][toX] = movingPiece;
     state.board[fromY][fromX] = "";
     state.turn = "b";
+    // Whatever hint Black's LAST move produced was computed for the
+    // position before this move; it doesn't describe this one, so it's
+    // cleared here and only re-set below once Black actually replies (or
+    // left null for the rest of this turn if Black doesn't get to).
+    whiteHint = null;
     dropWallIfBossDefeated();
     if (capturedByWhite) playEarcon("capture");
 
@@ -2031,6 +2127,7 @@
       await wait(RENDER_YIELD_MS); // lets that paint land before the search blocks the main thread
       const bm = getBlackMoveRuthless(state.board, state.captured, state.floor);
       if (thinkingEl) thinkingEl.textContent = "";
+      whiteHint = bm && bm.hint ? bm.hint : null;
       let blackPawnMarchedOff = false;
       if (bm) {
         const capturedByBlack = !!state.board[bm.toY][bm.toX];
@@ -2061,7 +2158,9 @@
       checkFloorProgression();
       // Only Black's reply can produce this -- see isWhiteKingInCheck.
       if (isWhiteKingInCheck(state.board)) playEarcon("check");
-      if (checkDeath()) announceDeath();
+      // A death respawn replaces the board this hint was computed for with
+      // a fresh floor 1 -- the hint's squares no longer mean anything.
+      if (checkDeath()) { whiteHint = null; announceDeath(); }
       updateUrl(false); renderBoard();
       await wait(MOVE_PACING_MS);
     }
@@ -2540,13 +2639,20 @@
         const threat = threats.has(`${x},${y}`) ? " data-threat" : "";
         const dangerLevel = legalTargets.get(`${x},${y}`);
         const legal = dangerLevel ? ` data-legal="${dangerLevel}"` : "";
+        // White move-hint (hf7y/chezz#3): a star instead of a plain dot on
+        // the one legal destination -- of the CURRENTLY selected piece --
+        // that whiteHint names. Only ever set once the from-square the hint
+        // was computed for is actually the one selected, so a hint for some
+        // other piece never paints a star on an unrelated selection.
+        const hint = legal && whiteHint && selected.x === whiteHint.fromX && selected.y === whiteHint.fromY
+          && whiteHint.toX === x && whiteHint.toY === y ? " data-hint" : "";
         // Formation-follow preview dots (see updateFormationPreview) -- never
         // on a square that already has its own primary legal-move dot, so a
         // King-drag target square doesn't render two overlapping markers.
         const preview = !legal && formationPreview && formationPreview.has(`${x},${y}`) ? " data-formation-preview" : "";
         const cell = state.board[y][x];
         const terrain = cell === TERRAIN_WALL ? ` data-terrain="wall"` : cell === TERRAIN_HOLE ? ` data-terrain="hole"` : "";
-        html += `<td${sel}${threat}${legal}${preview}${terrain}>${pieceGlyphHtml(cell)}</td>`;
+        html += `<td${sel}${threat}${legal}${hint}${preview}${terrain}>${pieceGlyphHtml(cell)}</td>`;
       }
       html += `</tr>`;
     }

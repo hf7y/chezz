@@ -153,3 +153,33 @@ legalMovesFrom(state.board, x, y).length          // what the player may play
 The scalar-return, cut-node, and closure-scope findings are code reading of
 `search`, `searchRoot`, `quiesce`, and `collectMoves` in `index1.html`, plus a
 `window` probe for each symbol.
+
+## Outcome (2026-08-23, hf7y/chezz#3)
+
+Zach: **build it, always on** -- a star on the best-move square, riding the
+existing per-piece legal-move highlight rather than a separate always-visible
+marker (no hint until a piece is clicked).
+
+Shipped as `searchWithHint` in `index1.html`, called only at the one node this
+always needed -- the searchRoot child for the Black move actually played, one
+ply below root -- so no second engine call was added, confirming the
+piggyback half of the original hypothesis. It is a near-duplicate of
+`search()`'s own top-of-node loop rather than a change to `search()` itself,
+so the hot recursive path is untouched; `test/ai-determinism.spec.mjs`'s score
+and move-choice pins are bit-identical to before, confirming the "real change,
+but a contained one" framing above.
+
+All three correctness conditions landed as predicted:
+
+- **PV-node restriction:** `exact` is true only if the node's loop completed
+  without a beta cutoff; a cutoff discards the hint outright rather than
+  surface a refutation as advice.
+- **Legality filter:** every candidate hint move is re-checked with
+  `isLegalMove` before it can win; `test/white-hint.spec.mjs` sweeps 24
+  floor/day combinations and asserts zero illegal hints came back.
+- **Deadline suppression:** the hint rides on the same candidate object as
+  the score it was measured alongside, so the existing "discard a
+  deadline-hit depth round" logic in `getBlackMoveRuthless` can't separate a
+  stale hint from a stale move -- they're the same object.
+
+No second search, no PV table, no change to the moves actually chosen.
