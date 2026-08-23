@@ -102,14 +102,22 @@ test("reports the questions channel OK against the real issues repo", () => {
 
 /* THE REGRESSION. Zach answered #3 on 2026-07-29 and #4/#5/#6 on 2026-08-11,
  * by commenting and leaving them OPEN. The label-gated guard reported "0 of
- * them answered" every night regardless. These four are real, live issues on
- * hf7y/chezz; if a run ever again reports zero answers while they sit there,
- * this fails. */
+ * them answered" every night regardless.
+ *
+ * 2026-08-23: this originally also asserted "[1-9]\d* still OPEN and
+ * awaiting this run" -- true when written, but that count is the run's
+ * actionable backlog, not a durable fact: a run that does its job (acts on
+ * an answer, then closes the issue, same contract as the old file channel's
+ * "removes the block once it has acted") drives it to zero, and it broke
+ * the very first time a run actually closed every answered issue in one
+ * pass. "carrying an answer from hf7y" counts every issue with a real
+ * comment regardless of open/closed state, so it stays the right guard
+ * against the label-gate bug (which reported that count as 0) without
+ * depending on how much of tonight's backlog happens to still be open. */
 test("sees the real answers Zach left in comments on open, unlabelled issues", () => {
   const { code, output } = runGuard();
   expect(code).toBe(0);
-  expect(output).toMatch(/[1-9]\d* still OPEN and awaiting this run/);
-  expect(output).toContain("carrying an answer from hf7y");
+  expect(output).toMatch(/[1-9]\d* carrying an answer from hf7y/);
 });
 
 /* The predicate itself, on fixtures -- the live test above proves it works
