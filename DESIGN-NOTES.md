@@ -281,6 +281,13 @@ files deleted in realisateur#293 (their history is in git). They are decisions, 
 - **Move-into-check:** hanging the KING ONLY is illegal (a move leaving the
   King capturable next turn is rejected). Other pieces stay hangable —
   unchanged risk/reward. Done 2026-07-24 (`2783c357`), `isLegalMove`.
+- **Audio + vibration (answered 2026-08-22, issue #5):** default ON for
+  capture/check/floor-clear, short pre-rendered wooden-click WAV samples
+  (`tools/generate-earcons.mjs`, baked in by `tools/wire-earcons.mjs`) rather
+  than live WebAudio FM synthesis — one shared mute toggle (`#audioToggle`,
+  `localStorage.chezzAudioEnabled`) covers both channels. Live FM synthesis
+  was asked to be researched separately in a branch with findings reported as
+  a draft PR, not built on `main`.
 
 ## Difficulty theory: analytic material sufficiency (answered 2026-08-16, issue #6)
 
