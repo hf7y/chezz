@@ -722,7 +722,7 @@
   // read as "has a move" here while every one of those moves is actually
   // illegal, silently stranding the player with nothing they can click.
   // Routing through here means that case now correctly falls through to
-  // checkStalemate's existing floor-reset instead.
+  // checkDeath's existing respawn instead.
   function hasAnyLegalMove(board, isWhite) {
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
@@ -1289,7 +1289,7 @@
   const capturedElement = document.querySelector("output");
   const promotionElement = document.querySelector("dialog");
 
-  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0, dateSeed: "", moveLog: [] };
+  let state = { board: [], turn: "w", captured: "", floor: 1, spawned: false, lastSpawnBudget: 0, maxRank: 0, dateSeed: "", moveLog: [], diedOnce: false };
 
   // A bug report carries the position, which says what the board looks like
   // but not how it got that way -- so "this sacrifice was illogical" arrived
@@ -1316,10 +1316,6 @@
   // promotionResolve, declared further down, are this same kind of thing).
   let selected = null, promotion = null;
   let floorJustSpawned = false; // consumed once by the next renderBoard()
-  // Snapshot of boardToFen() taken the instant a floor finishes spawning --
-  // the reset target for a White-side deadlock (see checkStalemate below).
-  // Null across a page load until this floor (re)spawns in this session.
-  let floorStart = null;
 
   // Expands one FEN row ("12345678" digits are empty-square run-lengths)
   // into an 8-element array of squares -- shared by loadFen and the
@@ -1352,6 +1348,7 @@
   // browser's own back button a working Undo with no on-page control needed.
   function updateUrl(push = false) {
     const params = new URLSearchParams({ fen: boardToFen() + "_" + state.turn, floor: state.floor, spawned: state.spawned ? "1" : "0", budget: state.lastSpawnBudget, maxRank: state.maxRank, dateSeed: state.dateSeed, v: APP_VERSION });
+    if (state.diedOnce) params.set("died", "1");
     if (state.captured) params.set("captured", state.captured);
     if (state.moveLog.length) params.set("last", state.moveLog.join(","));
     const url = "?" + params.toString();
@@ -1521,12 +1518,13 @@
   // final boss is beaten.
   function spawnBlackArmy() {
     state.dateSeed = todayKey();
-    const stage = NARRATIVE_STAGES[state.floor - 1];
+    // A run that has died once (hf7y/chezz#4) skips the scripted campaign
+    // for good, including a re-rolled floor 1 -- see respawnFromFloorOne.
+    const stage = state.diedOnce ? null : NARRATIVE_STAGES[state.floor - 1];
     if (stage) {
       placeScriptedStage(stage);
       state.spawned = true;
       floorJustSpawned = true;
-      floorStart = boardToFen();
       return;
     }
 
@@ -1755,41 +1753,89 @@
       if (whiteSurvivesNextMove(state.board)) break placeArmy;
     }
 
+    if (state.diedOnce) placeDeathGate();
     state.spawned = true;
     floorJustSpawned = true;
-    floorStart = boardToFen();
+  }
+
+  // Value of what White has captured and can still spend -- promotions
+  // (choosePromotion) and Black's own recapture pool both draw from
+  // state.captured, but only the lowercase (Black pieces White has taken)
+  // half is White's own bank. Same per-piece values as armyCost, so a
+  // captured Amazon and a spawned Amazon cost the same "army point".
+  function capturedBankValue() {
+    return state.captured.split("").reduce((sum, c) => {
+      if (c !== c.toLowerCase()) return sum;
+      return sum + (c === "n" || c === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[c] || PIECE_SPAWN_COST.minor));
+    }, 0);
+  }
+
+  // Roguelike respawn loop (hf7y/chezz#4, human-directed 2026-08-22: "build
+  // it. I'll give my feedback as a play tester."). One row ahead of White's
+  // home rows (7/8, same row "The Knight" narrative stage gates on): a wall
+  // that narrows as the captured bank grows, so a run that died with a big
+  // bank still has to fight through a real bottleneck to put that bank back
+  // to work, rather than walking it straight in. Only ever called for a
+  // post-death floor, and only onto squares spawnBlackArmy left empty --
+  // never overwrites a placed piece, so it can't undo that placement's own
+  // safety checks.
+  const DEATH_GATE_ROW = 6;
+  const DEATH_GATE_VALUE_PER_CLOSED_COL = 4; // bank points that closes one more column
+  const DEATH_GATE_MIN_GAP = 2; // never fully sealed
+  function placeDeathGate() {
+    const closed = Math.min(BOARD_COLS - DEATH_GATE_MIN_GAP, Math.floor(capturedBankValue() / DEATH_GATE_VALUE_PER_CLOSED_COL));
+    for (let i = 0; i < closed; i++) {
+      // Close from both edges inward, so the surviving gap stays centered.
+      const col = i % 2 === 0 ? i / 2 : BOARD_COLS - 1 - Math.floor(i / 2);
+      if (state.board[DEATH_GATE_ROW][col] === "") state.board[DEATH_GATE_ROW][col] = TERRAIN_WALL;
+    }
+  }
+
+  // Sends the run back to floor 1 as a fresh lone King -- the same start
+  // every cold boot begins from (see loadFromUrl's default FEN) -- but two
+  // things survive the death on purpose:
+  //  - state.captured (the captured bank): a long run's material lead isn't
+  //    erased by one deadlock, only its board position is.
+  //  - state.lastSpawnBudget's ratchet (deliberately NOT reset here): floor
+  //    1 spawns at whatever difficulty this run had already earned, so
+  //    "fodder proportional to your army" falls out of the existing
+  //    never-decreases budget rule instead of a second formula to keep in
+  //    sync with it.
+  // state.diedOnce also flips permanently true: NARRATIVE_STAGES is a
+  // fixed, hand-authored intro meant to be played once, and replaying the
+  // same single scripted pawn on every death would be both repetitive and
+  // the opposite of "proportional to your army" -- so a run that has died
+  // once graduates to pure procedural floors for good, including floor 1.
+  function respawnFromFloorOne() {
+    state.floor = 1;
+    state.spawned = false;
+    state.diedOnce = true;
+    state.board = Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(""));
+    state.board[BOARD_ROWS - 1][4] = "K";
+    spawnBlackArmy();
+    state.turn = "w";
   }
 
   // A deadlock is only ever checked/fixed for White (the human) -- Black
   // having no moves is fine and common (nothing forces the AI to reply, see
-  // makeMove's `if (bm)` guard) and just leaves White free to keep marching.
-  // A White deadlock is a dead end with no such fallback, so it resets this
-  // floor fresh: to floorStart if this session spawned it, or by clearing
-  // the black rows and respawning from White's current survivors otherwise
-  // (e.g. right after a page load where floorStart hasn't been set yet).
-  // Standing rule (human call, 2026-07-19, see .claude/QUESTIONS.md): the
-  // run itself always stays alive -- never ends, never restarts floor 1.
-  function checkStalemate() {
+  // makeMove's `if (bm)` guard) and just leaves White free to keep
+  // marching. A White deadlock is this game's only "death" signal, and (as
+  // of hf7y/chezz#4) sends the run back to floor 1 -- see
+  // respawnFromFloorOne for exactly what does and doesn't survive that.
+  function checkDeath() {
     if (state.turn !== "w" || hasAnyLegalMove(state.board, true)) return false;
-    if (floorStart) {
-      loadFen(floorStart);
-      state.turn = "w";
-    } else {
-      for (let y = 1; y <= 6; y++) state.board[y] = Array(BOARD_COLS).fill("");
-      state.spawned = false;
-      spawnBlackArmy();
-      state.turn = "w";
-    }
+    respawnFromFloorOne();
     return true;
   }
 
-  // Stalemate silently resetting the floor read as "a free move" with no
-  // feedback (2026-07-16T11:51:25.998Z tracker report). Reuses the same
-  // transient-text pattern as #thinkingIndicator -- plain text, no emoji,
-  // clears itself on the next real move.
-  function announceStalemateReset() {
+  // Death silently resetting the floor read as "a free move" with no
+  // feedback (2026-07-16T11:51:25.998Z tracker report, same failure mode
+  // this respawn loop inherits). Reuses the same transient-text pattern as
+  // #thinkingIndicator -- plain text, no emoji, clears itself on the next
+  // real move.
+  function announceDeath() {
     const el = document.getElementById("floorMessage");
-    if (el) el.textContent = "No legal moves — floor reset.";
+    if (el) el.textContent = "No legal moves — you fell. Back to floor 1, captured bank kept.";
   }
   // Same transient-text channel: a Black pawn that reaches its far rank with
   // nothing captured to promote into leaves the board instead of standing
@@ -2010,12 +2056,12 @@
       state.turn = "w";
       clearFloorMessage();
       // After clearFloorMessage, so it survives the turn; before the
-      // stalemate announcement, which is the more urgent message if both fire.
+      // death announcement, which is the more urgent message if both fire.
       if (blackPawnMarchedOff) announceBlackPawnMarchedOff();
       checkFloorProgression();
       // Only Black's reply can produce this -- see isWhiteKingInCheck.
       if (isWhiteKingInCheck(state.board)) playEarcon("check");
-      if (checkStalemate()) announceStalemateReset();
+      if (checkDeath()) announceDeath();
       updateUrl(false); renderBoard();
       await wait(MOVE_PACING_MS);
     }
@@ -2524,6 +2570,7 @@
     state.captured = params.get("captured") || "";
     state.lastSpawnBudget = parseInt(params.get("budget") || "0");
     state.maxRank = parseInt(params.get("maxRank") || "0");
+    state.diedOnce = params.get("died") === "1";
     // Rides the URL like everything else, so back/forward rewinds the move
     // context along with the position instead of leaving a stale trail.
     state.moveLog = (params.get("last") || "").split(",").filter(Boolean).slice(-MOVE_LOG_LENGTH);
@@ -2535,7 +2582,7 @@
     selected = null; promotion = null;
     promotionElement.close();
     if (!state.spawned) spawnBlackArmy();
-    if (checkStalemate()) announceStalemateReset();
+    if (checkDeath()) announceDeath();
     updateUrl();
     renderBoard();
   }
