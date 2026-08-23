@@ -271,9 +271,18 @@ line of why.
 Resolved human design calls that were living only in the coordination
 files deleted in realisateur#293 (their history is in git). They are decisions, not backlog:
 
-- **Stalemate:** a White-side (player) zero-legal-moves deadlock resets the
-  CURRENT floor fresh. The run always stays alive — it never ends and never
-  restarts from floor 1 (`checkStalemate()`/`floorStart`).
+- **Death / respawn (superseded 2026-08-22, issue #4):** a White-side
+  (player) zero-legal-moves deadlock is this game's only "death" signal.
+  It now sends the run back to floor 1 as a fresh lone King (`checkDeath()`/
+  `respawnFromFloorOne()`) rather than resetting just the current floor —
+  the 2026-07-19 "never restarts from floor 1" rule this overturns is
+  retired. The captured bank and the spawn-budget ratchet both survive the
+  death untouched, so a respawned floor 1 is proportionally as tough as the
+  run had already earned; a `diedOnce` run also permanently skips the
+  scripted `NARRATIVE_STAGES` campaign (a fixed intro, not something to
+  replay every death) and gets a captured-bank-sized terrain gate
+  (`placeDeathGate()`) instead. Built from Zach's sketch, not a full spec —
+  expect this to be retuned from playtesting feedback.
 - **Scripted bosses:** a `NARRATIVE_STAGES` boss must never be capturable on
   move 1; `placeScriptedStage` is capture-aware against the carried army.
 - **Colour scheme is monochrome** — an explicit, repeated human ask. Do not

@@ -74,7 +74,7 @@ test("hasAnyLegalMove(true) is false when every one of the King's pseudo-legal m
   expect(hasReal).toBe(false);                 // but every single one hangs the King
 });
 
-test("that zero-real-move King deadlock routes through the existing stalemate reset, not a stranded board", async ({ page }) => {
+test("that zero-real-move King deadlock routes through the existing death respawn, not a stranded board", async ({ page }) => {
   const result = await page.evaluate(() => {
     const boxedButPseudoMobile = Array.from({ length: 9 }, () => Array(8).fill(""));
     boxedButPseudoMobile[8][0] = "K";
@@ -91,11 +91,11 @@ test("that zero-real-move King deadlock routes through the existing stalemate re
 
     state.board = boxedButPseudoMobile;
     state.turn = "w";
-    checkStalemate();
+    checkDeath();
 
     return { floor: state.floor, hasMoveAfter: hasAnyLegalMove(state.board, true) };
   });
 
-  expect(result.floor).toBe(2);          // same floor, reset in place
-  expect(result.hasMoveAfter).toBe(true); // the fresh floor is actually playable
+  expect(result.floor).toBe(1);          // death sends the run back to floor 1 (hf7y/chezz#4)
+  expect(result.hasMoveAfter).toBe(true); // the respawned floor is actually playable
 });
