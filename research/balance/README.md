@@ -32,7 +32,10 @@ anecdotal: any claim in this folder can be re-derived by re-running the seed.
 
 Delegated tuning is bounded. A nightly run may change what a number *is*; it
 may not change what a piece *does* or how a floor is *structured* -- those stay
-human design calls. Every tuning change must land with:
+human design calls. Confirmed as the standing answer, not a run's own reading
+of the 2026-07-28 quote above -- Zach, hf7y/chezz#11: "standing yes... this is
+not permission for one report, it is the default posture for every balance
+report from here on." Every tuning change must land with:
 
 1. **A regression test pinning the new behavior**, which demonstrably fails
    against the old one. A test that passes both ways is not a pin; if it can't
