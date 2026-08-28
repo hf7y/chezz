@@ -7,8 +7,9 @@ unattended — don't block on interactive confirmation; when something needs
 a human call, leave it open with a note instead of guessing.
 
 **This command has no runner of its own as of 2026-08-19.** Its Actions
-workflow was deleted with `nightly-batch.yml`; `/nightly-batch` on monkey's
-self-dev tick now sweeps the bug queue itself and follows the steps below.
+workflow was deleted with `nightly-batch.yml`; `/nightly-batch` (run from
+`.github/workflows/agent.yml` at 09:00 UTC daily, and also from monkey's
+self-dev tick) now sweeps the bug queue itself and follows the steps below.
 Run this by hand when you want a sweep between ticks.
 
 ## 1. Fetch open reports
@@ -232,6 +233,7 @@ That handoff is real as of 2026-08-15 and was not before: `/nightly-batch`
 had no workflow running it, so this sweep was correctly declining answered
 issues and passing them to a consumer that never ran. Four issues Zach had
 greenlit sat unbuilt for four days. It is now scheduled
-(`.github/workflows/nightly-batch.yml`, 07:00 UTC daily). If you are
-tempted to relax this rule, check that workflow still exists first — the
-rule is only safe while something on the other side of it is running.
+(`.github/workflows/agent.yml`, 09:00 UTC daily) and also dispatched from
+monkey's self-dev tick. If you are tempted to relax this rule, check that a
+runner still exists first — the rule is only safe while something on the
+other side of it is running.

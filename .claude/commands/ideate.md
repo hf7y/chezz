@@ -21,9 +21,7 @@ build-shaped, treat it the same as if it arrived in the first message:
 name it explicitly ("that's a nightly-batch job -- queue it, or fix it
 inline now?") rather than quietly switching into building because enough
 turns have passed that the original `/ideate` framing feels distant.
-(Adopted 2026-07-25 from realisateur's revised ideate.md -- see
-realisateur/IDEATE-WORKFLOW-REVISION.md for the open hook-based-guarantee
-question; that half is Zach's call, not this file's.)
+(Adopted 2026-07-25 from realisateur's revised ideate.md.)
 
 ## 1. Orient
 
@@ -70,7 +68,7 @@ choice) with one line of why it's past the bar. Parking is the default
 for anything beyond the current milestone -- the metric that matters is
 the active set draining, not the parked reservoir shrinking (a free-fed
 reservoir is supposed to grow; settled by this project's own 2026-07-20
-session, now ecosystem law -- realisateur/STABILITY-MILESTONES.md).
+session, now ecosystem law -- vault:realisateur/STABILITY-MILESTONES.md).
 Promoting a parked idea into the active set is a deliberate, stated
 decision, never a silent reorder.
 
@@ -82,8 +80,7 @@ imply it is; (2) **Milestone chain** -- numbered, working backward from
 the vision, each step concrete enough that "is this idea required for
 the current step" is answerable; (3) **Blockers** -- what blocks the
 CURRENT step specifically, tagged by who can clear it (human-only vs.
-buildable-now). (Zach's repeated ask, 2026-07-24, generalized in
-realisateur/IDEATE-WORKFLOW-REVISION.md.)
+buildable-now). (Zach's repeated ask, 2026-07-24.)
 
 For each decision (from this session or already-settled and just being
 re-confirmed):
