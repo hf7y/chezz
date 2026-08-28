@@ -1,0 +1,101 @@
+name: Agent
+
+# The GitHub-side runner for this repo's backlog. Restored 2026-08-28 after
+# chezz#41 deleted `sweep.yml` and `nightly-batch.yml` for a dead
+# ANTHROPIC_API_KEY -- the credential was dead, the runner was not. It now
+# authenticates with CLAUDE_CODE_OAUTH_TOKEN (the estate's host-wide token,
+# /etc/selfdev/claude-token) instead of a repo API key.
+#
+# chezz also dispatches from monkey's self-dev tick. NOTHING LOCKS BETWEEN THE
+# TWO: a monkey tick and this run can pick up the same issue. The crons are
+# staggered and each opens its own branch, so a collision costs duplicated work
+# rather than a corrupt tree. This runner is the one that survives monkey being
+# stopped.
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  actions: write
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # chezz#36: "Allow GitHub Actions to create and approve pull requests"
+      # was off, and the 2026-08-16 run stranded a night of work on unmerged
+      # branches before anyone noticed. Assert it BEFORE spending a run.
+      - name: Assert this token may open a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          perms=$(gh api "repos/$GITHUB_REPOSITORY/actions/permissions/workflow")
+          echo "$perms"
+          echo "$perms" | grep -q '"can_approve_pull_request_reviews": *true' || {
+            echo "::error::Actions cannot create pull requests on this repo (chezz#36). Settings -> Actions -> General -> Workflow permissions."
+            exit 1
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Record starting commit
+        id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ github.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: >-
+            /nightly-batch
+
+            Fully unattended, no human review step. The open GitHub issues on
+            hf7y/chezz are the backlog and the scoping authority; work the
+            answered ones first (a non-agent-stamped comment from `hf7y` IS
+            the answer, whatever the labels or state say).
+
+            This repo also dispatches from monkey's self-dev tick and nothing
+            locks between the two. Before starting an issue, check that no
+            open PR and no recent branch already covers it, and pick another
+            if one does.
+
+            Once `npm run check` passes and you have committed, push a
+            uniquely named branch and open a pull request into main, then run
+            `gh pr merge --auto --squash`. Do not push to main -- it is
+            protected and requires the `gate` check. Never resolve or
+            reclassify anything you are not confident about; leave it open
+            with a note instead.
+          claude_args: >-
+            --model claude-sonnet-5
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+            --max-turns 120
+
+      - name: Trigger a Pages redeploy if this run pushed new commits
+        run: |
+          after=$(git ls-remote origin -h refs/heads/main | cut -f1)
+          if [ "$after" != "${{ steps.before.outputs.sha }}" ]; then
+            gh workflow run deploy-narrative-pages.yml --ref main
+          else
+            echo "No new commits from this run -- skipping redeploy."
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
