@@ -26,7 +26,13 @@ npm run check-syntax --silent && npm run check-size --silent || exit 1
 # realisateur's inject-suggestions.sh, which hardcoded .claude/FOCUS.md.
 non_docs="$(git diff --cached --name-only | grep -vE '^(\.claude/|\.scheduler/|README\.md$|DESIGN-NOTES\.md$|\.githooks/|\.gitignore$)')"
 if [ -n "$non_docs" ]; then
-  npm test --silent
+  # material-tuning.spec.mjs is a balance-tuning harness, not a correctness
+  # check (see its own top-of-file comment) -- 3.8 of every 4.1min run is
+  # that one chained minimax search, on top of ~18s for the other 176
+  # (hf7y/chezz#62). Excluded here so the *local* safety net stays cheap;
+  # it's not skipped anywhere -- .github/workflows/test.yml runs the full
+  # unfiltered suite (sharded across 3 runners) on every PR before merge.
+  npx playwright test --grep-invert "find minimal material for each canonical piece, chained"
 else
   echo "pre-commit: only docs/.claude files staged -- skipping the full Playwright suite"
 fi
