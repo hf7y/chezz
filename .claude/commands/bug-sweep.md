@@ -20,8 +20,15 @@ WebFetch gets stuck in a redirect loop against this endpoint (`/exec` →
 follows it fine:
 
 ```
-curl -sL "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec?scope=bugs&status=open&limit=50"
+URL="$(grep -oP '(?<=const LEADERBOARD_URL = ")[^"]+' index1.html)"
+curl -sL "$URL?scope=bugs&status=open&limit=50"
 ```
+
+`$URL` set this way is what every other `curl` example in this file (steps 5
+and 6) assumes is already in your shell -- deriving it from `index1.html`'s
+own `LEADERBOARD_URL` constant means a redeploy under a new id only needs
+that one line changed, not this doc too (hf7y/chezz#35 named this exact
+duplication).
 
 `scope=bugs` defaults to `&type=bug` — feature requests (`type=feature`)
 don't come back unless you ask for them explicitly with `&type=feature` or

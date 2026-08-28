@@ -65,6 +65,27 @@ it being re-served to the next run. Never edit an issue's BODY; the ask
 must survive verbatim. Leave issues with NO unstamped `hf7y` comment
 untouched; never re-ask or duplicate one.
 
+**Also check `decision-rot` for answers outside the `question` label.** The
+`--label question` query above is the channel `scheduler ask chezz` files
+into, but the same "unstamped `hf7y` comment IS the answer" rule applies
+estate-wide to issues carrying other labels too (`durable`, `decayable`,
+`needs-human`, ...) — 2026-08-28 found four (#11, #30, #32, #15) that had
+been genuinely answered 4-5 days earlier and never acted on, because
+nothing was checking outside the `question` label. `decision-rot` is the
+estate's own tool for exactly this and already gets it right (including
+the `<!-- decision-by: ... -->` relay marker, which `answered-issues.mjs`
+does not read) — reimplementing its logic here would be the vendored-copy
+mistake #35 named. Run it if present, act on anything it lists under
+`ROTTING` the same as an answered question, and don't treat its absence as
+a failure — it lives in `realisateur`'s verb build, which the GitHub
+Actions runner's fresh checkout won't have:
+
+```
+command -v decision-rot >/dev/null 2>&1 && decision-rot hf7y/chezz \
+  || /usr/local/libexec/selfdev/decision-rot.sh hf7y/chezz 2>/dev/null \
+  || echo "decision-rot: not available in this environment, skipping"
+```
+
 ## 2. Re-verify anything a previous run touched, from scratch
 
 Do not trust a prior run's own claims about what works -- run `npm run
