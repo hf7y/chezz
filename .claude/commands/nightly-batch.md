@@ -124,7 +124,7 @@ to the backup work named in `DESIGN-NOTES.md` (the two standing open
 engineering questions, or bug reports Tier 1 left open needing a human call).
 
 **Park-by-default triage for new vision-scale ideas** (scaffold
-convention, realisateur/STABILITY-MILESTONES.md, adopted 2026-07-25):
+convention, vault:realisateur/STABILITY-MILESTONES.md, adopted 2026-07-25):
 when something new arrives that is bigger than a scoped feature — a
 `scheduler -i` entry, or a tracker report
 that is really a direction rather than a change — judge it against
