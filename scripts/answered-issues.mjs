@@ -28,8 +28,33 @@
 // issue, `--state closed` the four live ones above. The `answered` label
 // still works as an optional override where someone bothers to apply it,
 // but is never the trigger.
+//
+// 2026-08-29: STAMP_RE required a `<project>/<job>` stamp body and matched
+// nothing else. `/usr/local/bin/gh` is realisateur's gh-sign.sh now (every
+// host, unconditionally) and it stamps `<!-- agent: <account>@<host> ...
+// build ... -->` — no slash, an account/host pair instead of a project/job
+// one. The old regex never matched that, so it fell through to "unstamped",
+// and every comment this project's own automation has posted since gh-sign
+// landed (#68, #53, #9, ...) counted as an answer from Zach. This is the
+// exact failure the stamp exists to prevent, the other direction: not a
+// missed reply, a phantom one. Widened to match realisateur's canonical
+// `lib/answered.jq` (hf7y/realisateur#568, the one place this predicate is
+// meant to live now) — prefix-only, so it recognises whatever a stamp says
+// after `agent:` rather than a specific grammar for it. `stamp()` below is
+// unaffected: it still writes `chezz/${job}`, which this still matches.
+const STAMP_RE = /^<!--\s*agent:/;
 
-const STAMP_RE = /^<!--\s*agent:\s*\S+\/\S+\s+\S+\s*-->$/;
+// realisateur's `answered.jq`: Zach sometimes answers OUT LOUD (an `/ideate`
+// session on another machine) rather than typing a GitHub comment himself,
+// and what lands here is an agent relaying that decision. `<!-- decision-by:
+// ... -->` marks a relayed answer so it still counts even though the same
+// comment also carries an agent stamp — without this, a spoken answer that
+// only reaches an issue through a relay would look identical to an agent
+// note asking one. Not yet a live gap for chezz's own history (the relayed
+// issues here all also had a separate unstamped comment), but decision-rot
+// already reads it and this predicate should not disagree with the one
+// place it is meant to live.
+const RELAY_RE = /<!--\s*decision-by:/;
 
 /**
  * The stamp this project's own automation appends to anything it posts
@@ -59,16 +84,25 @@ export function isStamped(body) {
   return lines.length > 0 && STAMP_RE.test(lines[lines.length - 1]);
 }
 
+/** True iff BODY carries a relayed-decision marker anywhere in it. */
+export function isRelayed(body) {
+  return RELAY_RE.test(String(body || ""));
+}
+
 /**
  * True iff ISSUE carries a human answer from OWNER: any comment authored by
- * OWNER that is not agent-stamped. The `answered` label is honoured as an
- * optional override if present, never required.
+ * OWNER that is either not agent-stamped, or is a relayed decision (stamped
+ * by whichever agent relayed it, but still Zach's own answer). The
+ * `answered` label is honoured as an optional override if present, never
+ * required.
  *
  * ISSUE is a `gh issue list --json labels,comments` element.
  */
 export function isAnswered(issue, owner) {
   if ((issue.labels || []).some((l) => l.name === "answered")) return true;
-  return (issue.comments || []).some(
-    (c) => (c.author || {}).login === owner && !isStamped(c.body || "")
-  );
+  return (issue.comments || []).some((c) => {
+    if ((c.author || {}).login !== owner) return false;
+    const body = c.body || "";
+    return !isStamped(body) || isRelayed(body);
+  });
 }

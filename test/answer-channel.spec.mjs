@@ -40,7 +40,7 @@
  * right reason next time.
  */
 import { test, expect } from "@playwright/test";
-import { isStamped, isAnswered, stamped } from "../scripts/answered-issues.mjs";
+import { isStamped, isAnswered, isRelayed, stamped } from "../scripts/answered-issues.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -184,4 +184,34 @@ test("a stamped agent comment is never mistaken for Zach's answer", () => {
   const agentReply = stamped("Acted on tonight; leaving open.", "nightly-batch");
   expect(isAnswered(issue([["hf7y", agentReply]]), "hf7y")).toBe(false);
   expect(isAnswered(issue([["hf7y", agentReply], ["hf7y", "do the thing"]]), "hf7y")).toBe(true);
+});
+
+// THE REGRESSION found 2026-08-29: `/usr/local/bin/gh` is realisateur's
+// gh-sign.sh, and it stamps `<!-- agent: <account>@<host> ... build ... -->`
+// -- no slash, nothing this file's old `chezz/<job>` regex matched. Every
+// comment chezz's own automation posted through it (hf7y/chezz#68, #53, #9)
+// counted as unstamped, i.e. as an answer from Zach, because the stamp
+// existed but the regex didn't recognise its shape. `gh --stamp` on this
+// host is the live source of truth for what the fixture below must match.
+const LIVE_STAMP =
+  "<!-- agent: chezz@monkey 2026-08-29T00:03:13Z build 2026-08-27T114014Z -->";
+
+test("recognises the live gh-sign.sh stamp, not just chezz's own chezz/<job> one", () => {
+  expect(isStamped(`did the thing\n\n${LIVE_STAMP}`)).toBe(true);
+  expect(isAnswered(issue([["hf7y", `investigated tonight.\n\n${LIVE_STAMP}`]]), "hf7y")).toBe(
+    false
+  );
+});
+
+// Zach sometimes answers OUT LOUD (an `/ideate` session elsewhere) and an
+// agent relays it into the issue; the relay marker says the decision is
+// still his even though the comment carries an agent stamp too.
+test("a relayed decision counts as an answer despite its own agent stamp", () => {
+  const relay = stamped(
+    "<!-- decision-by: zach 2026-08-23 -->\n\nship it, no one else's call",
+    "nightly-batch"
+  );
+  expect(isRelayed(relay)).toBe(true);
+  expect(isStamped(relay)).toBe(true);
+  expect(isAnswered(issue([["hf7y", relay]]), "hf7y")).toBe(true);
 });
