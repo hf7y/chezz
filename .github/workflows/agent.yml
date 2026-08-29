@@ -29,7 +29,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          perms=$(gh api "repos/$GITHUB_REPOSITORY/actions/permissions/workflow")
+          perms=$(gh api "repos/$GITHUB_REPOSITORY/actions/permissions/workflow") || {
+            echo "::warning::Could not read the actions/permissions/workflow setting -- GITHUB_TOKEN has no administration scope for this endpoint (chezz#74), so this can't distinguish 'disabled' from 'can't check'. Proceeding; a real PR-create failure later will still surface."
+            exit 0
+          }
           echo "$perms"
           echo "$perms" | grep -q '"can_approve_pull_request_reviews": *true' || {
             echo "::error::Actions cannot create pull requests here. Settings -> Actions -> General -> Workflow permissions. On 2026-08-16 this stranded a night of work on unmerged branches."
