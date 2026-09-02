@@ -17,8 +17,10 @@ A daily-seeded roguelike built on chess rules: White starts as a lone
 King, climbs floors fighting procedurally (or, in the narrative campaign's
 opening floors, scripted) spawned Black material, and carries surviving
 pieces forward floor to floor. `leaderboard/Code.gs` (Google Apps Script)
-backs a daily/all-time leaderboard and a live player-feedback tracker (bug
-+ feature reports, fed by an in-game chat box). Live at
+backs a live player-feedback tracker (bug + feature reports, fed by an
+in-game chat box); the server-side daily/all-time leaderboard it used to
+also back was dropped 2026-09-01 (issue #15, "Option C", confirmed by
+Zach) in favor of a purely-local "Your best" in the page itself. Live at
 https://hf7y.github.io/chezz/. Full deployment/CI shape in
 [[project-chezz-automation]] (memory) — not repeated here.
 

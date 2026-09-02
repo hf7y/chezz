@@ -70,10 +70,9 @@ test("the holder of the token still gets through", () => {
   expect(calls).toEqual(["sweep-status", "resolve"]);
 });
 
-test("score and bug submission stay open -- the browser calls them and can carry no secret", () => {
+test("bug submission stays open -- the browser calls it and can carry no secret", () => {
   // `reached: true` means the handler ran -- with no token and no WRITE_TOKEN
   // set, which is exactly what an anonymous player submission looks like.
   const { post } = load(null);
   expect(post({ type: "bug", description: "x" })).toEqual({ reached: true });
-  expect(post({ type: "score", name: "x", floor: 1, rank: 1 })).toEqual({ reached: true });
 });
