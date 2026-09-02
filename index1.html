@@ -517,10 +517,6 @@
 <dl id="leaderboard">
   <dt>Your best</dt>
   <dd><data id="leaderboardMine"></data></dd>
-  <dt>Today's top</dt>
-  <dd><data id="leaderboardToday"></data></dd>
-  <dt>All-time top</dt>
-  <dd><data id="leaderboardAllTime"></data></dd>
 </dl>
 
 <details id="featureChat">
@@ -2380,9 +2376,12 @@
 
   const CAPTURED_DISPLAY_ORDER = ["m", "q", "c", "a", "r", "b", "n", "p"];
 
-  // Leaderboard: fire-and-forget, best-effort (see leaderboard/Code.gs).
-  // Auto-submits with no button/prompt whenever the King's high-water-mark
-  // rank increases, so it always reflects a player's best progress.
+  // Bug/feature reports and the sweep-status proof-of-life readout, both
+  // fire-and-forget/best-effort (see leaderboard/Code.gs). The server-side
+  // score leaderboard this endpoint used to also carry was dropped
+  // 2026-09-01 (issue #15, "Option C" -- confirmed by Zach) in favor of the
+  // purely-local "Your best" below; the URL/name are unchanged since bug
+  // reports and sweep-status still live on the same Apps Script deployment.
   const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec";
 
   // A 6-hex-digit id doubles as a #rrggbb color, so a player shows as a
@@ -2396,24 +2395,13 @@
     return name;
   }
 
-  // "text/plain" (not "application/json") avoids a CORS preflight -- shared
-  // by score submission and bug/feature reports, the leaderboard's only two
-  // writes.
+  // "text/plain" (not "application/json") avoids a CORS preflight.
   function postToLeaderboard(body) {
     return fetch(LEADERBOARD_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(body),
     });
-  }
-
-  function submitScore(rank) {
-    if (!LEADERBOARD_URL) return;
-    // dateSeed (not a fresh todayKey()) -- attributes the score to whichever
-    // day's seed generated the floor this rank was reached on, so a run
-    // that crosses midnight doesn't get bumped onto tomorrow's board.
-    postToLeaderboard({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: state.dateSeed })
-      .catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
   }
 
   // A single chat box handles both feature ideas and bug reports (the
@@ -2449,16 +2437,6 @@
     }
   });
 
-  // Just the single top score per scope -- fetched fresh each time rather
-  // than trusting a cached top-N list, so this stays correct even if a
-  // better score landed between refreshes.
-  async function fetchTopScore(scope) {
-    const params = new URLSearchParams({ scope, dateKey: todayKey(), limit: "1" });
-    const res = await fetch(`${LEADERBOARD_URL}?${params}`);
-    const [top] = await res.json();
-    return top || null;
-  }
-
   // <data> pairs a machine-readable rank with human-readable text --
   // textContent (not innerHTML) since name is free text from a public
   // write endpoint, even though getPlayerName() constrains it to hex.
@@ -2483,11 +2461,12 @@
     el.style.setProperty("--swatch", "#" + entry.name);
   }
 
-  // The player's own best -- purely local, shown even when the leaderboard
-  // isn't configured or reachable. Kept in localStorage, not just
-  // state.maxRank: that (and the URL it's saved in) only track the
-  // *current* run, so a fresh reload or the reset link used to drop
-  // "Your best" back to nothing despite an earlier, higher run.
+  // The player's own best -- purely local, and (since 2026-09-01, issue
+  // #15 Option C) the only "leaderboard" left; there is no server-side
+  // top-N anymore. Kept in localStorage, not just state.maxRank: that (and
+  // the URL it's saved in) only track the *current* run, so a fresh reload
+  // or the reset link used to drop "Your best" back to nothing despite an
+  // earlier, higher run.
   const BEST_SCORE_KEY = "chezzBestScore";
 
   function loadBestScore() {
@@ -2505,18 +2484,6 @@
       localStorage.setItem(BEST_SCORE_KEY, JSON.stringify(best));
     }
     renderScore(el, best ? { rank: best.rank, floor: best.floor, url: best.url, name: getPlayerName() } : null, "No runs yet.");
-  }
-
-  async function refreshLeaderboards() {
-    renderMyBest();
-    if (!LEADERBOARD_URL) return;
-    try {
-      const [today, allTime] = await Promise.all([fetchTopScore("today"), fetchTopScore("all")]);
-      renderScore(document.getElementById("leaderboardToday"), today, "No scores yet today.");
-      renderScore(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
-    } catch (err) {
-      // best-effort -- offline or unreachable just leaves whatever was shown last
-    }
   }
 
   // Coarse "Xm/h/d ago" -- this is a proof-of-life readout, not a precise
@@ -2619,7 +2586,7 @@
   // every time, rather than patching individual cells.
   function renderBoard() {
     const rank = currentKingRank();
-    if (rank > state.maxRank) { state.maxRank = rank; renderMyBest(); submitScore(rank); }
+    if (rank > state.maxRank) { state.maxRank = rank; renderMyBest(); }
 
     const stage = NARRATIVE_STAGES[state.floor - 1];
     const banner = document.getElementById("campaignBanner");
@@ -2723,7 +2690,7 @@
 
   window.addEventListener("popstate", loadFromUrl);
   loadFromUrl();
-  refreshLeaderboards();
+  renderMyBest();
   refreshSweepStatus();
   refreshChangelog();
 </script>

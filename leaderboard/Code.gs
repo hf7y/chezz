@@ -1,19 +1,16 @@
-// Chezz leaderboard + bug-report backend -- bind this to the
+// Chezz bug-report + sweep-status backend -- bind this to the
 // "Chezz_Leaderboard" Google Sheet (Extensions > Apps Script, paste this in,
 // replacing the boilerplate) then Deploy > New deployment > type "Web app" >
 // Execute as "Me" > Who has access "Anyone" > Deploy. The resulting /exec
 // URL is the one endpoint the game (or anything else) calls for submitting
-// scores, submitting bug reports, and reading the leaderboard.
+// bug reports and reading them back.
 //
-// Submit a score:
-//   fetch(WEB_APP_URL, {
-//     method: "POST",
-//     headers: { "Content-Type": "text/plain" }, // avoids a CORS preflight
-//     body: JSON.stringify({ type: "score", name, floor, rank, dateKey, history }),
-//   });
-//   `history` is optional and unused today -- reserved for a future replay
-//   log (move list / FEN sequence) so a suspicious high score can be
-//   audited later. Send it as any JSON-serializable value, or omit it.
+// The score leaderboard this endpoint used to also carry (submit + read a
+// top-N) was dropped 2026-09-01 (hf7y/chezz#15, "Option C" -- confirmed by
+// Zach: "leaderboard is cosmetic... park it"). The game keeps a purely
+// local "Your best" instead; nothing here writes or reads a Scores sheet
+// anymore. The Sheet/deployment name predates that and is unchanged so the
+// bug-report/sweep-status channel doesn't need a new URL.
 //
 // Submit a bug report (lands on its own "BugReports" tab in the same sheet).
 // New reports always start life with status "open". `kind` ("bug" or
@@ -47,14 +44,6 @@
 //   its actual kind; a feature idea shouldn't sit in the bug queue under
 //   status "open" waiting on a decision nobody's obligated to make.
 //
-// Read the leaderboard:
-//   fetch(WEB_APP_URL + "?scope=today&dateKey=" + todayKey())  -- today's board
-//   fetch(WEB_APP_URL + "?scope=all")                          -- all-time board
-//   Both accept &limit=N (default 20). Response is a JSON array, highest
-//   rank first: [{ timestamp, dateKey, name, floor, rank }, ...]
-//   (history is intentionally not included in read results, to keep the
-//   leaderboard payload small -- look it up in the sheet directly if needed.)
-//
 // Read bug reports (newest first):
 //   fetch(WEB_APP_URL + "?scope=bugs")  -- accepts &limit=N (default 20),
 //   &status=open|resolved|all (default "open" -- the whole point of
@@ -83,8 +72,6 @@
 //   Response: { timestamp, fetched, fixed, reclassified, leftOpen } or
 //   null if no sweep has ever reported in.
 
-const SCORES_SHEET_NAME = "Scores";
-const SCORES_HEADERS = ["timestamp", "dateKey", "name", "floor", "rank", "history"];
 const BUGS_SHEET_NAME = "BugReports";
 // `type` appended at the end (not inserted between existing columns) so
 // rows written before this column existed keep every other value at its
@@ -121,18 +108,6 @@ function getBugsSheet_() {
   return sheet;
 }
 
-function getScoresSheet_() {
-  const sheet = getOrCreateSheet_(SCORES_SHEET_NAME, SCORES_HEADERS);
-  // Google Sheets auto-detects date-like text (e.g. a bare "7-13") and
-  // silently converts it to a real date cell, which then never string-
-  // matches the same value again in doGet's "today" filter. Force the
-  // whole dateKey column to plain text so a write can never be coerced,
-  // regardless of what format the client happens to send.
-  const dateKeyCol = SCORES_HEADERS.indexOf("dateKey") + 1;
-  sheet.getRange(2, dateKeyCol, Math.max(sheet.getMaxRows() - 1, 1), 1).setNumberFormat("@");
-  return sheet;
-}
-
 // PRIVILEGED WRITES (hf7y/chezz#40). The deployment is ANYONE_ANONYMOUS and
 // cannot stop being: the /exec id is in browser JS and in ~90 blobs of
 // index1.html, so it is public by construction. Protection has to be
@@ -146,9 +121,9 @@ function getScoresSheet_() {
 // life readout the live page shows. Gating them on a shared secret costs the
 // page nothing because the page never calls them.
 //
-// `score` and `bug` stay open. They are browser-called, so any token they
-// carried would ship in page source, and the blast radius is noise (a spammed
-// sheet) rather than a falsified record.
+// `bug` stays open. It is browser-called, so any token it carried would ship
+// in page source, and the blast radius is noise (a spammed sheet) rather
+// than a falsified record.
 //
 // FAILS CLOSED. If the WRITE_TOKEN script property is unset, every privileged
 // write is refused. An auth check that passes when it is unconfigured is not
@@ -182,20 +157,7 @@ function doPost(e) {
   if (body.type === "bug") return submitBugReport_(body);
   if (body.type === "resolve") return isAuthorizedWrite_(body) ? resolveBugReport_(body) : refused_();
   if (body.type === "sweep-status") return isAuthorizedWrite_(body) ? recordSweepStatus_(body) : refused_();
-  return submitScore_(body);
-}
-
-function submitScore_(body) {
-  const sheet = getScoresSheet_();
-  const name = String(body.name || "anonymous").slice(0, MAX_NAME_LENGTH);
-  const floor = Number(body.floor) || 0;
-  const rank = Number(body.rank) || 0;
-  const dateKey = String(body.dateKey || "");
-  const history = body.history !== undefined ? JSON.stringify(body.history) : "";
-
-  sheet.appendRow([new Date(), dateKey, name, floor, rank, history]);
-
-  return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unknown type" }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -264,34 +226,13 @@ function resolveBugReport_(body) {
 }
 
 function doGet(e) {
-  const scope = (e.parameter.scope || "all");
+  const scope = e.parameter.scope || "";
   const limit = Number(e.parameter.limit) || DEFAULT_LIMIT;
 
   if (scope === "bugs") return getBugReports_(limit, e.parameter.status || DEFAULT_BUG_STATUS, e.parameter.type || DEFAULT_BUG_TYPE);
   if (scope === "sweep-status") return getSweepStatus_();
 
-  const sheet = getScoresSheet_();
-  const rows = sheet.getDataRange().getValues();
-  const [header, ...data] = rows;
-  const col = name => header.indexOf(name);
-
-  let entries = data.map(r => ({
-    timestamp: r[col("timestamp")],
-    dateKey: r[col("dateKey")],
-    name: r[col("name")],
-    floor: r[col("floor")],
-    rank: r[col("rank")],
-  }));
-
-  if (scope === "today") {
-    const dateKey = e.parameter.dateKey || "";
-    entries = entries.filter(x => x.dateKey === dateKey);
-  }
-
-  entries.sort((a, b) => b.rank - a.rank);
-  const top = entries.slice(0, limit);
-
-  return ContentService.createTextOutput(JSON.stringify(top))
+  return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unknown scope" }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
