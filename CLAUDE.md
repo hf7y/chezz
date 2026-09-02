@@ -39,13 +39,24 @@ implement -- not something to silently emulate inline without actually
 invoking it, since part of its value is the durable record it leaves in
 `DESIGN-NOTES.md` and the issue tracker.
 
-## Push permission (2026-07-22, human-directed)
+## Landing work (2026-07-22; corrected 2026-09-02)
 
-Claude may push committed changes directly to `origin/main` without
-asking each time, for ordinary work in this repo. Flag every such push in
-the next report/summary (what was pushed, why, and how to revert it —
-`git revert <sha>`). This does not license skipping review of what goes
-into a commit in the first place, only the push step itself.
+Open a branch and a PR, then merge on green — do not push to
+`origin/main` directly. The 2026-07-22 grant here said Claude could push
+straight to `origin/main` for ordinary work; this account's own permission
+provisioner (`selfdev-permissions-provision.sh` in hf7y/realisateur) denies
+`git push origin main` and `git push origin HEAD:main` outright, so the
+grant described a route the harness already refuses
+(hf7y/realisateur#801). Land by branch + PR instead, matching how work has
+actually been landing here. Flag every merge in the next report/summary
+(what shipped, why, and how to revert it — `git revert <sha>`). This
+does not license skipping review of what goes into a commit, only the
+push/merge step. Read it:
+
+```
+gh api repos/hf7y/chezz/branches/main/protection \
+  --jq '{admins: .enforce_admins.enabled, checks: .required_status_checks.contexts}'
+```
 
 
 
