@@ -1,18 +1,11 @@
 // report.js -- the in-game report channel, backed by GitHub Issues.
+// Replaces leaderboard/Code.gs (hf7y/chezz#83), keeping its ?scope=
+// interface so index1.html changes one URL constant and nothing else.
 //
-// Replaces the Apps Script at leaderboard/Code.gs (hf7y/chezz#83). It keeps
-// that endpoint's ?scope= interface exactly, so index1.html changes one URL
-// constant and nothing else.
-//
-// THE CREDENTIAL LIVES HERE AND ONLY HERE. A browser cannot hold a GitHub
-// token -- it ships to every player -- which is the entire reason a server
-// exists in this path. GITHUB_ISSUE_TOKEN is set in Netlify's environment,
-// fine-grained to hf7y/chezz with issues:write, and is never echoed.
-//
-// Reads are proxied rather than sent straight to api.github.com from the
-// page: this repo is public so the browser COULD read it unauthenticated,
-// but that is 60 requests/hour per IP shared across every player behind one
-// NAT. Proxying spends the token's 5000/hour instead.
+// THE CREDENTIAL LIVES HERE AND ONLY HERE -- a browser shipping a GitHub
+// token to every player is the reason a server exists in this path. Reads
+// are proxied too, so the token's 5000/hour is shared instead of a public,
+// per-IP 60/hour across every player behind one NAT.
 
 const REPO = "hf7y/chezz";
 const LABEL = "player-report";
@@ -39,9 +32,7 @@ function gh(path, token, init = {}) {
   });
 }
 
-// An issue carries the report's fields in a fenced block so the round trip
-// survives: what the page sent is what a later GET renders, rather than a
-// paragraph someone has to parse back.
+// A fenced block carries the report's fields so a later GET round-trips them.
 function issueBody({ name, url, kind, description }) {
   return [
     description,
@@ -75,8 +66,7 @@ export default async (req) => {
   const token = Netlify.env.get("GITHUB_ISSUE_TOKEN");
   const scope = new URL(req.url).searchParams;
 
-  // FAILS LOUDLY. A missing credential must say so, not accept a report and
-  // drop it -- silently swallowing reports is the failure this replaces.
+  // FAILS LOUDLY -- silently swallowing a report is the failure this replaces.
   if (!token) {
     return json({ ok: false, error: "GITHUB_ISSUE_TOKEN is not set on this site" }, 503);
   }
@@ -84,8 +74,7 @@ export default async (req) => {
   if (req.method === "POST") {
     let payload;
     try {
-      // The page sends text/plain to dodge a CORS preflight, so the body is
-      // JSON in a text content type rather than application/json.
+      // text/plain (not application/json) is how the page dodges a CORS preflight.
       payload = JSON.parse(await req.text());
     } catch {
       return json({ ok: false, error: "body is not JSON" }, 400);
@@ -99,7 +88,6 @@ export default async (req) => {
 
     const kind = payload.kind === "idea" ? "idea" : "bug";
     const name = /^[0-9a-f]{6}$/.test(String(payload.name || "")) ? payload.name : "unknown";
-    // The build URL is echoed into the issue, so it is not taken on trust.
     const build = String(payload.url || "").startsWith("http")
       ? String(payload.url).slice(0, 300)
       : "(not supplied)";

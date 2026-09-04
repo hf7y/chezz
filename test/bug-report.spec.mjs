@@ -9,13 +9,9 @@
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
-// LEADERBOARD_URL is now a path relative to the page's own origin
-// (hf7y/chezz#83) rather than an absolute script.google.com URL. Under this
-// suite's file:// origin, a relative fetch() resolves to a file: URL, which
-// Chromium's Fetch API refuses outright -- it never reaches the network
-// stack, so page.route() (a network-layer hook) cannot see or answer it.
-// Stubbing window.fetch in-page is the level this actually has to be mocked
-// at now.
+// LEADERBOARD_URL is now relative (hf7y/chezz#83); under file:// that fetch
+// never reaches the network stack for page.route() to see, so window.fetch
+// is stubbed in-page instead.
 async function routePosts(page) {
   const posted = [];
   await page.exposeFunction("__recordPost", body => posted.push(body));

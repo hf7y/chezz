@@ -2376,12 +2376,8 @@
 
   const CAPTURED_DISPLAY_ORDER = ["m", "q", "c", "a", "r", "b", "n", "p"];
 
-  // Bug/feature reports and the sweep-status proof-of-life readout, both
-  // fire-and-forget/best-effort (see leaderboard/Code.gs). The server-side
-  // score leaderboard this endpoint used to also carry was dropped
-  // 2026-09-01 (issue #15, "Option C" -- confirmed by Zach) in favor of the
-  // purely-local "Your best" below; the URL/name are unchanged since bug
-  // reports and sweep-status still live on the same Apps Script deployment.
+  // Bug/feature reports and the sweep-status readout are fire-and-forget,
+  // served by netlify/functions/report.js (hf7y/chezz#83) now, not Code.gs.
   const LEADERBOARD_URL = "/.netlify/functions/report";
   const TRACKER_URL = "https://github.com/hf7y/chezz/issues?q=is%3Aissue+label%3Aplayer-report";
 
