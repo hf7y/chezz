@@ -1,0 +1,6 @@
+# Build config in git, not a web form: Netlify prefers this over the UI's
+# settings, and a recipe in a dashboard cannot be diffed or reverted.
+[build]
+  command = "bash bin/build-site.sh"
+  publish = "_site"
+  functions = "netlify/functions"
