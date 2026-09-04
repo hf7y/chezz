@@ -39,10 +39,10 @@ implement -- not something to silently emulate inline without actually
 invoking it, since part of its value is the durable record it leaves in
 `DESIGN-NOTES.md` and the issue tracker.
 
-## Landing work (2026-07-22; corrected 2026-09-02)
+## Landing work
 
 Open a branch and a PR, then merge on green — do not push to
-`origin/main` directly. The 2026-07-22 grant here said Claude could push
+`origin/main` directly. An earlier grant here said Claude could push
 straight to `origin/main` for ordinary work; this account's own permission
 provisioner (`selfdev-permissions-provision.sh` in hf7y/realisateur) denies
 `git push origin main` and `git push origin HEAD:main` outright, so the
