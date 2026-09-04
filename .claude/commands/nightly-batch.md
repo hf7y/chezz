@@ -19,9 +19,15 @@ There is no file channel; the issue tracker is the only one.
 `git log --oneline -10`, current branch state, `README.md` if one exists,
 and the open issue list. If the previous nightly run left work in progress
 (check the last report under `~/reports/chezz/`), pick up from there
-rather than starting over. Also fetch the full tracker backlog with
-`&status=all&type=all` (see `leaderboard/Code.gs`'s doc comment) so
-nothing already resolved gets re-investigated.
+rather than starting over. Also fetch the full tracker backlog --
+
+```
+gh issue list --repo hf7y/chezz --label player-report --state all \
+  --json number,state,title,labels,createdAt --limit 200
+```
+
+(see `netlify/functions/report.js`) so nothing already resolved gets
+re-investigated.
 
 **First run `npm run check-answers`.** Questions moved to GitHub issues on
 2026-07-28 (see below); this verifies that the issues API is actually
@@ -94,34 +100,37 @@ before building further on top of it.
 
 ## 3. Work the feature backlog first, then backup work
 
-Per autopilot mode (confirmed 2026-07-17): fetch
-`&status=open&type=feature`, oldest first. The backlog is large (~45+
-open as of 2026-07-17) -- work through it until the turn/time budget
-runs low, then move to step 5; do not rush every report just to reach
-zero in one night. For each report: implement it, fix it directly if
-it's actually a mis-filed bug, defer it with a real reason, or skip it as
-a duplicate/too-vague -- see `DESIGN-NOTES.md` for exactly what
-distinguishes those four outcomes. For anything implemented or bug-fixed: extend
-`test/*.spec.mjs`, commit referencing what was built, then mark it
-resolved on the tracker the same way `/bug-sweep` resolves bug reports:
+Per autopilot mode (confirmed 2026-07-17): fetch the feature backlog,
+oldest first --
 
 ```
-curl -sL "$URL" -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp>","status":"resolved","note":"Shipped in <hash>: <one-line summary>"}'
+gh issue list --repo hf7y/chezz --label player-report --label idea --state open \
+  --json number,title,body,createdAt --limit 100
 ```
 
-(No `-X POST` — curl already POSTs when given a body, and an explicit
-`-X POST` gets re-applied to the Apps Script redirect chain and breaks
-the write. Never trust the POST's own response either way; confirm by
-re-fetching the report's state.)
+The backlog is large (~45+ open as of 2026-07-17) -- work through it
+until the turn/time budget runs low, then move to step 5; do not rush
+every report just to reach zero in one night. For each report: implement
+it, fix it directly if it's actually a mis-filed bug, defer it with a
+real reason, or skip it as a duplicate/too-vague -- see `DESIGN-NOTES.md`
+for exactly what distinguishes those four outcomes. For anything
+implemented or bug-fixed: extend `test/*.spec.mjs`, commit referencing
+what was built, then close it the same way `/bug-sweep` resolves bug
+reports (a report is a GitHub issue now, `player-report` + `bug`/`idea`
+labels -- see that file's step 5 for the full set):
 
-For anything deferred or skipped, the same endpoint with `"status":"open"`
-plus a note (deferred) -- or leave it as-is and just explain why in the
-report (skipped as duplicate/mis-filed). Commit as you complete each
-feature, not all in one giant commit at the end. Once the backlog is
-empty or everything in it this round was resolved/deferred/skipped, move
-to the backup work named in `DESIGN-NOTES.md` (the two standing open
-engineering questions, or bug reports Tier 1 left open needing a human call).
+```
+gh issue close <N> --repo hf7y/chezz --comment "Shipped in <hash>: <one-line summary>"
+```
+
+For anything deferred, `gh issue comment <N> --repo hf7y/chezz --body
+"<why deferred>"` and leave it open -- or leave it as-is and just explain
+why in the report (skipped as duplicate/mis-filed). Commit as you
+complete each feature, not all in one giant commit at the end. Once the
+backlog is empty or everything in it this round was
+resolved/deferred/skipped, move to the backup work named in
+`DESIGN-NOTES.md` (the two standing open engineering questions, or bug
+reports Tier 1 left open needing a human call).
 
 **Park-by-default triage for new vision-scale ideas** (scaffold
 convention, vault:realisateur/STABILITY-MILESTONES.md, adopted 2026-07-25):
@@ -146,11 +155,14 @@ anyway -- #36, #29), and the Apps Script sweep dispatch went with them.
 Nothing else reads the tracker, so a report left unfetched here is a report
 nobody ever sees.
 
-Fetch `&type=bug&status=open` and triage every report through
-`/bug-sweep`'s step 2 buckets, then implement, note, or reclassify it by
-that command's steps 3 and 5 -- it is still the procedure, it just has no
-separate runner any more. `NIGHTLY:`-prefixed notes are the same tier, not
-a lower one: those are unambiguous defects a past sweep punted here.
+Fetch `gh issue list --repo hf7y/chezz --label player-report --label bug
+--state open --json number,title,body,comments --limit 100` and triage
+every report through `/bug-sweep`'s step 2 buckets, then implement, note,
+or reclassify it by that command's steps 3 and 5 -- it is still the
+procedure, it just has no separate runner any more. A report's `comments`
+carry any prior sweep's notes now (there is no separate tracker note
+field); check the last comment for a `NIGHTLY:` prefix -- those are the
+same tier, not a lower one: unambiguous defects a past sweep punted here.
 
 ## 4. Stress-test what you built
 
