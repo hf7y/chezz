@@ -5,11 +5,7 @@
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
-// LEADERBOARD_URL is now relative to the page's own origin (hf7y/chezz#83).
-// Under this suite's file:// origin a relative fetch() resolves to a file:
-// URL, which Chromium's Fetch API refuses before it ever reaches the network
-// stack -- page.route() (a network-layer hook) cannot see it. Stubbing
-// window.fetch in-page mocks at the level this now actually happens at.
+// See routePosts in bug-report.spec.mjs: same file:// relative-fetch fix.
 async function routeSweepStatus(page, status) {
   await page.addInitScript(statusJson => {
     const real = window.fetch.bind(window);

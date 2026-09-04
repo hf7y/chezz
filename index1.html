@@ -2530,9 +2530,7 @@
     const summary = document.getElementById("changelogSummary");
     const source = document.getElementById("changelogSource");
     if (!list || !summary || !LEADERBOARD_URL) return;
-    // The "view the full tracker" link always works, even if the fetch below
-    // fails. It points at the issue list itself rather than the function,
-    // which would answer a browser with raw JSON.
+    // Points at the issue list, not the function (which answers with raw JSON).
     if (source) source.href = TRACKER_URL;
     summary.textContent = "Loading recent updates…";
     try {

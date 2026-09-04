@@ -83,15 +83,7 @@ test("a \"Black is thinking\" indicator shows while the search runs and clears o
   expect(result.textAfter).toBe("");
 });
 
-// refreshChangelog/refreshSweepStatus fetch LEADERBOARD_URL on every load.
-// It is now a RELATIVE path to a Netlify function, so under file:// it
-// resolves against the file:// origin instead of crossing one. The Fetch
-// API refuses the file: scheme outright rather than returning a network
-// error for it, so Chromium logs "URL scheme ... is not supported" here
-// instead of the ERR_FILE_NOT_FOUND/CORS noise other paths produce. The
-// game's try/catch handles the rejection; what it cannot suppress is the
-// browser's own network-layer console.error. Expected noise under file://,
-// not a page bug -- anything else still fails this.
+// Relative LEADERBOARD_URL hits file: under file://, logging this instead of the old CORS noise.
 const EXPECTED_CORS_NOISE =
   /blocked by CORS policy|net::ERR_FAILED|net::ERR_FILE_NOT_FOUND|net::ERR_ABORTED|URL scheme "file" is not supported/;
 
