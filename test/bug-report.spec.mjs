@@ -9,16 +9,20 @@
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
+// Relative LEADERBOARD_URL (#83) hits file: under file://; stub fetch, page.route() can't see it.
 async function routePosts(page) {
   const posted = [];
-  await page.route("**/macros/s/**", async route => {
-    const req = route.request();
-    if (req.method() === "POST") {
-      posted.push(JSON.parse(req.postData()));
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
-    } else {
-      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
-    }
+  await page.exposeFunction("__recordPost", body => posted.push(body));
+  await page.addInitScript(() => {
+    const real = window.fetch.bind(window);
+    window.fetch = (url, init = {}) => {
+      if (!String(url).includes("/.netlify/functions/report")) return real(url, init);
+      if (init.method === "POST") {
+        window.__recordPost(JSON.parse(init.body));
+        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      }
+      return Promise.resolve(new Response("[]", { status: 200 }));
+    };
   });
   return posted;
 }

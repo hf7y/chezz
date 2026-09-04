@@ -83,15 +83,9 @@ test("a \"Black is thinking\" indicator shows while the search runs and clears o
   expect(result.textAfter).toBe("");
 });
 
-// refreshChangelog/refreshSweepStatus fetch LEADERBOARD_URL (a
-// script.google.com endpoint) on every load. The game's own try/catch
-// around that fetch already handles the rejection -- what it can't
-// suppress is the browser's OWN network-layer console.error for a
-// cross-origin request blocked by CORS, logged from file://'s null origin
-// regardless of any application-level catch. That's expected noise, not a
-// page bug, so it's the one message this assertion knowingly excludes;
-// anything else still fails it.
-const EXPECTED_CORS_NOISE = /blocked by CORS policy|net::ERR_FAILED/;
+// Relative LEADERBOARD_URL hits file: under file://, logging this instead of the old CORS noise.
+const EXPECTED_CORS_NOISE =
+  /blocked by CORS policy|net::ERR_FAILED|net::ERR_FILE_NOT_FOUND|net::ERR_ABORTED|URL scheme "file" is not supported/;
 
 test("loads with no console or page errors", async ({ page }) => {
   const errors = [];

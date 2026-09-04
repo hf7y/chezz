@@ -2382,7 +2382,8 @@
   // 2026-09-01 (issue #15, "Option C" -- confirmed by Zach) in favor of the
   // purely-local "Your best" below; the URL/name are unchanged since bug
   // reports and sweep-status still live on the same Apps Script deployment.
-  const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec";
+  const LEADERBOARD_URL = "/.netlify/functions/report";
+  const TRACKER_URL = "https://github.com/hf7y/chezz/issues?q=is%3Aissue+label%3Aplayer-report";
 
   // A 6-hex-digit id doubles as a #rrggbb color, so a player shows as a
   // swatch instead of a name -- no prompt, nothing identifying.
@@ -2529,9 +2530,8 @@
     const summary = document.getElementById("changelogSummary");
     const source = document.getElementById("changelogSource");
     if (!list || !summary || !LEADERBOARD_URL) return;
-    // The "view the full tracker" link always works, even if the fetch below
-    // fails -- it points at the same public read the automation itself uses.
-    if (source) source.href = `${LEADERBOARD_URL}?scope=bugs&status=all&type=all`;
+    // Points at the issue list, not the function (which answers with raw JSON).
+    if (source) source.href = TRACKER_URL;
     summary.textContent = "Loading recent updates…";
     try {
       const res = await fetch(`${LEADERBOARD_URL}?scope=bugs&status=resolved&type=all&limit=20`);

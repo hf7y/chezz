@@ -5,15 +5,18 @@
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
+// See routePosts in bug-report.spec.mjs: same file:// relative-fetch fix.
 async function routeSweepStatus(page, status) {
-  await page.route("**/macros/s/**", async route => {
-    const req = route.request();
-    if (req.method() === "GET" && req.url().includes("scope=sweep-status")) {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(status) });
-    } else {
-      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
-    }
-  });
+  await page.addInitScript(statusJson => {
+    const real = window.fetch.bind(window);
+    window.fetch = (url, init = {}) => {
+      if (!String(url).includes("/.netlify/functions/report")) return real(url, init);
+      if (String(url).includes("scope=sweep-status")) {
+        return Promise.resolve(new Response(statusJson, { status: 200 }));
+      }
+      return Promise.resolve(new Response("[]", { status: 200 }));
+    };
+  }, JSON.stringify(status));
 }
 
 test("shows the last sweep's timestamp and fix count", async ({ page }) => {
