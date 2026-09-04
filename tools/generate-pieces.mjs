@@ -138,10 +138,10 @@ async function generateOne(apiKey, spec) {
     // limit is literally 0, is not a transient hiccup and not specific to
     // this piece: it says this key cannot call this model AT ALL. Retrying
     // the other 17 cannot succeed, so mark it fatal and let main() abort the
-    // whole run. Witnessed 2026-07-28: a first live run burned all 18 calls
-    // against `generate_content_free_tier_requests, limit: 0` (the image
-    // model has no free tier) and printed 18 near-identical stack-height
-    // paragraphs, burying the one line that actually mattered. Zero dollars
+    // whole run. A live run once burned every call against
+    // `generate_content_free_tier_requests, limit: 0` (the image model has no
+    // free tier), printing one near-identical stack-height paragraph per
+    // call and burying the line that actually mattered. Zero dollars
     // lost -- the account was unbilled, which is exactly why it failed -- but
     // on a BILLED key the same bug spends 18x the cost of learning one fact.
     error.fatal = isFatalApiError(response.status, text);

@@ -28,9 +28,9 @@ export const CONFIG_DIR = process.env.CHEZZ_CONFIG_DIR || path.join(os.homedir()
 export const LEDGER_PATH = path.join(CONFIG_DIR, "gemini-spend.json");
 export const KEY_PATH = path.join(CONFIG_DIR, "gemini.env");
 
-/* UNVERIFIED as of 2026-07-28 -- nobody has yet completed a single billed call
- * to check it against a real invoice, because billing was not enabled on the
- * account (see test/gemini-fatal.spec.mjs for that run). Treat every dollar
+/* UNVERIFIED: no billed call has ever been checked against a real invoice,
+ * because billing was not enabled on the account (see
+ * test/gemini-fatal.spec.mjs for that run). Treat every dollar
  * figure this module prints as an estimate until someone stamps this line
  * `# verified <date> via <invoice//pricing page>`. The call caps below are the
  * real guard precisely because they do not depend on this number. */
