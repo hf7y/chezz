@@ -15,12 +15,9 @@
     "pieces:wire": "node tools/wire-pieces.mjs",
     "pieces:spend": "node tools/gemini-budget.mjs",
     "earcons:generate": "node tools/generate-earcons.mjs",
-    "earcons:wire": "node tools/wire-earcons.mjs",
-    "sheet:push": "clasp push --force",
-    "sheet:status": "clasp status"
+    "earcons:wire": "node tools/wire-earcons.mjs"
   },
   "devDependencies": {
-    "@google/clasp": "^3.3.0",
     "@playwright/test": "^1.61.0"
   }
 }

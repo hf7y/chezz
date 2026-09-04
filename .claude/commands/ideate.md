@@ -28,8 +28,10 @@ turns have passed that the original `/ideate` framing feels distant.
 Pull real, current state before saying anything about status:
 - `git log --oneline -10`, `git status`, and diff local `main` against
   `origin/main` -- sync first if behind, same as any other run.
-- The live tracker, `&status=all&type=all` (see `leaderboard/Code.gs`'s
-  doc comment) -- don't trust a stale count from a prior report.
+- The live tracker -- `gh issue list --repo hf7y/chezz --label
+  player-report --state all --json number,state,title,labels --limit
+  200` (see `netlify/functions/report.js`) -- don't trust a stale count
+  from a prior report.
 - `DESIGN-NOTES.md` and the open GitHub issues on `hf7y/chezz` (`gh issue
   list --repo hf7y/chezz --state open`) -- the existing priority queue and
   any already-decided direction. Don't re-ask a settled decision.

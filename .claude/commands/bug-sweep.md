@@ -14,36 +14,37 @@ Run this by hand when you want a sweep between ticks.
 
 ## 1. Fetch open reports
 
-The tracker is a Google Apps Script endpoint (`leaderboard/Code.gs` in this
-repo documents the full API). Read it with `curl`, not the WebFetch tool —
-WebFetch gets stuck in a redirect loop against this endpoint (`/exec` →
-`googleusercontent.com/macros/echo` → back to `/exec`), while `curl -sL`
-follows it fine:
+The tracker is `netlify/functions/report.js` (hf7y/chezz#83, replacing the
+Google Apps Script backend whose deployment had drifted out of sync with
+git for weeks -- #82). Every report is a GitHub issue on this repo,
+labelled `player-report` plus `bug` or `idea`, so the fastest path is
+`gh` directly against the repo rather than the function's own read scope
+(which exists for the in-game page, not for a sweep that already has repo
+access):
 
 ```
-URL="$(grep -oP '(?<=const LEADERBOARD_URL = ")[^"]+' index1.html)"
-curl -sL "$URL?scope=bugs&status=open&limit=50"
+gh issue list --repo hf7y/chezz --label player-report --label bug --state open \
+  --json number,title,body,createdAt,labels --limit 100
 ```
 
-`$URL` set this way is what every other `curl` example in this file (steps 5
-and 6) assumes is already in your shell -- deriving it from `index1.html`'s
-own `LEADERBOARD_URL` constant means a redeploy under a new id only needs
-that one line changed, not this doc too (hf7y/chezz#35 named this exact
-duplication).
+Each report's `body` ends with a machine-readable footer
+(`netlify/functions/report.js`'s `issueBody`):
 
-`scope=bugs` defaults to `&type=bug` — feature requests (`type=feature`)
-don't come back unless you ask for them explicitly with `&type=feature` or
-`&type=all`. That's deliberate: the bug queue is only things that must
-eventually be fixed or explicitly reclassified out, not a mixed backlog of
-defects and ideas.
+```
+- player: `<6-hex name>`
+- build: <the exact in-game position URL the reporter was looking at>
+- kind: bug|idea
+```
 
-Each report has `{timestamp, name, url, description, status, note, type}`.
-The `url` is the exact in-game position (FEN/floor/budget/captured/maxRank)
-the reporter was looking at when they filed it — open it in context if the
-description alone isn't enough to understand the bug. Reporters pick "bug"
-vs. "feature" for themselves when filing (two separate links in the game
-UI), so most reports arrive already correctly classified — but read the
-description anyway, since a reporter can still misjudge their own report.
+Open the `build` URL in context if the description text alone isn't
+enough to understand the bug. Reporters pick "bug" vs. "feature" for
+themselves when filing (two separate links in the game UI), so most
+reports arrive already correctly labelled -- but read the description
+anyway, since a reporter can still misjudge their own report.
+
+`gh issue list --label player-report --label idea --state open` is the
+feature backlog `/nightly-batch` step 3 works from; this fast sweep only
+triages the `bug`-labelled queue (see step 2).
 
 ## 2. Triage every report into exactly one bucket
 
@@ -85,17 +86,9 @@ which is where feature implementation actually happens.
 ## 3. Implement each mechanical fix
 
 - Locate the relevant code (this is a single-file game in `index1.html`;
-  `leaderboard/Code.gs` is the separate tracker backend).
-- If the fix touches `leaderboard/Code.gs`: run `npm run sheet:push` to sync
-  it to the Apps Script project (clasp is configured via the repo-root
-  `.clasp.json`). This updates HEAD only — it does **not** affect the live
-  `/exec` endpoint by itself. Making it live means a human has to open the
-  Apps Script editor → Deploy → Manage deployments → edit the existing Web
-  App deployment → New version → Deploy (a Workspace domain restriction
-  blocks doing this step via clasp/API even with edit access — see
-  `leaderboard/Code.gs`'s own comments for the deployment ID this must
-  target). Tell the user this step is needed rather than assuming it
-  happened; don't consider a Code.gs fix actually live until confirmed.
+  `netlify/functions/report.js` is the separate tracker backend, deployed
+  by Netlify straight from `main` -- no separate push/deploy step exists
+  for it the way Apps Script needed one).
 - Write or extend a regression test in `test/*.spec.mjs` for the fix.
 - **Verify the test actually catches the bug**: temporarily revert your
   fix, confirm the new test fails, then reapply the fix and confirm it
@@ -124,62 +117,57 @@ never `--admin`, never push `main` directly.
 
 ## 5. Update the tracker
 
-For each report you fixed, mark it resolved, referencing the commit hash:
+A report IS a GitHub issue now (`player-report` + `bug`/`idea` labels), so
+resolving, reclassifying, and noting are ordinary issue operations against
+this repo, not writes through the function.
+
+For each report you fixed, close it referencing the commit hash:
 
 ```
-curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"resolved","note":"Fixed in <hash>: <one-line summary>"}'
+gh issue close <N> --repo hf7y/chezz --comment "Fixed in <hash>: <one-line summary>"
 ```
 
 For a report that's actually a feature idea, reclassify it instead of
-resolving or noting it in place — this moves it out of the bug queue into
+closing or noting it in place — this moves it out of the bug queue into
 the feature backlog, open, so it doesn't need re-triaging on every future
 sweep:
 
 ```
-curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"open","reportType":"feature","note":"<why this is an idea, not a defect>"}'
+gh issue edit <N> --repo hf7y/chezz --remove-label bug --add-label idea
+gh issue comment <N> --repo hf7y/chezz --body "<why this is an idea, not a defect>"
 ```
 
-For a genuine bug that needs a human call on the fix itself, attach a note
-but leave it in the bug queue, status open:
+For a genuine bug that needs a human call on the fix itself, comment but
+leave it in the bug queue, open:
 
 ```
-curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"open","note":"Needs: <what a real fix/decision would require>"}'
+gh issue comment <N> --repo hf7y/chezz --body "Needs: <what a real fix/decision would require>"
 ```
 
 For a genuine bug that's unambiguous but too big for this sweep, same
-call, but prefix the note with `NIGHTLY:` so `/nightly-batch`'s backup-work
-pass recognizes it as a punted implementation task rather than a stalled
-human-call item:
+call, but prefix the comment with `NIGHTLY:` so `/nightly-batch`'s
+backup-work pass recognizes it as a punted implementation task rather than
+a stalled human-call item:
 
 ```
-curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"resolve","token":"'"$CHEZZ_WRITE_TOKEN"'","timestamp":"<exact timestamp string>","status":"open","note":"NIGHTLY: <what the real fix needs -- scope, affected functions>"}'
+gh issue comment <N> --repo hf7y/chezz --body "NIGHTLY: <what the real fix needs -- scope, affected functions>"
 ```
 
-**Gotcha**: the POST response through Apps Script's redirect chain is
-unreliable — it can show a fake "Page Not Found" or a false error on a
-write that actually succeeded. Never trust the HTTP response body/status
-from a POST here. Always confirm by re-fetching `?scope=bugs&status=open`
-afterward and checking the report no longer appears (or does, if you
-reopened one).
+Confirm by re-fetching `gh issue list --label player-report --label bug
+--state open` afterward and checking the report no longer appears (or
+does, if you reopened one, or reclassified it out of the `bug` label).
 
-## 6. Record this sweep's status
+## 6. Sweep status is automatic -- nothing to record
 
-Every run posts this, even a run that fixed nothing -- it's how the live
-page shows proof that the sweep is still running instead of only a log
-nobody's watching:
+`?scope=sweep-status` on `netlify/functions/report.js` computes its answer
+live from the most recently *closed* `player-report` issue -- there is no
+separate status write to make, and nothing here can get out of sync with
+what you actually closed in step 5. Optionally confirm the in-game "Bug
+sweep last ran…" line will pick up this sweep:
 
 ```
-curl -sL "$URL" -X POST -H "Content-Type: text/plain" \
-  --data-raw '{"type":"sweep-status","token":"'"$CHEZZ_WRITE_TOKEN"'","fetched":<N>,"fixed":<F>,"reclassified":<R>,"leftOpen":<L>}'
+curl -s "https://chezz.hf7y.com/.netlify/functions/report?scope=sweep-status"
 ```
-
-Use the same counts as the summary line below. This overwrites the single
-stored status (there's no history to preserve), and the timestamp is
-stamped server-side, not sent by you.
 
 ## 7. Report a summary
 
