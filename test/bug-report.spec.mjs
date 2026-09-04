@@ -9,16 +9,26 @@
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
+// LEADERBOARD_URL is now a path relative to the page's own origin
+// (hf7y/chezz#83) rather than an absolute script.google.com URL. Under this
+// suite's file:// origin, a relative fetch() resolves to a file: URL, which
+// Chromium's Fetch API refuses outright -- it never reaches the network
+// stack, so page.route() (a network-layer hook) cannot see or answer it.
+// Stubbing window.fetch in-page is the level this actually has to be mocked
+// at now.
 async function routePosts(page) {
   const posted = [];
-  await page.route("**/macros/s/**", async route => {
-    const req = route.request();
-    if (req.method() === "POST") {
-      posted.push(JSON.parse(req.postData()));
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
-    } else {
-      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
-    }
+  await page.exposeFunction("__recordPost", body => posted.push(body));
+  await page.addInitScript(() => {
+    const real = window.fetch.bind(window);
+    window.fetch = (url, init = {}) => {
+      if (!String(url).includes("/.netlify/functions/report")) return real(url, init);
+      if (init.method === "POST") {
+        window.__recordPost(JSON.parse(init.body));
+        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      }
+      return Promise.resolve(new Response("[]", { status: 200 }));
+    };
   });
   return posted;
 }
