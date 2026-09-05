@@ -7,12 +7,37 @@ set -euo pipefail
 
 OUT="${1:-_site}"
 CLASSIC_BRANCH="${CLASSIC_BRANCH:-chezz-classic}"
+# hf7y/chezz#83: Netlify (chezz.hf7y.com) is the one deployment that plays
+# the game at its own root now. GitHub Pages (hf7y.github.io/chezz/, also
+# reachable as hf7y.com/chezz/) shares this same script for /classic/ and
+# /nightly-builds/, so it can't just stop building -- it gets a redirect
+# page at its root instead of a second copy of the game. Netlify's build
+# never sets this, so its root stays the real game.
+ROOT_REDIRECT="${ROOT_REDIRECT:-}"
+NETLIFY_URL="https://chezz.hf7y.com/"
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-# index1.html is the whole game; it is served AS index.html at the root.
-cp index1.html "$OUT/index.html"
+if [ -n "$ROOT_REDIRECT" ]; then
+  cat > "$OUT/index.html" <<EOF
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0; url=$NETLIFY_URL">
+<link rel="canonical" href="$NETLIFY_URL">
+<title>Chezz has moved</title>
+</head>
+<body>
+<p>Chezz has moved to <a href="$NETLIFY_URL">$NETLIFY_URL</a>.</p>
+</body>
+</html>
+EOF
+else
+  # index1.html is the whole game; it is served AS index.html at the root.
+  cp index1.html "$OUT/index.html"
+fi
 cp -r nightly-builds "$OUT/nightly-builds"
 
 # Classic ships from its own branch. Netlify clones ONE branch, so the
