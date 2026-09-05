@@ -17,9 +17,11 @@ async function movesFor(page, board, piece, x, y) {
 }
 
 test("rook slides along its rank and file only, full length on an empty board", async ({ page }) => {
-  const moves = await movesFor(page, emptyBoard(), "R", 0, 0);
-  expect(moves.every(m => m.x === 0 || m.y === 0)).toBe(true);
-  expect(moves).toHaveLength(7 + 8); // row 0 minus self (7) + column 0 minus self (8)
+  // Row 1, not row 0 -- a White piece ON the exit row is committed and
+  // frozen (see exit-row-commit.spec.mjs), which is its own spec.
+  const moves = await movesFor(page, emptyBoard(), "R", 0, 1);
+  expect(moves.every(m => m.x === 0 || m.y === 1)).toBe(true);
+  expect(moves).toHaveLength(7 + 8); // row 1 minus self (7) + column 0 minus self (8)
 });
 
 test("bishop moves are always diagonal", async ({ page }) => {
