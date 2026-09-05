@@ -34,7 +34,7 @@ jobs:
 
       # bin/build-site.sh -- Netlify runs the same script; see its header.
       - name: Prepare site
-        run: bash bin/build-site.sh
+        run: ROOT_REDIRECT=1 bash bin/build-site.sh
 
       - name: Verify site has what it should
         run: |
