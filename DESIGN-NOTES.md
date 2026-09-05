@@ -24,8 +24,8 @@ replaced the Google Apps Script tracker (`leaderboard/Code.gs`, retired
 the server-side daily/all-time leaderboard it used to also back was
 dropped (issue #15, "Option C", confirmed by Zach) in favor of a
 purely-local "Your best" in the page itself. Live at
-https://chezz.hf7y.com/ (Netlify, #83) and https://hf7y.github.io/chezz/
-(GitHub Pages, unretired pending #66). Full deployment/CI shape in
+https://chezz.hf7y.com/ (Netlify, #83) — hf7y.github.io/chezz and
+hf7y.com/chezz redirect there now (#94). Full deployment/CI shape in
 [[project-chezz-automation]] (memory) — not repeated here.
 
 ## Decided direction (2026-07-20, human-directed)
