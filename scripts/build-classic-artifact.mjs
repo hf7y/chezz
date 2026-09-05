@@ -29,20 +29,19 @@ import path from "node:path";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 // Verbatim from narrative -- replaces classic's same-named definition.
-const CORE_SWAP = [
+// Terrain/army-cost names moved here from CORE_ADD once #104 ported them into
+// classic's shell.
+export const CORE_SWAP = [
   "legalMovesForPiece", "kingSafeAfterMove", "isLegalMove", "legalMovesFrom",
   "attackersOf", "findWhiteKing", "moveDangerLevel", "hasAnyLegalMove",
   "whiteSurvivesNextMove", "spendFromPool", "autoPromote", "applyMove",
   "getBlackMoveRuthless", "spawnBlackArmy", "checkFloorProgression",
-];
-// Not present in classic today -- added verbatim from narrative because a
-// CORE_SWAP entry above now depends on them (isEnemy/isFriendly's inert
-// terrain check, spawnBlackArmy's now-hoisted isSafeSquare/isDefendedSquare
-// and its armyCost helper, evaluateBoard's now-hoisted pieceValues).
-const CORE_ADD = [
   "TERRAIN_WALL", "TERRAIN_HOLE", "isTerrain",
   "isSafeSquare", "isDefendedSquare", "pieceValues", "armyCost",
 ];
+// Spliced in ahead of classic's first entry -- empty today, kept as the
+// mechanism for the next core function classic lacks.
+export const CORE_ADD = [];
 
 function run(cmd, args) {
   return execFileSync(cmd, args, { cwd: root, encoding: "utf8" });
@@ -123,14 +122,12 @@ function transformSpecialCases(narrative) {
   if (!spawn.includes(deathGateLine)) throw new Error("spawnBlackArmy -> death gate / floorStart: expected text not found -- narrative's shape changed, re-check this transform");
   const newSpawnEnd = "    state.spawned = true;\n    floorJustSpawned = true;\n    floorStart = boardToFen();\n  }";
   // Everything after spawnBlackArmy's OWN closing brace is capturedBankValue/
-  // placeDeathGate/etc.'s leading doc-comments (narrative-only functions
-  // this build never includes) -- truncate there instead of dragging them
-  // in front of whatever classic entry comes next.
+  // placeDeathGate/etc.'s narrative-only doc-comments -- truncate there
+  // instead of dragging them in front of classic's next entry.
   spawn = spawn.slice(0, spawn.indexOf(deathGateLine)) + newSpawnEnd + "\n";
   out.set("spawnBlackArmy", spawn);
 
-  // checkFloorProgression: drop the earcon call -- classic has no audio
-  // pipeline.
+  // checkFloorProgression: drop the earcon call -- classic has no audio.
   const cfp = mustReplace(out.get("checkFloorProgression"), '    playEarcon("floorClear");\n', "", "checkFloorProgression -> playEarcon");
   out.set("checkFloorProgression", cfp);
 
@@ -158,7 +155,7 @@ export function buildClassicArtifact({ narrativeHtml, classicHtml }) {
 
   const addBlock = CORE_ADD.map((name) => narrativeCore.get(name)).join("\n");
   const outEntries = [];
-  let addInserted = false;
+  let addInserted = CORE_ADD.length === 0;
   for (const name of classic.order) {
     if (!addInserted) {
       outEntries.push(addBlock);
