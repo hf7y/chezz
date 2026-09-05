@@ -193,15 +193,15 @@ list nightly-batch should start executing against.
      Explicitly associated with "Chezz Classic" below, not the current
      arcade-cabinet-reskinned build.
 
-## "Chezz Classic" — question 1 resolved 2026-07-20, questions 2/3 still open
+## "Chezz Classic" — all three questions resolved; work is #89
 
-Raised 2026-07-20: the user wants an older version of chezz — live at
-`hf7y.com/chezz.html`, which redirects to an OCF Berkeley-hosted copy
-(note: **not** `hf7y.github.io/chezz/`, the current live site this repo's
-automation deploys) — developed as **"its own production stream."** The
-user confirmed directly: the code lived on `main`, and narrative-campaign
-work eventually overwrote it there (file content, not git history — the
-commits themselves were never destroyed).
+Raised 2026-07-20: the user wants an older version of chezz — at the time,
+live at `hf7y.com/chezz.html`, which redirected to an OCF Berkeley-hosted
+copy (note: **not** `hf7y.github.io/chezz/`, the current live site this
+repo's automation deploys) — developed as **"its own production
+stream."** The user confirmed directly: the code lived on `main`, and
+narrative-campaign work eventually overwrote it there (file content, not
+git history — the commits themselves were never destroyed).
 
 **Resolved by git archaeology, not guesswork**: `readable-html` (an
 already-existing branch, still pushed to `origin`) is the **exact
@@ -217,28 +217,25 @@ pointing at that same commit (`git branch chezz-classic readable-html`),
 so it's a discoverable, purpose-named reference going forward instead of
 an ambiguous old branch name — `readable-html` itself was left alone
 (unchanged), `chezz-classic` is a second ref to the same commit.
-**Not independently verified against the live `hf7y.com/chezz.html`
-page** — this sandbox's network egress to `hf7y.com` times out (DNS
-resolves fine, TCP connect hangs; looks like a sandbox network
-restriction, not the site being down) — worth a real diff against the
-live page next time someone has working access, but the git-side evidence
-alone is solid enough to act on.
 
-**Still open, still needs the user (not a guess):**
-2. Is `hf7y.com`/the OCF-Berkeley host deployable-to from this machine or
-   any unattended run, or is publishing there always a manual step
-   regardless of what automation does?
-3. What does "its own production stream" mean concretely — a new
-   registered project in the `scheduler` ecosystem (its own repo/branch,
-   its own backlog, nightly cadence, sharing the same constrained account
-   budget every other registered project already competes for — see
-   [[project-chezz-automation]]'s spend-limit note), or something lighter
-   (e.g. occasional manual/interactive sessions against the new
-   `chezz-classic` branch, no unattended cron)?
+**Questions 2 and 3 answered by Zach, 2026-09-04 (realisateur `/ideate`),
+in hf7y/chezz#66:**
 
-Not acted on further until 2/3 are answered — the branch now exists and
-is safe either way, but registering it into the scheduler ecosystem is a
-real recurring-budget commitment that shouldn't be guessed into.
+2. `hf7y.com`'s topology has since changed: Zach repointed it away from
+   the OCF-Berkeley redirect, and it is now his GitHub Pages root
+   (confirmed 2026-09-04: `dig +short hf7y.com` resolves to GitHub
+   Pages' IPs, `hf7y/hf7y.github.io`'s Pages API reports `status:
+   "built"`, `cname: "hf7y.com"`, and `https://hf7y.com/chezz/` answers
+   200 — re-verified independently 2026-09-05, still 200). Publishing
+   there unattended is a solved problem now; the earlier "sandbox cannot
+   reach `hf7y.com`" note above was a stale artifact of the old topology,
+   not a standing restriction.
+3. Classic runs in the **same** stream as chezz narrative, not a second
+   registered scheduler project — one repo, one backlog, one intake.
+   That depends on the in-game report intake existing (#83) and on
+   classic and narrative sharing one engine (#89, see below).
+
+Both questions are closed out on #66 as of this write-up.
 
 ## Size policy — decided 2026-07-25 (human reply in that day's report)
 
