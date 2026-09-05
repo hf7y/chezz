@@ -256,8 +256,8 @@ The limit stays **enforced only on the `chezz-classic` branch**. Classic
 is the elegance/efficiency track: future dev passes there work to make
 the project *simpler*, with a stated long-term aspiration of fitting on
 a Game Boy classic cartridge. Caps on classic remain 50,000 soft /
-100,000 hard for now (classic is currently well under; the Game Boy
-target is an aspiration to design toward, not tonight's threshold).
+100,000 hard for now (measured 70,822 bytes on 2026-09-04, 142% of the
+soft target — not "well under" as stated here before; see #90).
 
 This supersedes: the 2026-07-14 "stop and revisit rather than cut
 comments" call (narrative side — moot now that nothing needs cutting),
