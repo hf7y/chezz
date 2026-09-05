@@ -18,6 +18,7 @@
     "earcons:wire": "node tools/wire-earcons.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.0"
+    "@playwright/test": "^1.61.0",
+    "html-minifier-terser": "^7.2.0"
   }
 }
