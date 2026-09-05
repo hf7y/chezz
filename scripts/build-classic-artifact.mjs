@@ -29,10 +29,8 @@ import path from "node:path";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 // Verbatim from narrative -- replaces classic's same-named definition.
-// TERRAIN_WALL/TERRAIN_HOLE/isTerrain/isSafeSquare/isDefendedSquare/
-// pieceValues/armyCost moved here from CORE_ADD once (#104, 9f6b421) landed
-// them in classic's own shell as a one-time port -- classic now defines
-// them itself, so a future engine fix reaches classic by swap, not add.
+// Terrain/army-cost names moved here from CORE_ADD once #104 ported them into
+// classic's shell.
 export const CORE_SWAP = [
   "legalMovesForPiece", "kingSafeAfterMove", "isLegalMove", "legalMovesFrom",
   "attackersOf", "findWhiteKing", "moveDangerLevel", "hasAnyLegalMove",
@@ -41,10 +39,8 @@ export const CORE_SWAP = [
   "TERRAIN_WALL", "TERRAIN_HOLE", "isTerrain",
   "isSafeSquare", "isDefendedSquare", "pieceValues", "armyCost",
 ];
-// Not present in classic yet -- spliced in verbatim from narrative, ahead of
-// classic's own first entry, because some CORE_SWAP entry depends on them.
-// Empty today; kept as a mechanism for the next core function classic
-// doesn't already define.
+// Spliced in ahead of classic's first entry -- empty today, kept as the
+// mechanism for the next core function classic lacks.
 export const CORE_ADD = [];
 
 function run(cmd, args) {
@@ -126,14 +122,12 @@ function transformSpecialCases(narrative) {
   if (!spawn.includes(deathGateLine)) throw new Error("spawnBlackArmy -> death gate / floorStart: expected text not found -- narrative's shape changed, re-check this transform");
   const newSpawnEnd = "    state.spawned = true;\n    floorJustSpawned = true;\n    floorStart = boardToFen();\n  }";
   // Everything after spawnBlackArmy's OWN closing brace is capturedBankValue/
-  // placeDeathGate/etc.'s leading doc-comments (narrative-only functions
-  // this build never includes) -- truncate there instead of dragging them
-  // in front of whatever classic entry comes next.
+  // placeDeathGate/etc.'s narrative-only doc-comments -- truncate there
+  // instead of dragging them in front of classic's next entry.
   spawn = spawn.slice(0, spawn.indexOf(deathGateLine)) + newSpawnEnd + "\n";
   out.set("spawnBlackArmy", spawn);
 
-  // checkFloorProgression: drop the earcon call -- classic has no audio
-  // pipeline.
+  // checkFloorProgression: drop the earcon call -- classic has no audio.
   const cfp = mustReplace(out.get("checkFloorProgression"), '    playEarcon("floorClear");\n', "", "checkFloorProgression -> playEarcon");
   out.set("checkFloorProgression", cfp);
 

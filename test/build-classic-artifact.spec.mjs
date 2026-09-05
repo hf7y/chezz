@@ -1,19 +1,5 @@
-/* Covers scripts/build-classic-artifact.mjs's CORE_SWAP/CORE_ADD splicing --
- * the mechanism hf7y/chezz#89 introduced so a narrative engine fix reaches
- * classic without a manual port.
- *
- * Regression for a real bug: CORE_ADD assumed its names were NOT YET defined
- * in classic. Once #104 one-time-ported them into classic's own shell, every
- * check-size run started throwing ("classic already defines ...") because
- * the list was never moved to CORE_SWAP -- caught 2026-09-05 running
- * check-size fresh against current main, not by any test, since nothing
- * exercised this module directly.
- *
- * Fixtures are built from the module's REAL CORE_SWAP/CORE_ADD lists (every
- * entry needs a stub, or the module's own "narrative/classic no longer
- * defines" guards fire before the behavior under test runs), with specific
- * entries overridden per test.
- */
+// Covers build-classic-artifact.mjs's CORE_SWAP/CORE_ADD splicing (#89), and
+// pins the #104 regression: a stale CORE_ADD threw on every fresh build.
 import { test, expect } from "@playwright/test";
 import { buildClassicArtifact, CORE_SWAP, CORE_ADD } from "../scripts/build-classic-artifact.mjs";
 
@@ -21,16 +7,10 @@ function html(scriptBody) {
   return `<html><body><script>\n${scriptBody}</script></body></html>`;
 }
 
-// Every name as `const NAME = "value";` -- satisfies the module's top-level
-// parser (function-or-const) regardless of whether the real definition is a
-// function, since the parser only cares about the declaration line's shape.
 function stubs(names, overrides = {}) {
   return names.map((name) => `  const ${name} = "${overrides[name] ?? `stub:${name}`}";\n`).join("");
 }
 
-// transformSpecialCases operates on NARRATIVE's copy of these two names only
-// (classic's copy of both is fully replaced, so its content is irrelevant)
-// and requires exact needles -- generic stubs() output doesn't contain them.
 function narrativeStubs(names, overrides = {}) {
   return names.map((name) => {
     if (name === "spawnBlackArmy") {
@@ -89,10 +69,7 @@ test("throws if narrative no longer defines a CORE_SWAP name", () => {
   );
 });
 
-test("a CORE_ADD name already defined in classic throws rather than duplicating it -- the #104 regression", () => {
-  // Recreates the exact pre-fix shape: a name still listed in CORE_ADD (here
-  // simulated via isTerrain, which really did move out of CORE_ADD once
-  // classic gained its own copy) that classic's fixture already defines.
+test("a CORE_ADD name already defined in classic throws rather than duplicating it", () => {
   if (CORE_ADD.length === 0) {
     test.skip(true, "CORE_ADD is empty today -- nothing to simulate a duplicate against");
   }
