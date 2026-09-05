@@ -255,11 +255,22 @@ stated long-term aspiration of fitting on a Game Boy classic cartridge.
 Caps on classic remain 50,000 soft / 100,000 hard.
 
 Revised 2026-09-04 (#90): the cap is on the **published artifact**, not
-`chezz-classic`'s own commented `index1.html` (70,822 raw bytes, but
-24,635 of those are comments/blank lines that never ship). `bin/build-site.sh`
-and `scripts/check-size.mjs` both strip that source (`scripts/strip-html.mjs`)
-before measuring or publishing it — the artifact lands at 38,392 bytes, no
-branch-name gate needed.
+`chezz-classic`'s own commented `index1.html`. `bin/build-site.sh` and
+`scripts/check-size.mjs` both strip that source (`scripts/strip-html.mjs`)
+before measuring or publishing it.
+
+Revised again 2026-09-05 (#89): the artifact is now **built**, not just
+stripped. `scripts/build-classic-artifact.mjs` splices narrative's
+current pure-computation engine functions (move generation, legality,
+search/eval, spawn) into classic's own shell (its HTML/CSS, the Apps
+Script leaderboard, promotion UI, drag/click handling — everything that
+isn't engine) — the one piece of #89's "one engine source" this repo can
+land without also porting narrative-only features like terrain and
+drag-step (real, separate follow-up work, not implied by this). Both
+`bin/build-site.sh` and `scripts/check-size.mjs` run this build before
+measuring or publishing, so a future engine fix on `main` reaches
+classic's next build with no manual port — the artifact lands at 41,010
+bytes, no branch-name gate needed.
 
 This supersedes: the 2026-07-14 "stop and revisit rather than cut
 comments" call (narrative side — moot now that nothing needs cutting),

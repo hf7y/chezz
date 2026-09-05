@@ -6,7 +6,7 @@
 set -euo pipefail
 
 OUT="${1:-_site}"
-CLASSIC_BRANCH="${CLASSIC_BRANCH:-chezz-classic}"
+export CLASSIC_BRANCH="${CLASSIC_BRANCH:-chezz-classic}"
 ROOT_REDIRECT="${ROOT_REDIRECT:-}" # hf7y/chezz#83, set only by deploy-narrative-pages.yml
 NETLIFY_URL="https://chezz.hf7y.com/"
 
@@ -34,12 +34,12 @@ else
 fi
 cp -r nightly-builds "$OUT/nightly-builds"
 
-# Classic ships from its own branch. Netlify clones ONE branch, so the
-# refspec is explicit rather than trusting a default fetch to know this ref.
-git fetch --depth=1 origin "+refs/heads/$CLASSIC_BRANCH:refs/remotes/origin/$CLASSIC_BRANCH"
-# The published copy is stripped; chezz-classic's own source keeps every
-# comment (hf7y/chezz#90).
-git show "origin/$CLASSIC_BRANCH:index1.html" | node scripts/strip-html.mjs > "$OUT/classic.html"
+# Classic's shell (HTML/CSS, leaderboard, promotion UI, drag/click
+# handling) ships from its own branch; its engine functions are narrative's
+# current ones, spliced in at build time (hf7y/chezz#89) so a fix to the
+# shared engine reaches classic without a manual port. The published copy
+# is stripped; chezz-classic's own source keeps every comment (#90).
+node scripts/build-classic-artifact.mjs | node scripts/strip-html.mjs > "$OUT/classic.html"
 mkdir -p "$OUT/classic"
 cp "$OUT/classic.html" "$OUT/classic/index.html"
 
