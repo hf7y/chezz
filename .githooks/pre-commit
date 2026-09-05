@@ -24,7 +24,12 @@ npm run check-syntax --silent && npm run check-size --silent || exit 1
 # 3.3min suite before anyone noticed. A rename that leaves a silent
 # consumer behind is the recurring shape here -- the same move also broke
 # realisateur's inject-suggestions.sh, which hardcoded .claude/FOCUS.md.
-non_docs="$(git diff --cached --name-only | grep -vE '^(\.claude/|\.scheduler/|README\.md$|DESIGN-NOTES\.md$|\.githooks/|\.gitignore$)')"
+#
+# research/ added 2026-09-05: it holds only .md findings/specs (see its own
+# READMEs), never code, but was never added here -- every research entry
+# since 2026-07-29 paid the full suite for a change that couldn't have
+# touched gameplay, the same miss this comment already describes once.
+non_docs="$(git diff --cached --name-only | grep -vE '^(\.claude/|\.scheduler/|research/|README\.md$|DESIGN-NOTES\.md$|\.githooks/|\.gitignore$)')"
 if [ -n "$non_docs" ]; then
   # material-tuning.spec.mjs is a balance-tuning harness, not a correctness
   # check (see its own top-of-file comment) -- 3.8 of every 4.1min run is
