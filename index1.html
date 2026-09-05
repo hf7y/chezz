@@ -1138,17 +1138,16 @@
     }
 
     // White move-hint (hf7y/chezz#3, human-directed 2026-08-23: "build it,
-    // always on"). The piggyback hypothesis measured in
-    // research/engine/2026-07-29-white-move-hint-hypothesis.md is half
-    // real: the node this needs -- White's reply to the Black move actually
-    // played, one ply below the root -- is already being searched for real
-    // gameplay purposes, so this doesn't add a second engine call. What it
-    // does add is bookkeeping at exactly that one node: a near-duplicate of
-    // search()'s own top-of-node loop (same moves, same order, same
-    // alpha-beta bounds -- so its returned `value` is bit-identical to what
-    // plain search() would return, and the move actually chosen is
-    // untouched) plus a second, independent tracked minimum restricted to
-    // moves that are legal FOR THE PLAYER.
+    // always on"; full piggyback-hypothesis finding in that issue's thread).
+    // The hypothesis is half real: the node this needs -- White's reply to
+    // the Black move actually played, one ply below the root -- is already
+    // being searched for real gameplay purposes, so this doesn't add a
+    // second engine call. What it does add is bookkeeping at exactly that
+    // one node: a near-duplicate of search()'s own top-of-node loop (same
+    // moves, same order, same alpha-beta bounds -- so its returned `value`
+    // is bit-identical to what plain search() would return, and the move
+    // actually chosen is untouched) plus a second, independent tracked
+    // minimum restricted to moves that are legal FOR THE PLAYER.
     //
     // Two of the three correctness conditions the finding flagged live
     // here:
