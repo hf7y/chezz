@@ -7,13 +7,7 @@ set -euo pipefail
 
 OUT="${1:-_site}"
 CLASSIC_BRANCH="${CLASSIC_BRANCH:-chezz-classic}"
-# hf7y/chezz#83: Netlify (chezz.hf7y.com) is the one deployment that plays
-# the game at its own root now. GitHub Pages (hf7y.github.io/chezz/, also
-# reachable as hf7y.com/chezz/) shares this same script for /classic/ and
-# /nightly-builds/, so it can't just stop building -- it gets a redirect
-# page at its root instead of a second copy of the game. Netlify's build
-# never sets this, so its root stays the real game.
-ROOT_REDIRECT="${ROOT_REDIRECT:-}"
+ROOT_REDIRECT="${ROOT_REDIRECT:-}" # hf7y/chezz#83, set only by deploy-narrative-pages.yml
 NETLIFY_URL="https://chezz.hf7y.com/"
 
 rm -rf "$OUT"

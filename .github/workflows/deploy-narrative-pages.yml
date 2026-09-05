@@ -33,9 +33,6 @@ jobs:
           ref: main
 
       # bin/build-site.sh -- Netlify runs the same script; see its header.
-      # ROOT_REDIRECT: Netlify (chezz.hf7y.com, hf7y/chezz#83) is the game's
-      # root now, so Pages' own root becomes a redirect there instead of a
-      # second copy -- /classic/ and /nightly-builds/ are unaffected.
       - name: Prepare site
         run: ROOT_REDIRECT=1 bash bin/build-site.sh
 
