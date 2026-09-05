@@ -212,6 +212,69 @@
 <script>
   // The rules of the world. Pieces are uppercase for White, lowercase for
   // Black. White's King reaching EXIT_ROW clears the floor.
+  const TERRAIN_WALL = "#";
+  const TERRAIN_HOLE = "X";
+  function isTerrain(piece) {
+    return piece === TERRAIN_WALL || piece === TERRAIN_HOLE;
+  }
+
+  function isSafeSquare(x, y) {
+    const occupant = state.board[y][x];
+    state.board[y][x] = "p";
+    const attackers = attackersOf(state.board, x, y, true);
+    state.board[y][x] = occupant;
+    return attackers.length === 0;
+  }
+
+  // Would White's capture here be answered? The mirror of isSafeSquare, from
+  // the other side: probes with a WHITE occupant, because a Black defender
+  // can only "move onto" a square its own colour doesn't already hold, so
+  // asking with a black piece there would report zero defenders every time.
+  // "Attacked but defended" is an ordinary trade; "attacked and undefended"
+  // is free material, which is what the spawner must never produce.
+  function isDefendedSquare(x, y) {
+    const occupant = state.board[y][x];
+    state.board[y][x] = "P";
+    const defenders = attackersOf(state.board, x, y, false);
+    state.board[y][x] = occupant;
+    return defenders.length > 0;
+  }
+
+  // Threat level of a legal destination, for coloring the move dot (a
+  // repeatedly reported ask -- players wanted "fire emblem"-style hints
+  // instead of plain green for every legal square). Purely informational:
+  // doesn't restrict any move, just simulates it one ply deep against
+  // Black's strongest reply-square and checks whether White could
+  // recapture there.
+  const pieceValues = {
+    'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
+    // Archbishop (bishop+knight, 300+300=600 alone) undersold at 700;
+    // bumped to 780, still under chancellor's rook+knight (more mobility).
+    'm': 1300, 'c': 800, 'a': 780,
+    'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
+    'M': -1300, 'C': -800, 'A': -780
+  };
+
+  // Alternating minimax with alpha-beta pruning, iteratively deepened as far
+  // as the time budget allows, extended by a quiescence search through any
+  // capture sequence still in progress at the horizon -- so a sacrifice's
+  // real cost shows up on the board instead of a hand-coded bonus for it.
+  function armyCost(board) {
+    return board.flat().reduce((sum, p) => {
+      if (!p || isWhitePiece(p)) return sum;
+      const lower = p.toLowerCase();
+      return sum + (lower === "n" || lower === "b" ? PIECE_SPAWN_COST.minor : (PIECE_SPAWN_COST[lower] || PIECE_SPAWN_COST.minor));
+    }, 0);
+  }
+
+  // Capture-aware placement (human call, 2026-07-19, see .claude/QUESTIONS.md):
+  // a scripted stage is hand-tuned for shape/balance, not for whatever White
+  // army happens to be carried in, so a fixed column can land a boss on a
+  // file/diagonal a carried rook/bishop/queen already rakes -- a free
+  // move-1 capture. Cyclically shifting every row by the same amount keeps
+  // the stage's shape and relative spacing exactly intact while moving it
+  // off whatever line White's survivors threaten; tries shift 0 (the
+  // authored layout, unchanged) first, and only rotates if that's unsafe.
   const BOARD_COLS = 8;
   const BOARD_ROWS = 9;
   const EXIT_ROW = 0;
@@ -251,6 +314,14 @@
     const lower = piece.toLowerCase();
     const isWhite = isWhitePiece(piece);
 
+    // A White piece on the exit row is committed to carry-over and can
+    // never move again (tracker 2026-07-13T23:35:42.300Z). Black can't
+    // enter the exit row (see the filter at the bottom), so without this
+    // the row doubled as a free safe harbor -- park a piece out of reach,
+    // then pull it back into play. The King is exempt only because it can
+    // never rest here: its arrival ends the floor immediately.
+    if (isWhite && lower !== "k" && fromY === EXIT_ROW) return moves;
+
     function inBounds(x, y) {
       return x >= 0 && x < BOARD_COLS && y >= 0 && y < BOARD_ROWS;
     }
@@ -262,12 +333,17 @@
     function isEnemy(x, y) {
       if (!inBounds(x, y)) return false;
       const target = board[y][x];
-      return target ? isWhitePiece(target) !== isWhite : false;
+      if (!target || isTerrain(target)) return false;
+      return isWhitePiece(target) !== isWhite;
     }
 
+    // Terrain blocks like a friendly piece (can't land on it, slides stop
+    // before it) but is never capturable, unlike an actual friendly piece
+    // that merely blocks -- isEnemy above already excludes it explicitly.
     function isFriendly(x, y) {
       if (!inBounds(x, y)) return false;
       const target = board[y][x];
+      if (isTerrain(target)) return true;
       return target ? isWhitePiece(target) === isWhite : false;
     }
 
@@ -319,11 +395,13 @@
   }
 
   // Would White's King be capturable next turn if `piece` made this move?
-  // Real chess-style legality, King-only (ported from narrative, tracker
-  // 2026-07-26T02:38:04 -- other White pieces stay hangable on purpose, so
-  // this only ever restricts a move that leaves the King itself attacked,
-  // including a pin, since the check re-simulates the whole board either
-  // way. Black has no king on this board and no equivalent rule.
+  // Real chess-style legality, but King-only (human call, 2026-07-20, see
+  // .claude/QUESTIONS.md): other White pieces stay hangable on purpose, so
+  // this only ever restricts a move that leaves the King itself attacked --
+  // including a "pin" case, where moving some other piece exposes the King,
+  // since the check re-simulates the whole board either way. Black has no
+  // king on this board and no equivalent rule (see hasAnyLegalMove's own
+  // comment on the asymmetry).
   function kingSafeAfterMove(board, piece, fromX, fromY, toX, toY) {
     const next = board.map(row => [...row]);
     next[toY][toX] = piece;
@@ -363,6 +441,16 @@
     return attackers;
   }
 
+  // Does `isWhite`'s side have any move at all? For Black this stays
+  // pseudo-legal (no check/checkmate rule exists for Black -- there's no
+  // Black king on this board to protect). For White, this now goes through
+  // legalMovesFrom (King-only hang restriction, 2026-07-20 QUESTIONS.md
+  // answer) rather than the raw legalMovesForPiece -- otherwise a position
+  // where every one of White's pseudo-legal moves hangs the King would
+  // read as "has a move" here while every one of those moves is actually
+  // illegal, silently stranding the player with nothing they can click.
+  // Routing through here means that case now correctly falls through to
+  // checkDeath's existing respawn instead.
   function findWhiteKing(board) {
     for (let y = 0; y < BOARD_ROWS; y++)
       for (let x = 0; x < BOARD_COLS; x++)
@@ -370,12 +458,9 @@
     return null;
   }
 
-  // Threat level of a legal destination, for coloring the move dot (a
-  // repeatedly reported ask -- players wanted "fire emblem"-style hints
-  // instead of plain green for every legal square). Purely informational:
-  // doesn't restrict any move, just simulates it one ply deep against
-  // Black's strongest reply-square and checks whether White could
-  // recapture there. Ported from narrative main (tracker 2026-07-26T02:38:04).
+  // Only Black's move can produce this: White's own legalMovesFrom already
+  // filters out anything that would leave the King attacked (kingSafeAfterMove
+  // above), so the transition into check only ever happens on Black's reply.
   function moveDangerLevel(board, piece, fromX, fromY, toX, toY) {
     const next = board.map(row => [...row]);
     next[toY][toX] = piece;
@@ -389,11 +474,6 @@
     return attackersOf(captureBoard, toX, toY, true).length ? "covered" : "hanging";
   }
 
-  // Does `isWhite`'s side have any move at all? For Black this stays
-  // pseudo-legal (no king on this board to protect). For White this goes
-  // through legalMovesFrom, so a position where every pseudo-legal move
-  // hangs the King correctly reads as "no move" here, not just at the
-  // point of clicking one.
   function hasAnyLegalMove(board, isWhite) {
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
@@ -406,12 +486,27 @@
     return false;
   }
 
-  // Not an enforced check/checkmate rule -- used only to reject a freshly
-  // spawned floor that's already dead on arrival. Now the same question
-  // hasAnyLegalMove(board, true) answers once King-safety is baked into
-  // legalMovesFrom, so this just names that call for its one caller.
+  // Could White capture here for free before Black even gets a turn?
+  // Checks the square as occupied (not empty) so a pawn's diagonal only
+  // counts once there's really a piece to capture. Used by the procedural
+  // spawner and by placeScriptedStage (every scripted piece).
   function whiteSurvivesNextMove(board) {
-    return hasAnyLegalMove(board, true);
+    const king = findWhiteKing(board);
+    if (!king) return true; // nothing for this check to protect
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        const piece = board[y][x];
+        if (!piece || !isWhitePiece(piece)) continue;
+        for (const m of legalMovesForPiece(board, piece, x, y)) {
+          const next = board.map(row => [...row]);
+          next[m.y][m.x] = piece;
+          next[y][x] = "";
+          const kingPos = piece === "K" ? { x: m.x, y: m.y } : king;
+          if (attackersOf(next, kingPos.x, kingPos.y, false).length === 0) return true;
+        }
+      }
+    }
+    return false;
   }
 
   const PROMOTION_PRIORITY = ["m", "q", "c", "a", "r", "b", "n"]; // strongest first
@@ -427,7 +522,13 @@
   // A pawn reaching its far rank promotes by spending one captured piece
   // of the matching type from the opponent out of `capturedPool` -- never
   // a free promotion. Picks the strongest available type; leaves the pawn
-  // a pawn if nothing promotable has been captured yet.
+  // a pawn if nothing promotable has been captured yet -- EXCEPT a Black
+  // pawn with nothing to promote into, which instead marches off the board
+  // (piece: "") rather than sitting on rank 1 forever as a stuck blocker
+  // (repeated tracker reports, e.g. 2026-07-20T17:52/17:53 -- a stalemate
+  // that comes purely from pawns feels like a dead end, not a puzzle).
+  // White's own promotion is never auto-resolved here (see makeMove's
+  // manual dialog), so this only ever fires for Black's own moves.
   function autoPromote(piece, toY, capturedPool) {
     const isWhite = isWhitePiece(piece);
     const promotionRow = isWhite ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
@@ -443,7 +544,7 @@
         return { piece: promoted, capturedPool: remaining };
       }
     }
-    return { piece, capturedPool };
+    return isWhite ? { piece, capturedPool } : { piece: "", capturedPool };
   }
 
   // Applies one move to a board, handling capture bookkeeping and
@@ -460,10 +561,11 @@
     return { nextBoard, pool: promo.capturedPool };
   }
 
-  // Alternating minimax with alpha-beta pruning, iteratively deepened as far
-  // as the time budget allows, extended by a quiescence search through any
-  // capture sequence still in progress at the horizon -- so a sacrifice's
-  // real cost shows up on the board instead of a hand-coded bonus for it.
+  // Hoisted out of getBlackMoveRuthless (pure data, no per-search state) so
+  // it's a real top-level binding a test can read directly via
+  // page.evaluate, the same way BOARD_COLS already is -- otherwise a
+  // tracker report like "archbishop is underpriced" has no number a
+  // regression test can pin, only a comment nobody re-checks.
   function getBlackMoveRuthless(board, capturedPool, floor) {
     capturedPool = capturedPool || "";
     const MIN_DEPTH = 3; // always completed in full, regardless of the deadline
@@ -474,25 +576,36 @@
     // fast on-ramp); every RANKS_PER_FLOOR floors after adds one more ply.
     const TARGET_DEPTH = Math.min(MIN_DEPTH + Math.floor(((floor || 1) - 1) / RANKS_PER_FLOOR), MAX_DEPTH);
 
-    // Just a safety valve now -- generous enough that TARGET_DEPTH usually
-    // finishes well within it, protecting a slow device or dense position
-    // from freezing the tab rather than deciding the AI's strength.
-    const SEARCH_DEADLINE_MS = 4000;
-    const deadline = Date.now() + SEARCH_DEADLINE_MS;
+    // Safety valve against a slow device/dense position freezing the tab --
+    // a node count, not wall-clock time. Date.now() made the same seeded
+    // position pick a different move depending on machine speed/load
+    // (ai-determinism.spec.mjs flaked once quiescence made the tree big
+    // enough to brush the old 4s deadline). Node count is fixed per
+    // position, so identical searches always hit the cap at the same spot.
+    // Raised 30000 -> 60000 when quiesce nodes started counting toward it
+    // (they were previously free, so the old number bounded only part of
+    // the real work) -- measured on the 8 player-reported positions, worst
+    // case stays under ~2s on this hardware, same order as before.
+    const NODE_BUDGET = 60000;
+    let nodesSearched = 0;
     let hitDeadline = false;
-
-    const pieceValues = {
-      'k': 100000, 'q': 900, 'r': 500, 'b': 300, 'n': 300, 'p': 100,
-      // Archbishop (bishop+knight, 300+300=600 alone) undersold at 700;
-      // bumped to 780, still under chancellor's rook+knight (more mobility).
-      'm': 1300, 'c': 800, 'a': 780,
-      'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
-      'M': -1300, 'C': -800, 'A': -780
-    };
 
     // Below material values so a King step never outweighs a real capture --
     // at 2000 it did, and White shuffled the King instead of recapturing.
     const KING_SAFETY_WEIGHT = 150;
+
+    // Attack-based half of king safety (priority queue item 5, remaining
+    // half): kingProgress alone rewards climbing rows even when climbing
+    // walks the King into more attackers, and says nothing about a King
+    // that's standing still but newly exposed (an escort piece captured,
+    // a wall/hole shifted its cover). This counts real attackersOf(...)
+    // on the King's own square -- reuses the same legality-check machinery
+    // as kingSafeAfterMove, so it's exactly the search's own definition of
+    // "under threat," not a separate heuristic. One call per evaluateBoard
+    // (leaf), same order of cost as the swarm/advancement passes already
+    // there -- measured on material-tuning.spec.mjs's chained runs, no
+    // NODE_BUDGET or wall-clock regression (still <2s worst case).
+    const KING_ATTACK_WEIGHT = 220;
 
     // Same distance-based-falloff shape as `swarm` below (closer is worth
     // more), just anchored to a fixed row (EXIT_ROW) instead of the King's
@@ -526,14 +639,26 @@
       let advancement = 0;
       let wKing = null;
       const blackPieces = [];
+      // Bit 0/1 = a bishop seen on an even/odd (x+y) parity square -- both
+      // set means the side holds a genuine opposite-colored pair (covers
+      // both square colors), not just two same-colored bishops.
+      let whiteBishopColors = 0, blackBishopColors = 0;
 
       for (let y = 0; y < BOARD_ROWS; y++) {
         for (let x = 0; x < BOARD_COLS; x++) {
           const piece = b[y][x];
-          if (!piece) continue;
+          // A wall/hole has no entry in pieceValues -- material +=
+          // pieceValues[piece] went to NaN on ANY board with terrain, and
+          // NaN's always-false comparisons collapsed every root candidate
+          // to the same -Infinity sentinel, so the search lost all
+          // tactical/positional signal (not just misjudged one move) on
+          // every terrain floor. See tracker 2026-07-30T06:18:44.
+          if (!piece || isTerrain(piece)) continue;
 
           material += pieceValues[piece];
           if (piece === "K") wKing = { x, y };
+          if (piece === "B") whiteBishopColors |= 1 << ((x + y) & 1);
+          if (piece === "b") blackBishopColors |= 1 << ((x + y) & 1);
 
           if (!isWhitePiece(piece)) {
             const rowsFromExit = y - EXIT_ROW;
@@ -545,16 +670,35 @@
         }
       }
 
+      // Tracker 2026-07-28T14:51: two bishops on opposite colors (between
+      // them, every square is covered) play stronger than 2x a lone
+      // bishop's flat value captures -- real chess engines price this the
+      // same way. Symmetric so a carried-over White pair counts too, though
+      // the report's own case is Black's scripted "Two Bishops" boss.
+      const BISHOP_PAIR_BONUS = 50;
+      // Black-positive/White-negative (same convention as pieceValues
+      // itself) -- a Black pair makes the total MORE positive (better for
+      // Black, which maximizes this), a White pair MORE negative.
+      if (blackBishopColors === 3) material += BISHOP_PAIR_BONUS;
+      if (whiteBishopColors === 3) material -= BISHOP_PAIR_BONUS;
+
       if (!wKing) return material + advancement + KING_CAPTURED_BONUS;
 
       const kingProgress = (BOARD_ROWS - 1) - wKing.y; // rows already climbed toward EXIT_ROW
       const kingSafety = -kingProgress * KING_SAFETY_WEIGHT;
 
+      // Real attack pressure on the King's own square, not just how far
+      // it's walked -- a King standing pat but newly attacked (escort
+      // captured, terrain shifted) scores worse here even though
+      // kingProgress hasn't moved at all.
+      const kingAttackers = attackersOf(b, wKing.x, wKing.y, false).length;
+      const kingThreat = -kingAttackers * KING_ATTACK_WEIGHT;
+
       // Swarm pressure: black pieces are worth more the closer they crowd the King
       const swarm = blackPieces.reduce((sum, bp) =>
         sum + (SWARM_MAX_DISTANCE - taxicabDistance(bp, wKing)) * SWARM_WEIGHT, 0);
 
-      return material + advancement + kingSafety + swarm;
+      return material + advancement + kingSafety + kingThreat + swarm;
     }
 
     function collectMoves(b, whiteToMove) {
@@ -579,21 +723,20 @@
     }
 
     // Quiescence: a static eval at the horizon can misjudge a position
-    // mid-exchange, so keep searching captures until it settles. Only
-    // recaptures on the SAME square continue the thread -- unrelated
-    // captures get picked up once the main search reaches them normally --
-    // bounding the cost to however many pieces attack one square.
-    function quiesce(b, alpha, beta, whiteToMove, pool, targetSquare) {
+    // mid-exchange, so keep searching captures until it settles. ALL
+    // captures for the side to move continue the search, not just
+    // recaptures on the square that was just taken -- the old same-square
+    // thread was blind to a piece left hanging anywhere ELSE at the
+    // horizon, which is exactly the "hung for no reason" shape 9 tracker
+    // reports describe (2026-07-16/17 AI move-quality cluster). Cost is
+    // bounded honestly: every quiesce node now counts against NODE_BUDGET
+    // (they used to be free, so the freeze guard undercounted the real
+    // work), and per-capture delta pruning skips captures too small to
+    // matter. MVV ordering comes from collectMoves' existing sort.
+    function quiesce(b, alpha, beta, whiteToMove, pool) {
+      nodesSearched++;
       const standPat = evaluateBoard(b);
-
-      // Delta pruning: even winning the target square's piece outright
-      // couldn't close the gap to alpha/beta, so skip generating moves.
-      if (targetSquare) {
-        const victim = b[targetSquare.y][targetSquare.x];
-        const bestPossibleGain = (victim ? Math.abs(pieceValues[victim]) : 0) + DELTA_PRUNING_MARGIN;
-        if (whiteToMove && standPat - bestPossibleGain >= beta) return standPat;
-        if (!whiteToMove && standPat + bestPossibleGain <= alpha) return standPat;
-      }
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return standPat; }
 
       // Stand pat: settling for the position as-is is always a legal choice
       // in quiescence (unlike the main search), so it seeds the bound
@@ -606,14 +749,19 @@
         alpha = Math.max(alpha, standPat);
       }
 
-      let captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
-      if (targetSquare) captures = captures.filter(mv => mv.toX === targetSquare.x && mv.toY === targetSquare.y);
+      const captures = collectMoves(b, whiteToMove).filter(mv => b[mv.toY][mv.toX]);
 
       for (const mv of captures) {
+        // Delta pruning: even winning this victim outright couldn't move
+        // the bound, so don't bother searching the capture.
+        const bestPossibleGain = Math.abs(pieceValues[b[mv.toY][mv.toX]]) + DELTA_PRUNING_MARGIN;
+        if (whiteToMove && standPat - bestPossibleGain >= beta) continue;
+        if (!whiteToMove && standPat + bestPossibleGain <= alpha) continue;
+
         const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
         const val = (mv.piece === "K" && mv.toY === EXIT_ROW)
           ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard)
-          : quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool, { x: mv.toX, y: mv.toY });
+          : quiesce(nextBoard, alpha, beta, !whiteToMove, nextPool);
         if (whiteToMove) { if (val < beta) beta = val; } else { if (val > alpha) alpha = val; }
         if (beta <= alpha) return whiteToMove ? alpha : beta;
       }
@@ -623,8 +771,9 @@
     // Full alternating minimax with alpha-beta pruning: Black maximizes the
     // (Black-positive/White-negative) evaluation, White minimizes it.
     function search(b, depth, alpha, beta, whiteToMove, pool) {
-      if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool, null);
-      if (Date.now() > deadline) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool, null); }
+      if (depth === 0) return quiesce(b, alpha, beta, whiteToMove, pool);
+      nodesSearched++;
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return quiesce(b, alpha, beta, whiteToMove, pool); }
 
       const moves = collectMoves(b, whiteToMove);
       // No legal moves isn't terminal (the real game just skips the turn) --
@@ -649,6 +798,63 @@
         if (beta <= alpha) break;
       }
       return best;
+    }
+
+    // White move-hint (hf7y/chezz#3, human-directed 2026-08-23: "build it,
+    // always on"). The piggyback hypothesis measured in
+    // research/engine/2026-07-29-white-move-hint-hypothesis.md is half
+    // real: the node this needs -- White's reply to the Black move actually
+    // played, one ply below the root -- is already being searched for real
+    // gameplay purposes, so this doesn't add a second engine call. What it
+    // does add is bookkeeping at exactly that one node: a near-duplicate of
+    // search()'s own top-of-node loop (same moves, same order, same
+    // alpha-beta bounds -- so its returned `value` is bit-identical to what
+    // plain search() would return, and the move actually chosen is
+    // untouched) plus a second, independent tracked minimum restricted to
+    // moves that are legal FOR THE PLAYER.
+    //
+    // Two of the three correctness conditions the finding flagged live
+    // here:
+    //  - Refutations mistaken for best moves: `exact` is only true if this
+    //    node's loop ran to completion without a beta cutoff. A cutoff
+    //    means the search stopped at "good enough to refute," not "best" --
+    //    every sibling after it went unexamined, so nothing here can be
+    //    trusted as the true minimum. Discard the hint outright rather than
+    //    show a refutation dressed up as advice.
+    //  - Illegal hints: collectMoves reuses legalMovesForPiece for both
+    //    sides, which (unlike legalMovesFrom) does not filter out moves
+    //    that hang White's own King -- fine for the search's own purposes,
+    //    wrong to ever put in front of the player. isLegalMove re-checks
+    //    that restriction before a move is allowed to become the hint.
+    // The third condition (a hint from a deadline-truncated depth) is
+    // handled by the caller: iterative deepening already discards any depth
+    // round that hit NODE_BUDGET and falls back to the last clean one, and
+    // this hint rides along on the same candidate object as that round's
+    // score -- so a stale hint and a stale move can never separate.
+    function searchWithHint(b, depth, alpha, beta, pool) {
+      nodesSearched++;
+      if (nodesSearched > NODE_BUDGET) { hitDeadline = true; return { value: quiesce(b, alpha, beta, true, pool), hint: null }; }
+
+      const moves = collectMoves(b, true);
+      if (!moves.length) return { value: search(b, depth - 1, alpha, beta, false, pool), hint: null };
+
+      let best = Infinity;
+      let hintMove = null, hintValue = Infinity;
+      let exact = true;
+      for (const mv of moves) {
+        const { nextBoard, pool: nextPool } = applyMove(b, mv, pool);
+        const val = (mv.piece === "K" && mv.toY === EXIT_ROW)
+          ? WHITE_ESCAPE_PENALTY + evaluateBoard(nextBoard)
+          : search(nextBoard, depth - 1, alpha, beta, false, nextPool);
+        if (val < best) best = val;
+        if (val < beta) beta = val;
+        if (val < hintValue && isLegalMove(b, mv.fromX, mv.fromY, mv.toX, mv.toY)) {
+          hintValue = val;
+          hintMove = mv;
+        }
+        if (beta <= alpha) { exact = false; break; }
+      }
+      return { value: best, hint: exact && hintMove ? { fromX: hintMove.fromX, fromY: hintMove.fromY, toX: hintMove.toX, toY: hintMove.toY } : null };
     }
 
     // Too narrow and most moves fail it, paying for both a wasted narrow
@@ -678,17 +884,25 @@
       for (const mv of moves) {
         const { nextBoard, pool } = applyMove(board, mv, capturedPool);
         const prevScore = prevScores && prevScores.get(moveKey(mv));
-        let moveValue;
+        let moveValue, moveHint;
         if (prevScore === undefined) {
-          moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
+          const r = searchWithHint(nextBoard, depth - 1, -Infinity, Infinity, pool);
+          moveValue = r.value; moveHint = r.hint;
         } else {
           const lo = prevScore - ASPIRATION_WINDOW, hi = prevScore + ASPIRATION_WINDOW;
-          moveValue = search(nextBoard, depth - 1, lo, hi, true, pool);
+          const r = searchWithHint(nextBoard, depth - 1, lo, hi, pool);
+          moveValue = r.value; moveHint = r.hint;
           if (moveValue <= lo || moveValue >= hi) {
-            moveValue = search(nextBoard, depth - 1, -Infinity, Infinity, true, pool);
+            const r2 = searchWithHint(nextBoard, depth - 1, -Infinity, Infinity, pool);
+            moveValue = r2.value; moveHint = r2.hint;
           }
         }
-        const candidate = { piece: mv.piece, fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue };
+        // hint: White's best reply to this Black move, per searchWithHint --
+        // rides on the same candidate object as the score it was measured
+        // alongside, so whichever candidate is ultimately chosen (below,
+        // and in the iterative-deepening/tie-break logic that follows)
+        // carries a hint from the exact same search pass, never a stale one.
+        const candidate = { piece: mv.piece, fromX: mv.fromX, fromY: mv.fromY, toX: mv.toX, toY: mv.toY, score: moveValue, hint: moveHint };
         all.push(candidate);
 
         if (moveValue > maxEvaluation) {
@@ -709,7 +923,7 @@
     let best = searchRoot(MIN_DEPTH, null, null);
     let prevScores = new Map(best.all.map(c => [moveKey(c), c.score]));
     for (let depth = MIN_DEPTH + 1; depth <= TARGET_DEPTH; depth++) {
-      if (Date.now() > deadline) break;
+      if (nodesSearched > NODE_BUDGET) break;
       hitDeadline = false;
       const attempt = searchRoot(depth, best.candidates[0], prevScores);
       if (hitDeadline || !attempt.candidates.length) break;
@@ -860,12 +1074,12 @@
   // World generation: populate the floor with a random black army, sized to
   // the floor number so the dungeon gets harder as White climbs.
   function spawnBlackArmy() {
+    state.dateSeed = todayKey();
     const baseline = state.board.map(row => [...row]);
     // Seeded from the date (not the board) so every player rolls the same
     // dice for a given floor today -- actual placement still adapts to
     // each player's real board, so floors still diverge with play, but
     // the whole game resets fresh each day.
-    state.dateSeed = todayKey();
     const baseSeed = hashStr(state.dateSeed + ":" + state.floor);
 
     // Budget is derived once, independent of the placement attempts below --
@@ -911,32 +1125,6 @@
         return cols;
       }
 
-      // Could White capture here for free before Black even gets a turn?
-      // Checks the square as occupied (not empty) so a pawn's diagonal only
-      // counts once there's really a piece to capture. Used by the procedural
-      // spawner and by placeScriptedStage (every scripted piece).
-      function isSafeSquare(x, y) {
-        const occupant = state.board[y][x];
-        state.board[y][x] = "p";
-        const attackers = attackersOf(state.board, x, y, true);
-        state.board[y][x] = occupant;
-        return attackers.length === 0;
-      }
-
-      // Would White's capture here be answered? The mirror of isSafeSquare, from
-      // the other side: probes with a WHITE occupant, because a Black defender
-      // can only "move onto" a square its own colour doesn't already hold, so
-      // asking with a black piece there would report zero defenders every time.
-      // "Attacked but defended" is an ordinary trade; "attacked and undefended"
-      // is free material, which is what the spawner must never produce.
-      function isDefendedSquare(x, y) {
-        const occupant = state.board[y][x];
-        state.board[y][x] = "P";
-        const defenders = attackersOf(state.board, x, y, false);
-        state.board[y][x] = occupant;
-        return defenders.length > 0;
-      }
-
       // Black's back rank (row 1) holds the stronger pieces, mirroring
       // White's row 8; its pawn wall (row 2) sits one row ahead, mirroring
       // White's row 7 -- a real pawn rank, not a shield pressed against White.
@@ -980,7 +1168,7 @@
       // another piece ... free material on level load is not a good design").
       // The rule this replaces -- "pawns stand in the open" -- was an
       // inference nobody authorized, and it made this the one spawn path that
-      // dropped material for free while the non-pawn path above already
+      // dropped material for free while the non-pawn path below already
       // spent budget shielding a piece rather than scrap it.
       //
       // Unattacked squares win outright; a defended-but-attacked square is
@@ -1117,7 +1305,6 @@
     floorStart = boardToFen();
   }
 
-  // Floor progression.
   function checkFloorProgression() {
     const exitRow = state.board[EXIT_ROW];
     if (!exitRow.includes("K")) { return; }
