@@ -37,9 +37,8 @@ cp -r nightly-builds "$OUT/nightly-builds"
 # Classic ships from its own branch. Netlify clones ONE branch, so the
 # refspec is explicit rather than trusting a default fetch to know this ref.
 git fetch --depth=1 origin "+refs/heads/$CLASSIC_BRANCH:refs/remotes/origin/$CLASSIC_BRANCH"
-# hf7y/chezz#90: the published artifact is stripped (comments/blank
-# lines/indentation gone) to fit the 50,000-byte cap; chezz-classic's own
-# index1.html keeps every comment -- this strips ONLY the copy that ships.
+# The published copy is stripped; chezz-classic's own source keeps every
+# comment (hf7y/chezz#90).
 git show "origin/$CLASSIC_BRANCH:index1.html" | node scripts/strip-html.mjs > "$OUT/classic.html"
 mkdir -p "$OUT/classic"
 cp "$OUT/classic.html" "$OUT/classic/index.html"

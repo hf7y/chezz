@@ -255,17 +255,11 @@ stated long-term aspiration of fitting on a Game Boy classic cartridge.
 Caps on classic remain 50,000 soft / 100,000 hard.
 
 Revised 2026-09-04 (#90): the cap is on the **published artifact**, not
-`chezz-classic`'s own `index1.html`. That source is hand-edited and
-keeps every comment (344 lines, load-bearing design rationale, not
-restated "what") — raw it measures 70,822 bytes, 142% of the soft
-target, but 24,635 of those bytes are comments and blank lines that
-never ship. `bin/build-site.sh` and `scripts/check-size.mjs` both run
-classic's source through `scripts/strip-html.mjs` (comments, blank
-lines, and leading indentation dropped) before measuring or publishing
-it; the stripped artifact lands at 38,392 bytes, under the soft target.
-`check-size.mjs` no longer gates enforcement on `branch ===
-"chezz-classic"` — it always builds and measures this artifact,
-regardless of which branch is checked out.
+`chezz-classic`'s own commented `index1.html` (70,822 raw bytes, but
+24,635 of those are comments/blank lines that never ship). `bin/build-site.sh`
+and `scripts/check-size.mjs` both strip that source (`scripts/strip-html.mjs`)
+before measuring or publishing it — the artifact lands at 38,392 bytes, no
+branch-name gate needed.
 
 This supersedes: the 2026-07-14 "stop and revisit rather than cut
 comments" call (narrative side — moot now that nothing needs cutting),

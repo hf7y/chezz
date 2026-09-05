@@ -1,8 +1,5 @@
-// hf7y/chezz#90: the classic artifact ships stripped; the chezz-classic
-// source it's built from keeps every comment. Line-based on purpose --
-// only comment lines that are a WHOLE line (after trimming) are dropped,
-// so a trailing `/* note */` after real code on the same line is left
-// alone rather than risking a regex eating code that precedes it.
+// hf7y/chezz#90. Only drops WHOLE comment lines -- a trailing `/* note */`
+// after real code stays.
 export function stripHtml(source) {
   const lines = source.split("\n");
   const out = [];
@@ -36,8 +33,7 @@ export function stripHtml(source) {
   return out.join("\n") + "\n";
 }
 
-// CLI mode -- stdin to stdout -- so bin/build-site.sh can pipe the classic
-// artifact through this without a second, shell-only reimplementation.
+// CLI mode: stdin to stdout, for bin/build-site.sh.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
