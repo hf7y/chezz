@@ -249,12 +249,17 @@ ever exceeded, be noisy about it (file an issue for Zach with
 `scheduler ask chezz "..."` to raise the threshold before continuing)
 rather than quietly deferring or trimming.
 
-The limit stays **enforced only on the `chezz-classic` branch**. Classic
-is the elegance/efficiency track: future dev passes there work to make
-the project *simpler*, with a stated long-term aspiration of fitting on
-a Game Boy classic cartridge. Caps on classic remain 50,000 soft /
-100,000 hard for now (measured 70,822 bytes on 2026-09-04, 142% of the
-soft target — not "well under" as stated here before; see #90).
+The limit stays **enforced on classic** — the elegance/efficiency track:
+future dev passes there work to make the project *simpler*, with a
+stated long-term aspiration of fitting on a Game Boy classic cartridge.
+Caps on classic remain 50,000 soft / 100,000 hard.
+
+Revised 2026-09-04 (#90): the cap is on the **published artifact**, not
+`chezz-classic`'s own commented `index1.html` (70,822 raw bytes, but
+24,635 of those are comments/blank lines that never ship). `bin/build-site.sh`
+and `scripts/check-size.mjs` both strip that source (`scripts/strip-html.mjs`)
+before measuring or publishing it — the artifact lands at 38,392 bytes, no
+branch-name gate needed.
 
 This supersedes: the 2026-07-14 "stop and revisit rather than cut
 comments" call (narrative side — moot now that nothing needs cutting),
