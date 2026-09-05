@@ -123,7 +123,8 @@ list nightly-batch should start executing against.
   Knightrider move-generator (doesn't exist in the current fairy-piece
   set — Archbishop/Chancellor/Amazon are simple move-set unions, a
   knightrider's repeated-knight-step movement is a different shape of
-  rule entirely).
+  rule entirely). **Narrative-only** (ruled per #95): #89's core is what
+  classic can afford, so this sits above it, in narrative.
 - **Graphics pipeline — SIGN-OFF GRANTED 2026-07-27, track 1 built.** Zach
   answered the standing new-external-dependency gate in scheduler
   the then-current file channel: *"Yes, pursue the gemini path, safe bounded
@@ -164,18 +165,15 @@ list nightly-batch should start executing against.
     effect of `npm run check` or a nightly run, since each run costs money
     and returns different art.
 
-  **Still missing: the API key.** No `GEMINI_API_KEY` is reachable from an
-  unattended run, so no sprite has actually been generated yet. "Lift creds
-  from vkv-inventory" turned out not to be possible: vkv stores no key
-  anywhere — its `tools/generate_sprite.py` documents `export
-  GEMINI_API_KEY=...` as something a human types into an interactive shell,
-  and there is no key in its repo, its scheduler conf, or the environment.
-  Everything downstream of the API call is tested and green (11 tests across
-  `test/sprite-postprocess.spec.mjs` and `test/piece-sprites.spec.mjs`); the
-  generator exits non-zero with instructions when the key is absent. One
-  `export` away from producing art.
+  **The partial sprite set is the designed, tested state, not a blocked
+  pipeline** (corrected per #95; standing answer Zach, in #32: asked to
+  lift a key from `vkv-inventory` or provision a chezz one,
+  he chose **neither** — no `GEMINI_API_KEY` needed, one shipped sprite
+  (`assets/pieces/b-pawn.png`) is the design, `pieceGlyphHtml` falls back
+  to Unicode for the rest).
 
-  The original two-track note, still accurate on track 2:
+  The original two-track note, with one correction below (track 2's
+  association with Classic did not survive #89/#95):
   1. **Autonomous AI-generated sprites**, extracting and adapting the
      pixel-art Gemini API workflow already built in the `vkv-inventory`
      project, made autonomous for chezz. **This is a NEW external service
@@ -190,8 +188,10 @@ list nightly-batch should start executing against.
      (Archbishop/Chancellor/Amazon/Knightrider etc., which today lean on
      Unicode knight-combo glyphs). No new external service dependency in
      the same sense — an asset-creation project, not an API integration.
-     Explicitly associated with "Chezz Classic" below, not the current
-     arcade-cabinet-reskinned build.
+     Was associated with "Chezz Classic" below; ruled out (2026-09-04,
+     #95) — **classic's visual identity is Unicode glyphs, permanently**,
+     its artifact budget (#89, #90) can't carry baked sprites, so this
+     track is narrative-only if pursued at all.
 
 ## "Chezz Classic" — all three questions resolved; work is #89
 
