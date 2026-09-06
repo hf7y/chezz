@@ -108,9 +108,9 @@ gh issue list --repo hf7y/chezz --label player-report --label idea --state open 
   --json number,title,body,createdAt --limit 100
 ```
 
-The backlog is large (~45+ open as of 2026-07-17) -- work through it
-until the turn/time budget runs low, then move to step 5; do not rush
-every report just to reach zero in one night. For each report: implement
+Backlog size varies night to night -- work through it until the turn/time
+budget runs low, then move to step 5; don't rush every report just to
+reach zero. For each report: implement
 it, fix it directly if it's actually a mis-filed bug, defer it with a
 real reason, or skip it as a duplicate/too-vague -- see `DESIGN-NOTES.md`
 for exactly what distinguishes those four outcomes. For anything
@@ -205,6 +205,7 @@ world-readable. Don't put anything private in one.
 Confirm every meaningful change has a real commit, landed on `origin/main`
 via a branch + PR merged on green (CLAUDE.md's "Landing work"; this
 account can't `git push origin main` directly). An overnight run not
-actually merged didn't happen. Also POST a
-`sweep-status` update the same way `/bug-sweep` does (see that command's
-step 6) so the live page's readout reflects tonight's run too.
+actually merged didn't happen. `sweep-status` is computed live from the
+most recently closed `player-report` issue (`netlify/functions/report.js`)
+-- nothing to POST; closing a report tonight already updates the live
+page's readout, `/bug-sweep` step 6's `curl` is just an optional check.
