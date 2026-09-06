@@ -18,6 +18,8 @@ function narrativeStubs(names, overrides = {}) {
         "  function spawnBlackArmy() {\n" +
         "    // A run that has died once (hf7y/chezz#4) skips the scripted campaign\n" +
         "    const baseline = state.board.map(row => [...row]);\n" +
+        "    // Neutral evasive piece (DESIGN-NOTES.md 2026-07-20 seed list, spec'd in\n" +
+        "    if (!hasNeutralPiece(state.board)) spawnNeutralPiece(rng);\n" +
         "    if (state.diedOnce) placeDeathGate();\n" +
         "    state.spawned = true;\n" +
         "    floorJustSpawned = true;\n" +
@@ -38,7 +40,8 @@ function narrativeStubs(names, overrides = {}) {
 test("a CORE_SWAP name keeps classic's position but takes narrative's value", () => {
   const narrativeHtml = html(
     "  const classicOnly = \"unused\";\n" +
-    narrativeStubs(CORE_SWAP, { legalMovesForPiece: "from-narrative" })
+    narrativeStubs(CORE_SWAP, { legalMovesForPiece: "from-narrative" }) +
+    narrativeStubs(CORE_ADD)
   );
   const classicHtml = html(
     "  const classicOnly = \"c1\";\n" +
@@ -54,7 +57,7 @@ test("a CORE_SWAP name keeps classic's position but takes narrative's value", ()
 });
 
 test("throws if classic no longer defines a CORE_SWAP name (renamed or removed)", () => {
-  const narrativeHtml = html(narrativeStubs(CORE_SWAP));
+  const narrativeHtml = html(narrativeStubs(CORE_SWAP) + narrativeStubs(CORE_ADD));
   const classicHtml = html(stubs(CORE_SWAP.filter((n) => n !== "legalMovesForPiece")));
   expect(() => buildClassicArtifact({ narrativeHtml, classicHtml })).toThrow(
     /classic no longer defines "legalMovesForPiece"/

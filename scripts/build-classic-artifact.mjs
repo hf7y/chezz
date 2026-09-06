@@ -39,9 +39,8 @@ export const CORE_SWAP = [
   "TERRAIN_WALL", "TERRAIN_HOLE", "isTerrain",
   "isSafeSquare", "isDefendedSquare", "pieceValues", "armyCost",
 ];
-// Spliced in ahead of classic's first entry -- empty today, kept as the
-// mechanism for the next core function classic lacks.
-export const CORE_ADD = [];
+// Spliced in ahead of classic's first entry -- CORE_SWAP's applyMove/legalMovesForPiece (hf7y/chezz#98/#111) reference these names; harmless dead code since classic never spawns one.
+export const CORE_ADD = ["NEUTRAL_PIECE", "isNeutralPiece", "KNIGHT_UPGRADE", "upgradeWithKnight"];
 
 function run(cmd, args) {
   return execFileSync(cmd, args, { cwd: root, encoding: "utf8" });
@@ -99,23 +98,26 @@ function mustReplace(text, needle, replacement, label) {
 function transformSpecialCases(narrative) {
   const out = new Map(narrative.byName);
 
-  // spawnBlackArmy needs three edits, found by diffing it whole against
-  // classic's current version rather than guessing:
-  //  1. drop the scripted-campaign branch -- NARRATIVE_STAGES/
-  //     placeScriptedStage don't exist in classic and never should (no
-  //     campaign there, per hf7y/chezz#95).
-  //  2. drop the death-gate call -- placeDeathGate is narrative's roguelike
-  //     death feature, undefined in classic (would throw ReferenceError).
-  //  3. keep classic's own `floorStart = boardToFen()` checkpoint --
-  //     narrative dropped it because narrative's stalemate handling is the
-  //     death/respawn system instead, but classic's own checkStalemate
-  //     (untouched, classic-only) still reads floorStart.
+  // spawnBlackArmy needs four edits vs classic (found by diffing whole):
+  //  1. drop the scripted-campaign branch -- no campaign in classic (#95).
+  //  2. drop the neutral-piece spawn (#98/#111) -- hasNeutralPiece/
+  //     spawnNeutralPiece would throw in classic; the representation/
+  //     upgrade side IS in CORE_ADD and ships as harmless dead code.
+  //  3. drop the death-gate call -- placeDeathGate is undefined in classic.
+  //  4. keep classic's own floorStart checkpoint -- narrative's stalemate
+  //     handling replaced it, but classic's checkStalemate still reads it.
   let spawn = out.get("spawnBlackArmy");
   spawn = cutBetween(
     spawn,
     "    // A run that has died once (hf7y/chezz#4) skips the scripted campaign",
     "    const baseline = state.board.map(row => [...row]);",
     "spawnBlackArmy -> campaign branch"
+  );
+  spawn = cutBetween(
+    spawn,
+    "    // Neutral evasive piece (DESIGN-NOTES.md 2026-07-20 seed list, spec'd in",
+    "    if (state.diedOnce) placeDeathGate();",
+    "spawnBlackArmy -> neutral piece spawn"
   );
   const spawnEnd = "    state.spawned = true;\n    floorJustSpawned = true;\n  }";
   const deathGateLine = "    if (state.diedOnce) placeDeathGate();\n" + spawnEnd;

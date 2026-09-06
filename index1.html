@@ -158,6 +158,13 @@
       drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 -1px 0 var(--ink));
   }
 
+  /* Knightrider (hf7y/chezz#98/#111) has no dedicated Unicode codepoint,
+     so it reuses the plain knight glyph -- DESIGN-NOTES.md's own proposed
+     treatment (upside-down) is the one visual cue that distinguishes it. */
+  .piece.knightrider {
+    transform: rotate(180deg);
+  }
+
   th {
     text-align: right;
     padding-right: 6px;
@@ -573,6 +580,18 @@
     return piece === piece.toUpperCase();
   }
 
+  // Neutral evasive piece (DESIGN-NOTES.md 2026-07-20 seed list, spec'd in
+  // hf7y/chezz#102, authorized in #103): belongs to neither side, so it
+  // needs the same shape of special-case terrain already gets ahead of the
+  // isWhitePiece fallthrough in isEnemy/isFriendly below -- one glyph, no
+  // upper/lower pairing, since "which case" has no side to encode here.
+  // Harmless dead code in classic (never spawned there -- see
+  // transformSpecialCases in scripts/build-classic-artifact.mjs).
+  const NEUTRAL_PIECE = "e";
+  function isNeutralPiece(piece) {
+    return piece === NEUTRAL_PIECE;
+  }
+
   const KNIGHT_JUMPS = [
     [2,1],[2,-1],[-2,1],[-2,-1],
     [1,2],[1,-2],[-1,2],[-1,-2]
@@ -586,6 +605,9 @@
   // Archbishop, Unicode Chess Symbols block) are exactly the queen/rook/
   // archbishop's dirs plus a knight jump, so one dispatch below covers all
   // ten piece types instead of a slide/step call sequence repeated per type.
+  // `y` (Knightrider, hf7y/chezz#98/#111) is the one exception: repeating a
+  // KNIGHT_JUMPS vector in a straight line via `slide()` -- direction-
+  // agnostic about what (dx,dy) means -- rather than a union with it.
   const PIECE_MOVE_SPEC = {
     r: { slides: [ROOK_DIRS] },
     b: { slides: [BISHOP_DIRS] },
@@ -595,7 +617,20 @@
     a: { slides: [BISHOP_DIRS], jumps: true }, // bishop + knight
     c: { slides: [ROOK_DIRS], jumps: true },   // rook + knight
     m: { slides: [QUEEN_DIRS], jumps: true },  // queen + knight
+    y: { slides: [KNIGHT_JUMPS] },             // Knightrider
   };
+
+  // Capturing the neutral piece grants the capturer a permanent +knight
+  // upgrade (DESIGN-NOTES.md); a piece already knight-combined becomes a
+  // Knightrider instead of double-stacking knight movement onto itself.
+  // Keyed lowercase; applied with the capturer's own case (see
+  // upgradeWithKnight) since upgrade eligibility doesn't depend on side.
+  const KNIGHT_UPGRADE = { b: "a", r: "c", q: "m", a: "y", c: "y", m: "y" };
+  function upgradeWithKnight(piece) {
+    const upgraded = KNIGHT_UPGRADE[piece.toLowerCase()];
+    if (!upgraded) return piece; // King/Knight/Pawn: no eligible upgrade, ordinary capture
+    return isWhitePiece(piece) ? upgraded.toUpperCase() : upgraded;
+  }
 
   function legalMovesForPiece(board, piece, fromX, fromY) {
     const moves = [];
@@ -622,6 +657,7 @@
       if (!inBounds(x, y)) return false;
       const target = board[y][x];
       if (!target || isTerrain(target)) return false;
+      if (isNeutralPiece(target)) return true; // capturable by either side
       return isWhitePiece(target) !== isWhite;
     }
 
@@ -632,6 +668,7 @@
       if (!inBounds(x, y)) return false;
       const target = board[y][x];
       if (isTerrain(target)) return true;
+      if (isNeutralPiece(target)) return false; // never blocks like a friendly piece
       return target ? isWhitePiece(target) === isWhite : false;
     }
 
@@ -720,7 +757,7 @@
     for (let ay = 0; ay < BOARD_ROWS; ay++) {
       for (let ax = 0; ax < BOARD_COLS; ax++) {
         const piece = board[ay][ax];
-        if (!piece || isWhitePiece(piece) !== byWhite) continue;
+        if (!piece || isNeutralPiece(piece) || isWhitePiece(piece) !== byWhite) continue;
         if (legalMovesForPiece(board, piece, ax, ay).some(m => m.x === x && m.y === y)) {
           attackers.push({ x: ax, y: ay });
         }
@@ -743,7 +780,7 @@
     for (let y = 0; y < BOARD_ROWS; y++) {
       for (let x = 0; x < BOARD_COLS; x++) {
         const piece = board[y][x];
-        if (!piece || isWhitePiece(piece) !== isWhite) continue;
+        if (!piece || isNeutralPiece(piece) || isWhitePiece(piece) !== isWhite) continue;
         const moves = isWhite ? legalMovesFrom(board, x, y) : legalMovesForPiece(board, piece, x, y);
         if (moves.length) return true;
       }
@@ -878,9 +915,17 @@
   function applyMove(b, mv, pool) {
     const nextBoard = b.map(row => [...row]);
     const target = nextBoard[mv.toY][mv.toX];
-    if (target) pool += target;
+    // Capturing the neutral piece is never material -- it grants the
+    // capturer a +knight upgrade instead of going into either pool (see
+    // upgradeWithKnight). Ordinary captures fall through unchanged.
+    let piece = mv.piece;
+    if (isNeutralPiece(target)) {
+      piece = upgradeWithKnight(piece);
+    } else if (target) {
+      pool += target;
+    }
     nextBoard[mv.fromY][mv.fromX] = "";
-    const promo = autoPromote(mv.piece, mv.toY, pool);
+    const promo = autoPromote(piece, mv.toY, pool);
     nextBoard[mv.toY][mv.toX] = promo.piece;
     return { nextBoard, pool: promo.capturedPool };
   }
@@ -895,8 +940,20 @@
     // Archbishop (bishop+knight, 300+300=600 alone) undersold at 700;
     // bumped to 780, still under chancellor's rook+knight (more mobility).
     'm': 1300, 'c': 800, 'a': 780,
+    // Knightrider trades away all orthogonal/diagonal reach for repeated
+    // knight-jumps only (no slide/step union, unlike a/c/m) -- priced above
+    // a rook (more squares reachable on an open board) but below the
+    // compound fairy pieces it replaces. A first estimate, not measured;
+    // flagged for research/balance/ like archbishop's own number above.
+    'y': 550,
+    // Neutral piece is never captured into either pool (see applyMove) and
+    // evaluateBoard skips its square outright (isNeutralPiece), so this
+    // entry only guards stray lookups (move-ordering sort, delta pruning)
+    // from going NaN the way an unpriced piece did on every terrain floor
+    // (tracker 2026-07-30T06:18:44) -- same bug shape, pre-empted here.
+    'e': 0,
     'K': -100000, 'Q': -900, 'R': -500, 'B': -300, 'N': -300, 'P': -100,
-    'M': -1300, 'C': -800, 'A': -780
+    'M': -1300, 'C': -800, 'A': -780, 'Y': -550
   };
 
   // Alternating minimax with alpha-beta pruning, iteratively deepened as far
@@ -989,8 +1046,12 @@
           // NaN's always-false comparisons collapsed every root candidate
           // to the same -Infinity sentinel, so the search lost all
           // tactical/positional signal (not just misjudged one move) on
-          // every terrain floor. See tracker 2026-07-30T06:18:44.
-          if (!piece || isTerrain(piece)) continue;
+          // every terrain floor. See tracker 2026-07-30T06:18:44. The
+          // neutral piece gets the same skip -- it isn't material for
+          // either side, and (unlike terrain) would otherwise get counted
+          // into blackPieces/advancement below via the isWhitePiece(piece)
+          // fallthrough, which it also isn't.
+          if (!piece || isTerrain(piece) || isNeutralPiece(piece)) continue;
 
           material += pieceValues[piece];
           if (piece === "K") wKing = { x, y };
@@ -1043,7 +1104,7 @@
       for (let y = 0; y < BOARD_ROWS; y++) {
         for (let x = 0; x < BOARD_COLS; x++) {
           const piece = b[y][x];
-          if (!piece || isWhitePiece(piece) !== whiteToMove) continue;
+          if (!piece || isNeutralPiece(piece) || isWhitePiece(piece) !== whiteToMove) continue;
           for (const m of legalMovesForPiece(b, piece, x, y)) {
             moves.push({ piece, fromX: x, fromY: y, toX: m.x, toY: m.y });
           }
@@ -1298,9 +1359,17 @@
   // The game's live state and the DOM it's painted into.
   // M/C/A are fairy pieces (Amazon/Chancellor/Archbishop), Unicode Chess
   // Symbols block -- falls back to tofu without a font for that block.
+  // Y/y (Knightrider) reuse the plain knight glyph -- Unicode has no
+  // dedicated codepoint for a fairy piece this obscure (#97 only cleared
+  // Amazon/Chancellor/Archbishop and the neutral pieces), so this leans on
+  // DESIGN-NOTES.md's own proposed treatment instead: the same knight,
+  // upside-down (see .piece.knightrider below). e (neutral piece) is
+  // U+1FA46 NEUTRAL CHESS KNIGHT -- single glyph, no side pairing, reads
+  // fine at 16x16 per #97's probe.
   const SYMBOLS = {
-    K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙", M:"🩎", C:"🩏", A:"🩐",
-    k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", m:"🩑", c:"🩒", a:"🩓",
+    K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙", M:"🩎", C:"🩏", A:"🩐", Y:"♘",
+    k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟", m:"🩑", c:"🩒", a:"🩓", y:"♞",
+    e:"🩆",
   };
 
   // Generated pixel-art sprites, keyed by the same piece letters as SYMBOLS,
@@ -1363,6 +1432,13 @@
   });
   updateAudioToggle();
 
+  // "w"/"b" drive the hollow-outline-vs-solid CSS below; "n" (neutral
+  // piece) gets neither -- U+1FA46 is its own self-contained glyph, not an
+  // outline that needs the dark halo .piece[data-side="w"] adds.
+  function pieceSide(piece) {
+    return isNeutralPiece(piece) ? "n" : (isWhitePiece(piece) ? "w" : "b");
+  }
+
   function pieceGlyphHtml(piece) {
     if (!piece || isTerrain(piece)) return "";
     const sprite = PIECE_SPRITES[piece];
@@ -1371,7 +1447,7 @@
       // only identity on the board, so a screen reader (or a broken image)
       // still says which piece this is. data-side is kept for parity with
       // the glyph path so any CSS/selectors keyed on it keep working.
-      const side = isWhitePiece(piece) ? "w" : "b";
+      const side = pieceSide(piece);
       return `<img class="piece sprite" data-side="${side}" src="${sprite}" alt="${SYMBOLS[piece] || piece}">`;
     }
     // Unicode's "white" pieces (K/Q/R/B/N/P) are hollow-outline glyphs --
@@ -1381,8 +1457,12 @@
     // halo below (see .piece[data-side="w"]) so the hollow shape reads as a
     // solid piece regardless of square shade; solid "black" glyphs already
     // have enough fill to read fine unchanged.
-    const side = isWhitePiece(piece) ? "w" : "b";
-    return `<span class="piece" data-side="${side}">${SYMBOLS[piece] || ""}</span>`;
+    const side = pieceSide(piece);
+    // Knightrider reuses the plain knight glyph upside-down (see SYMBOLS'
+    // own comment) -- the one visual distinguisher it needs since nothing
+    // else on the board is ever drawn inverted.
+    const knightrider = piece.toLowerCase() === "y" ? " knightrider" : "";
+    return `<span class="piece${knightrider}" data-side="${side}">${SYMBOLS[piece] || ""}</span>`;
   }
   const boardElement = document.querySelector("table");
   const capturedElement = document.querySelector("output");
@@ -1499,6 +1579,7 @@
   const MINOR_PIECE_CHANCE = 0.5; // knight vs bishop, once a minor piece is chosen
   const PIECE_SPAWN_COST = { m: 13, q: 9, c: 8, a: 7, r: 5, minor: 3, p: 1 };
   const MAX_SPAWN_ATTEMPTS = 20; // reshuffle placement if it leaves White dead on arrival (see whiteSurvivesNextMove)
+  const NEUTRAL_PIECE_SPAWN_CHANCE = 0.2; // see spawnBlackArmy's own comment on this number
 
   // Pawns are what feed the promotion and captured-pawn-carryover mechanics --
   // past the first few floors the tiered budget below spends almost entirely
@@ -1615,6 +1696,28 @@
     const bossAlive = state.board.some(row => row.includes(stage.bossPiece));
     if (bossAlive) return;
     state.board[stage.wallRow] = state.board[stage.wallRow].map(c => c === TERRAIN_WALL ? "" : c);
+  }
+
+  function hasNeutralPiece(board) {
+    return board.some(row => row.includes(NEUTRAL_PIECE));
+  }
+
+  // Drops the neutral piece on any empty, non-exit-row square -- excluding
+  // EXIT_ROW so it can never sit on the one row that ends the floor when a
+  // King steps there. Called only from spawnBlackArmy's own comment above,
+  // after army placement has finished, so every "" cell here is genuinely
+  // free.
+  function spawnNeutralPiece(rng) {
+    const candidates = [];
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      if (y === EXIT_ROW) continue;
+      for (let x = 0; x < BOARD_COLS; x++) {
+        if (state.board[y][x] === "") candidates.push({ x, y });
+      }
+    }
+    if (!candidates.length) return;
+    const { x, y } = candidates[Math.floor(rng() * candidates.length)];
+    state.board[y][x] = NEUTRAL_PIECE;
   }
 
   // World generation: populate the floor with a black army -- a scripted
@@ -1858,6 +1961,19 @@
       if (whiteSurvivesNextMove(state.board)) break placeArmy;
     }
 
+    // Neutral evasive piece (DESIGN-NOTES.md 2026-07-20 seed list, spec'd in
+    // hf7y/chezz#102, authorized in #103): flavor content for procedural
+    // floors, one roll per floor generation, gated on none already being on
+    // the board. NEUTRAL_PIECE_SPAWN_CHANCE is a first-cut number, not a
+    // measured one -- tune via research/balance/ per the spec's own
+    // deferral, same convention PAWN_ALLOWANCE_CHANCE above already follows.
+    // Narrative-only -- see transformSpecialCases in
+    // scripts/build-classic-artifact.mjs for why classic's build excises
+    // this whole block rather than just never triggering it.
+    if (!hasNeutralPiece(state.board) && makeLcg(hashStr(baseSeed + ":neutral"))() < NEUTRAL_PIECE_SPAWN_CHANCE) {
+      spawnNeutralPiece(makeLcg(hashStr(baseSeed + ":neutral:pick")));
+    }
+
     if (state.diedOnce) placeDeathGate();
     state.spawned = true;
     floorJustSpawned = true;
@@ -1962,7 +2078,7 @@
   // Ranking for "highest material in front" -- deliberately not the search
   // engine's own pieceValues (that one's tuned for move ordering/eval, this
   // is just a same-rank tie-break for which piece follows the King first).
-  const FORMATION_VALUE = { q: 9, m: 8, c: 7, a: 6, r: 5, b: 3, n: 3, p: 1 };
+  const FORMATION_VALUE = { q: 9, m: 8, c: 7, a: 6, y: 5.5, r: 5, b: 3, n: 3, p: 1 };
 
   // Naive formation-follow: every surviving White piece other than the King
   // itself, strongest first, takes one legal move onto the King's new rank
@@ -2094,15 +2210,74 @@
   // Lets Black's move sit on screen for a beat before White can act again.
   const MOVE_PACING_MS = 250;
 
+  // Neutral piece's own reactive "move" (hf7y/chezz#102's answer to "whose
+  // turn is it?" -- it doesn't get one; this is spliced into makeMove right
+  // after Black's reply resolves, before control returns to White, so it
+  // always reacts to the freshest board). Narrative-only, presentation-side
+  // turn loop -- never reaches classic, no CORE_SWAP entry needed.
+  //
+  // Evasion is knight-shaped (the piece is horse-shaped per DESIGN-NOTES),
+  // one jump per reaction, onto whichever empty landing square is farthest
+  // (taxicab) from the nearest piece -- either side -- that could capture
+  // it from its CURRENT square next turn. Minimum viable per the spec's own
+  // done-when: maximizes distance from the nearest threat, doesn't need to
+  // be strong. Ties break toward the first KNIGHT_JUMPS direction that
+  // reaches the winning distance, deterministically.
+  function moveNeutralPiece(board) {
+    let from = null;
+    for (let y = 0; y < BOARD_ROWS && !from; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        if (board[y][x] === NEUTRAL_PIECE) { from = { x, y }; break; }
+      }
+    }
+    if (!from) return;
+
+    const escapes = [];
+    for (const [dx, dy] of KNIGHT_JUMPS) {
+      const x = from.x + dx, y = from.y + dy;
+      if (x < 0 || x >= BOARD_COLS || y < 0 || y >= BOARD_ROWS) continue;
+      if (board[y][x] !== "") continue; // flees to empty squares only, never captures
+      escapes.push({ x, y });
+    }
+    if (!escapes.length) return; // boxed in -- nothing safe to flee to this tick
+
+    const threats = [...attackersOf(board, from.x, from.y, true), ...attackersOf(board, from.x, from.y, false)];
+    const nearestThreatDistance = sq => threats.length
+      ? Math.min(...threats.map(t => Math.abs(t.x - sq.x) + Math.abs(t.y - sq.y)))
+      : Infinity;
+
+    let best = escapes[0], bestDistance = -1;
+    for (const sq of escapes) {
+      const d = nearestThreatDistance(sq);
+      if (d > bestDistance) { bestDistance = d; best = sq; }
+    }
+
+    board[from.y][from.x] = "";
+    board[best.y][best.x] = NEUTRAL_PIECE;
+  }
+
   // The turn loop: apply White's move, handle promotion, check the floor,
   // then let Black reply -- ties the rules, the AI, promotion, and floor
   // progression together.
   async function makeMove(fromX, fromY, toX, toY) {
     const movingPiece = state.board[fromY][fromX];
-    const capturedByWhite = !!state.board[toY][toX];
-    recordMove(movingPiece, fromX, fromY, toX, toY, state.board[toY][toX]);
-    if (capturedByWhite) state.captured += state.board[toY][toX];
-    state.board[toY][toX] = movingPiece;
+    const capturedPiece = state.board[toY][toX];
+    const capturedByWhite = !!capturedPiece;
+    recordMove(movingPiece, fromX, fromY, toX, toY, capturedPiece);
+    // White's own capture path is inlined here rather than routed through
+    // applyMove (Black's shared path, see its own comment) -- so the same
+    // neutral-piece-capture-upgrade branch has to be written a second time,
+    // exactly the "written twice until #89 unifies them" gap the spec
+    // (hf7y/chezz#102) called out.
+    let placedPiece = movingPiece;
+    if (capturedByWhite) {
+      if (isNeutralPiece(capturedPiece)) {
+        placedPiece = upgradeWithKnight(movingPiece);
+      } else {
+        state.captured += capturedPiece;
+      }
+    }
+    state.board[toY][toX] = placedPiece;
     state.board[fromY][fromX] = "";
     state.turn = "b";
     // Whatever hint Black's LAST move produced was computed for the
@@ -2164,6 +2339,7 @@
         state.captured = pool;
         if (capturedByBlack) playEarcon("capture");
       }
+      moveNeutralPiece(state.board);
       state.turn = "w";
       clearFloorMessage();
       // After clearFloorMessage, so it survives the turn; before the
@@ -2374,7 +2550,7 @@
   const RANKS_PER_FLOOR = BOARD_ROWS - 1; // every row below the shared exit row
   const HUE_DEGREES_PER_RANK = 10; // a full color cycle every 36 ranks (4.5 floors)
 
-  const CAPTURED_DISPLAY_ORDER = ["m", "q", "c", "a", "r", "b", "n", "p"];
+  const CAPTURED_DISPLAY_ORDER = ["m", "q", "c", "a", "y", "r", "b", "n", "p"];
 
   // Bug/feature reports and the sweep-status proof-of-life readout, both
   // fire-and-forget/best-effort (see netlify/functions/report.js, which
