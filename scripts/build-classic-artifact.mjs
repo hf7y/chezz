@@ -39,14 +39,7 @@ export const CORE_SWAP = [
   "TERRAIN_WALL", "TERRAIN_HOLE", "isTerrain",
   "isSafeSquare", "isDefendedSquare", "pieceValues", "armyCost",
 ];
-// Spliced in ahead of classic's first entry -- classic doesn't define these
-// names at all yet, unlike CORE_SWAP's same-named replacements. All four are
-// hf7y/chezz#98/#111's neutral-piece representation and capture-upgrade
-// logic: applyMove (CORE_SWAP) and legalMovesForPiece's isEnemy/isFriendly
-// (nested inside CORE_SWAP's legalMovesForPiece) reference them by name, so
-// they have to exist in classic's scope even though nothing there ever
-// triggers them -- classic never spawns a neutral piece (see
-// transformSpecialCases), so these stay harmless dead code.
+// Spliced in ahead of classic's first entry -- CORE_SWAP's applyMove/legalMovesForPiece (hf7y/chezz#98/#111) reference these names; harmless dead code since classic never spawns one.
 export const CORE_ADD = ["NEUTRAL_PIECE", "isNeutralPiece", "KNIGHT_UPGRADE", "upgradeWithKnight"];
 
 function run(cmd, args) {
@@ -105,22 +98,14 @@ function mustReplace(text, needle, replacement, label) {
 function transformSpecialCases(narrative) {
   const out = new Map(narrative.byName);
 
-  // spawnBlackArmy needs four edits, found by diffing it whole against
-  // classic's current version rather than guessing:
-  //  1. drop the scripted-campaign branch -- NARRATIVE_STAGES/
-  //     placeScriptedStage don't exist in classic and never should (no
-  //     campaign there, per hf7y/chezz#95).
-  //  2. drop the neutral-piece spawn (hf7y/chezz#98/#111) -- hasNeutralPiece/
-  //     spawnNeutralPiece aren't in CORE_SWAP and don't exist in classic
-  //     (would throw ReferenceError); the representation/capture-upgrade
-  //     side of that feature IS in CORE_SWAP and ships to classic as
-  //     harmless dead code, but nothing should ever spawn one there.
-  //  3. drop the death-gate call -- placeDeathGate is narrative's roguelike
-  //     death feature, undefined in classic (would throw ReferenceError).
-  //  4. keep classic's own `floorStart = boardToFen()` checkpoint --
-  //     narrative dropped it because narrative's stalemate handling is the
-  //     death/respawn system instead, but classic's own checkStalemate
-  //     (untouched, classic-only) still reads floorStart.
+  // spawnBlackArmy needs four edits vs classic (found by diffing whole):
+  //  1. drop the scripted-campaign branch -- no campaign in classic (#95).
+  //  2. drop the neutral-piece spawn (#98/#111) -- hasNeutralPiece/
+  //     spawnNeutralPiece would throw in classic; the representation/
+  //     upgrade side IS in CORE_ADD and ships as harmless dead code.
+  //  3. drop the death-gate call -- placeDeathGate is undefined in classic.
+  //  4. keep classic's own floorStart checkpoint -- narrative's stalemate
+  //     handling replaced it, but classic's checkStalemate still reads it.
   let spawn = out.get("spawnBlackArmy");
   spawn = cutBetween(
     spawn,

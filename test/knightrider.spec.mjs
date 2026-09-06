@@ -1,10 +1,4 @@
-// Knightrider (DESIGN-NOTES.md seed list, spec'd in hf7y/chezz#102, built
-// for #111): repeats a knight-leap vector in a straight line via slide()
-// rather than a single jump -- the spec's own point was that this needs no
-// new generator, just a PIECE_MOVE_SPEC entry pointing slide() at
-// KNIGHT_JUMPS instead of a rook/bishop direction. The spec explicitly
-// flagged "should work" per code reading and "confirmed by a test" as
-// different claims -- this file is the second one.
+// Knightrider (hf7y/chezz#98/#111): repeats a knight-leap vector via slide(), reusing the existing dispatch.
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
@@ -23,8 +17,7 @@ async function movesFor(page, board, piece, x, y) {
 test("Knightrider repeats a knight-leap vector in a straight line, not just one jump", async ({ page }) => {
   const moves = await movesFor(page, emptyBoard(), "y", 1, 8);
   const targets = new Set(moves.map(m => `${m.x},${m.y}`));
-  // Repeating (2,-1) from (1,8): (3,7), (5,6), (7,5) all fit on the 8x9 board.
-  expect(targets.has("3,7")).toBe(true);
+  expect(targets.has("3,7")).toBe(true); // repeating (2,-1) from (1,8)
   expect(targets.has("5,6")).toBe(true); // a second repeat -- a plain knight could never reach this in one move
   expect(targets.has("7,5")).toBe(true); // a third repeat, right up to the board edge
 });

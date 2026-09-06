@@ -1,9 +1,5 @@
-// The neutral evasive piece (DESIGN-NOTES.md 2026-07-20 seed list, spec'd
-// in hf7y/chezz#102, authorized in #103, built for #111): belongs to
-// neither side, capturable by either, grants the capturer a permanent
-// +knight upgrade. Narrative-only -- classic never spawns one (see
-// transformSpecialCases in scripts/build-classic-artifact.mjs), covered by
-// build-classic-artifact.spec.mjs and check-size.mjs, not here.
+// The neutral evasive piece (hf7y/chezz#98/#111): belongs to neither side,
+// capturable by either, grants a +knight upgrade.
 import { test, expect } from "@playwright/test";
 import { GAME_URL } from "./helpers.mjs";
 
@@ -144,10 +140,7 @@ test("the neutral piece's reactive move maximizes distance from the nearest thre
       }
     }
 
-    // Recomputed independently rather than pinning one destination -- several
-    // KNIGHT_JUMPS escapes can tie for farthest, and this should pin the
-    // BEHAVIOR (picks a max-distance one), not one arbitrary square among ties.
-    const dist = sq => Math.abs(sq.x - 6) + Math.abs(sq.y - 4); // the queen sits at board[4][6] -> x=6, y=4
+    const dist = sq => Math.abs(sq.x - 6) + Math.abs(sq.y - 4); // recomputed, not pinned -- ties are possible
     const escapes = KNIGHT_JUMPS
       .map(([dx, dy]) => ({ x: 4 + dx, y: 4 + dy }))
       .filter(sq => sq.x >= 0 && sq.x < BOARD_COLS && sq.y >= 0 && sq.y < BOARD_ROWS);
