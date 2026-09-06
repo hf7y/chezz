@@ -147,20 +147,11 @@ need widened
 or decided — a decline that only lives in a report is a decline he never
 agreed to.
 
-**Sweep the WHOLE open bug queue, first, before the feature backlog.** The
-original two Actions runners (`sweep.yml`, `nightly-batch.yml`) were deleted
-2026-08-19 (their `ANTHROPIC_API_KEY` had been failing every run since
-2026-08-16, and Actions was blocked from opening PRs on this repo anyway --
-#36, #29) in favor of monkey's self-dev tick as the sole runner (#41), and the
-Apps Script sweep dispatch went with them. That held until #57 (merged
-2026-08-28) restored a GitHub-side runner as a SECOND, independent consumer:
-`.github/workflows/agent.yml`, scheduled daily at 09:00 UTC on the estate's
-OAuth token rather than the dead API key. The two runners are staggered, not
-coordinated -- nothing locks between them, so check for an open PR or a
-recent branch already covering an issue before starting it (see the
-STANDING RULES step 3 in this repo's dispatch prompt). Either way, nothing
-else reads the player-report tracker, so a report left unfetched by whichever
-run picks this step up is a report nobody ever sees.
+**Sweep the WHOLE open bug queue, first, before the feature backlog.** #41
+retired the original two dead Actions runners for monkey's tick alone; #57
+later restored a second, uncoordinated one (`.github/workflows/agent.yml`,
+daily 09:00 UTC). Check for an open PR or recent branch first. Either way,
+nothing else reads the player-report tracker -- unfetched here is unseen.
 
 Fetch `gh issue list --repo hf7y/chezz --label player-report --label bug
 --state open --json number,title,body,comments --limit 100` and triage
@@ -212,8 +203,8 @@ world-readable. Don't put anything private in one.
 ## 6. Before finishing
 
 Confirm every meaningful change has a real commit, landed on `origin/main`
-via a branch + PR merged on green (CLAUDE.md's "Landing work" -- this
-account's push permission denies `git push origin main` directly). An
-overnight run that is not actually merged didn't happen. Also POST a
+via a branch + PR merged on green (CLAUDE.md's "Landing work"; this
+account can't `git push origin main` directly). An overnight run not
+actually merged didn't happen. Also POST a
 `sweep-status` update the same way `/bug-sweep` does (see that command's
 step 6) so the live page's readout reflects tonight's run too.
