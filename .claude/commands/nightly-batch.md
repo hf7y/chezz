@@ -128,9 +128,9 @@ For anything deferred, `gh issue comment <N> --repo hf7y/chezz --body
 why in the report (skipped as duplicate/mis-filed). Commit as you
 complete each feature, not all in one giant commit at the end. Once the
 backlog is empty or everything in it this round was
-resolved/deferred/skipped, move to the backup work named in
-`DESIGN-NOTES.md` (the two standing open engineering questions, or bug
-reports Tier 1 left open needing a human call).
+resolved/deferred/skipped, move to whatever backup work `DESIGN-NOTES.md`
+currently names as open (its milestone and standing-questions sections),
+or bug reports Tier 1 left open needing a human call.
 
 **Park-by-default triage for new vision-scale ideas** (scaffold
 convention, vault:realisateur/STABILITY-MILESTONES.md, adopted 2026-07-25):
