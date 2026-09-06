@@ -147,22 +147,30 @@ need widened
 or decided — a decline that only lives in a report is a decline he never
 agreed to.
 
-**Sweep the WHOLE open bug queue, first, before the feature backlog.** This
-run is the only consumer of player reports: the two GitHub Actions runners
-were deleted 2026-08-19 (their `ANTHROPIC_API_KEY` had been failing every
-run since 2026-08-16, and Actions is blocked from opening PRs on this repo
-anyway -- #36, #29), and the Apps Script sweep dispatch went with them.
-Nothing else reads the tracker, so a report left unfetched here is a report
-nobody ever sees.
+**Sweep the WHOLE open bug queue, first, before the feature backlog.** The
+original two Actions runners (`sweep.yml`, `nightly-batch.yml`) were deleted
+2026-08-19 (their `ANTHROPIC_API_KEY` had been failing every run since
+2026-08-16, and Actions was blocked from opening PRs on this repo anyway --
+#36, #29) in favor of monkey's self-dev tick as the sole runner (#41), and the
+Apps Script sweep dispatch went with them. That held until #57 (merged
+2026-08-28) restored a GitHub-side runner as a SECOND, independent consumer:
+`.github/workflows/agent.yml`, scheduled daily at 09:00 UTC on the estate's
+OAuth token rather than the dead API key. The two runners are staggered, not
+coordinated -- nothing locks between them, so check for an open PR or a
+recent branch already covering an issue before starting it (see the
+STANDING RULES step 3 in this repo's dispatch prompt). Either way, nothing
+else reads the player-report tracker, so a report left unfetched by whichever
+run picks this step up is a report nobody ever sees.
 
 Fetch `gh issue list --repo hf7y/chezz --label player-report --label bug
 --state open --json number,title,body,comments --limit 100` and triage
 every report through `/bug-sweep`'s step 2 buckets, then implement, note,
 or reclassify it by that command's steps 3 and 5 -- it is still the
-procedure, it just has no separate runner any more. A report's `comments`
-carry any prior sweep's notes now (there is no separate tracker note
-field); check the last comment for a `NIGHTLY:` prefix -- those are the
-same tier, not a lower one: unambiguous defects a past sweep punted here.
+procedure, there just isn't a separate Apps-Script-dispatched sweep runner.
+A report's `comments` carry any prior sweep's notes now (there is no
+separate tracker note field); check the last comment for a `NIGHTLY:`
+prefix -- those are the same tier, not a lower one: unambiguous defects a
+past sweep punted here.
 
 ## 4. Stress-test what you built
 
@@ -203,7 +211,9 @@ world-readable. Don't put anything private in one.
 
 ## 6. Before finishing
 
-Confirm every meaningful change has a real commit, pushed to origin/main.
-An overnight run that is not saved anywhere didn't happen. Also POST a
+Confirm every meaningful change has a real commit, landed on `origin/main`
+via a branch + PR merged on green (CLAUDE.md's "Landing work" -- this
+account's push permission denies `git push origin main` directly). An
+overnight run that is not actually merged didn't happen. Also POST a
 `sweep-status` update the same way `/bug-sweep` does (see that command's
 step 6) so the live page's readout reflects tonight's run too.
