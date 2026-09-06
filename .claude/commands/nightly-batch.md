@@ -29,15 +29,13 @@ gh issue list --repo hf7y/chezz --label player-report --state all \
 (see `netlify/functions/report.js`) so nothing already resolved gets
 re-investigated.
 
-**First run `npm run check-answers`.** Questions moved to GitHub issues on
-2026-07-28 (see below); this verifies that the issues API is actually
-reachable, because an unreachable API and a genuinely quiet night both look
-like zero answers. Under the old file channel this drifted silently twice —
-a header-only stub on 2026-07-25, and a 6-commits-behind checkout on
-2026-07-27 that hid three questions from Zach entirely — and in both cases
-the run read an empty-looking file and concluded "no answers tonight." If
-this check fails, fix the channel before reading anything below it; a reply
-you never saw is indistinguishable from a reply he never wrote.
+**First run `npm run check-answers`.** This verifies the issues API is
+actually reachable -- an unreachable API and a genuinely quiet night both
+look like zero answers. Under the old file channel this drifted silently
+twice (a header-only stub 2026-07-25; a 6-commits-behind checkout
+2026-07-27), both times reading an empty-looking file as "no answers
+tonight." If this check fails, fix the channel first; a reply you never
+saw is indistinguishable from one he never wrote.
 
 **Read the answered questions from GitHub issues and process them.**
 Chezz's questions are `question`-labelled issues on `hf7y/chezz`. There is
@@ -108,9 +106,9 @@ gh issue list --repo hf7y/chezz --label player-report --label idea --state open 
   --json number,title,body,createdAt --limit 100
 ```
 
-The backlog is large (~45+ open as of 2026-07-17) -- work through it
-until the turn/time budget runs low, then move to step 5; do not rush
-every report just to reach zero in one night. For each report: implement
+Backlog size varies night to night -- work through it until the turn/time
+budget runs low, then move to step 5; don't rush every report just to
+reach zero. For each report: implement
 it, fix it directly if it's actually a mis-filed bug, defer it with a
 real reason, or skip it as a duplicate/too-vague -- see `DESIGN-NOTES.md`
 for exactly what distinguishes those four outcomes. For anything
@@ -128,9 +126,9 @@ For anything deferred, `gh issue comment <N> --repo hf7y/chezz --body
 why in the report (skipped as duplicate/mis-filed). Commit as you
 complete each feature, not all in one giant commit at the end. Once the
 backlog is empty or everything in it this round was
-resolved/deferred/skipped, move to the backup work named in
-`DESIGN-NOTES.md` (the two standing open engineering questions, or bug
-reports Tier 1 left open needing a human call).
+resolved/deferred/skipped, move to whatever backup work `DESIGN-NOTES.md`
+currently names as open (its milestone and standing-questions sections),
+or bug reports Tier 1 left open needing a human call.
 
 **Park-by-default triage for new vision-scale ideas** (scaffold
 convention, vault:realisateur/STABILITY-MILESTONES.md, adopted 2026-07-25):
@@ -147,22 +145,21 @@ need widened
 or decided — a decline that only lives in a report is a decline he never
 agreed to.
 
-**Sweep the WHOLE open bug queue, first, before the feature backlog.** This
-run is the only consumer of player reports: the two GitHub Actions runners
-were deleted 2026-08-19 (their `ANTHROPIC_API_KEY` had been failing every
-run since 2026-08-16, and Actions is blocked from opening PRs on this repo
-anyway -- #36, #29), and the Apps Script sweep dispatch went with them.
-Nothing else reads the tracker, so a report left unfetched here is a report
-nobody ever sees.
+**Sweep the WHOLE open bug queue, first, before the feature backlog.** #41
+retired the original two dead Actions runners for monkey's tick alone; #57
+later restored a second, uncoordinated one (`.github/workflows/agent.yml`,
+daily 09:00 UTC). Check for an open PR or recent branch first. Either way,
+nothing else reads the player-report tracker -- unfetched here is unseen.
 
 Fetch `gh issue list --repo hf7y/chezz --label player-report --label bug
 --state open --json number,title,body,comments --limit 100` and triage
 every report through `/bug-sweep`'s step 2 buckets, then implement, note,
 or reclassify it by that command's steps 3 and 5 -- it is still the
-procedure, it just has no separate runner any more. A report's `comments`
-carry any prior sweep's notes now (there is no separate tracker note
-field); check the last comment for a `NIGHTLY:` prefix -- those are the
-same tier, not a lower one: unambiguous defects a past sweep punted here.
+procedure, there just isn't a separate Apps-Script-dispatched sweep runner.
+A report's `comments` carry any prior sweep's notes now (there is no
+separate tracker note field); check the last comment for a `NIGHTLY:`
+prefix -- those are the same tier, not a lower one: unambiguous defects a
+past sweep punted here.
 
 ## 4. Stress-test what you built
 
@@ -203,7 +200,10 @@ world-readable. Don't put anything private in one.
 
 ## 6. Before finishing
 
-Confirm every meaningful change has a real commit, pushed to origin/main.
-An overnight run that is not saved anywhere didn't happen. Also POST a
-`sweep-status` update the same way `/bug-sweep` does (see that command's
-step 6) so the live page's readout reflects tonight's run too.
+Confirm every meaningful change has a real commit, landed on `origin/main`
+via a branch + PR merged on green (CLAUDE.md's "Landing work"; this
+account can't `git push origin main` directly). An overnight run not
+actually merged didn't happen. `sweep-status` is computed live from the
+most recently closed `player-report` issue (`netlify/functions/report.js`)
+-- nothing to POST; closing a report tonight already updates the live
+page's readout, `/bug-sweep` step 6's `curl` is just an optional check.
