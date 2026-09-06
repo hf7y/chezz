@@ -29,15 +29,13 @@ gh issue list --repo hf7y/chezz --label player-report --state all \
 (see `netlify/functions/report.js`) so nothing already resolved gets
 re-investigated.
 
-**First run `npm run check-answers`.** Questions moved to GitHub issues on
-2026-07-28 (see below); this verifies that the issues API is actually
-reachable, because an unreachable API and a genuinely quiet night both look
-like zero answers. Under the old file channel this drifted silently twice —
-a header-only stub on 2026-07-25, and a 6-commits-behind checkout on
-2026-07-27 that hid three questions from Zach entirely — and in both cases
-the run read an empty-looking file and concluded "no answers tonight." If
-this check fails, fix the channel before reading anything below it; a reply
-you never saw is indistinguishable from a reply he never wrote.
+**First run `npm run check-answers`.** This verifies the issues API is
+actually reachable -- an unreachable API and a genuinely quiet night both
+look like zero answers. Under the old file channel this drifted silently
+twice (a header-only stub 2026-07-25; a 6-commits-behind checkout
+2026-07-27), both times reading an empty-looking file as "no answers
+tonight." If this check fails, fix the channel first; a reply you never
+saw is indistinguishable from one he never wrote.
 
 **Read the answered questions from GitHub issues and process them.**
 Chezz's questions are `question`-labelled issues on `hf7y/chezz`. There is
