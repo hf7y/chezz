@@ -40,23 +40,19 @@ const FAIRY_TASKS = [
   { upper: "M", lower: "m", file: "amazon", baseChar: "♛" },     // Queen + knight
 ];
 
+// Two diagonal notches in the empty margin above/beside the crown, unlike the buried neck-flare this replaced.
 function addKnightEars(grid) {
   const out = grid.map((row) => [...row]);
-  let neckRow = -1, neckWidth = Infinity, neckLeft = 0, neckRight = 0;
-  for (let y = 2; y <= 9; y++) {
-    const xs = [];
-    for (let x = 0; x < SIZE; x++) if (grid[y][x]) xs.push(x);
-    if (!xs.length) continue;
-    const width = xs[xs.length - 1] - xs[0] + 1;
-    if (width < neckWidth) { neckWidth = width; neckRow = y; neckLeft = xs[0]; neckRight = xs[xs.length - 1]; }
-  }
-  if (neckRow === -1) return out; // no discernible neck -- leave the glyph untouched
-  for (const y of [neckRow, neckRow + 1]) {
-    if (y >= SIZE) continue;
-    for (const x of [neckLeft - 2, neckLeft - 1, neckRight + 1, neckRight + 2]) {
-      if (x >= 0 && x < SIZE) out[y][x] = true;
-    }
-  }
+  let topRow = -1;
+  for (let y = 0; y < SIZE; y++) { if (grid[y].some(Boolean)) { topRow = y; break; } }
+  if (topRow < 1) return out; // no margin above the crown to plant ears in
+  const xs = [];
+  for (let x = 0; x < SIZE; x++) if (grid[topRow][x]) xs.push(x);
+  if (!xs.length) return out;
+  const cx = (xs[0] + xs[xs.length - 1]) / 2;
+  const set = (y, x) => { if (y >= 0 && y < SIZE && x >= 0 && x < SIZE) out[y][x] = true; };
+  set(topRow - 1, Math.round(cx - 3)); set(topRow - 1, Math.round(cx + 3));
+  set(topRow, Math.round(cx - 2)); set(topRow, Math.round(cx + 2));
   return out;
 }
 
