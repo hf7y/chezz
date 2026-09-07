@@ -21,7 +21,7 @@ test("dragging the King and releasing past the target square still snaps to the 
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-8-4K3_w&floor=1&spawned=1&budget=1&maxRank=0");
 
   const moved = await page.evaluate(() => {
-    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
     const rectOf = el => el.getBoundingClientRect();
     const el = kingCell();
     const startRect = rectOf(el);
@@ -80,7 +80,7 @@ test("formation-follow preview: dragging the King toward a drop shows dots on wh
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-R6B-4K3-8_w&floor=1&spawned=1&budget=1&maxRank=0");
 
   const midDrag = await page.evaluate(() => {
-    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
     const el = kingCell();
     const r = el.getBoundingClientRect();
     const start = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
@@ -114,7 +114,7 @@ test("formation-follow preview: clears once the drag ends, and never appears whi
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-R6B-4K3-8_w&floor=1&spawned=1&budget=1&maxRank=0");
 
   const afterDrop = await page.evaluate(() => {
-    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
     const el = kingCell();
     const r = el.getBoundingClientRect();
     const start = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
@@ -129,7 +129,7 @@ test("formation-follow preview: clears once the drag ends, and never appears whi
 
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-R6B-4K3-p7_w&floor=1&spawned=1&budget=1&maxRank=0");
   const withBlackPiece = await page.evaluate(() => {
-    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
     const el = kingCell();
     const r = el.getBoundingClientRect();
     const start = { x: r.x + r.width / 2, y: r.y + r.height / 2 };

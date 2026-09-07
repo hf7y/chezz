@@ -31,6 +31,8 @@ const LETTER_BY_FILE = {
   "b-king": "k", "b-queen": "q", "b-rook": "r", "b-bishop": "b",
   "b-knight": "n", "b-pawn": "p", "b-amazon": "m", "b-chancellor": "c",
   "b-archbishop": "a",
+  // Neutral evasive piece (hf7y/chezz#97/#98) -- single glyph, no side pairing.
+  "neutral": "e",
 };
 
 function fail(message) {
