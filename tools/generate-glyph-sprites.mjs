@@ -1,4 +1,5 @@
 // Deterministic 16x16 piece sprites (hf7y/chezz#97, 2026-09-07). No network call. `npm run pieces:generate-16` then `pieces:wire`; neutral piece needs $CHEZZ_NOTO_SYMBOLS2_TTF or skips "e".
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +25,18 @@ const NOTO_SYMBOLS2_URL =
 function fail(message) {
   console.error(`generate-glyph-sprites: ${message}`);
   process.exit(1);
+}
+
+function assertFontResolves(family, mustContain) { // fc-match never errors on a missing face -- it silently substitutes
+  let match;
+  try {
+    match = execFileSync("fc-match", [family], { encoding: "utf8" });
+  } catch (error) {
+    fail(`fc-match failed for "${family}": ${error.message}`);
+  }
+  if (!match.includes(mustContain)) {
+    fail(`"${family}" resolves to "${match.trim()}" on this host, not ${mustContain} -- refusing to rasterize a silent substitute.`);
+  }
 }
 
 const FONT_TASKS = [
@@ -145,6 +158,8 @@ async function main() {
   const requested = new Set(process.argv.slice(2));
   const wantsAll = requested.size === 0;
   const wants = (letter) => wantsAll || requested.has(letter);
+
+  assertFontResolves(FONT_FAMILY, "DejaVu");
 
   const notoBuffer = resolveNotoBuffer();
   if (wants("e") && !notoBuffer) {
