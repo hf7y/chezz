@@ -100,7 +100,7 @@ test("a full-cell touch drag moves the piece", async ({ page }) => {
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-5PPP-7K_w&floor=1&spawned=1&budget=1&maxRank=0");
 
   const moved = await page.evaluate(() => {
-    function kingCell() { return [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔")); }
+    function kingCell() { return [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔")); }
     function center(el) { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width }; }
     const el = kingCell();
     const c = center(el);
@@ -119,7 +119,7 @@ test("a jittery touch tap still selects (regression: ghost-glitch fix)", async (
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-5PPP-7K_w&floor=1&spawned=1&budget=1&maxRank=0");
 
   const selected = await page.evaluate(() => {
-    const el = [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const el = [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
     const r = el.getBoundingClientRect();
     const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
     const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true };
@@ -138,7 +138,7 @@ test("post-combat mode (no Black pieces) keeps the moved piece selected, not des
 
   const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true };
   await page.evaluate((base) => {
-    function knightCell() { return [...document.querySelectorAll("td")].find(td => td.textContent.includes("♘")); }
+    function knightCell() { return [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♘")); }
     function center(el) { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width }; }
     const el = knightCell();
     const c = center(el);
@@ -150,7 +150,7 @@ test("post-combat mode (no Black pieces) keeps the moved piece selected, not des
 
   const stillSelectedOnKnight = await page.evaluate(() => {
     const sel = document.querySelector("td[data-selected]");
-    return !!sel && sel.textContent.includes("♘");
+    return !!sel && sel.innerHTML.includes("♘");
   });
   expect(stillSelectedOnKnight).toBe(true);
 });
@@ -162,7 +162,7 @@ test("selection highlight is an inset box-shadow, not an outline (regression: ov
   await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-5PPP-7K_w&floor=1&spawned=1&budget=1&maxRank=0");
 
   const style = await page.evaluate(() => {
-    const el = [...document.querySelectorAll("td")].find(td => td.textContent.includes("♔"));
+    const el = [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
     const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true };
     const r = el.getBoundingClientRect();
     el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 }));

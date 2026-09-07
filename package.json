@@ -12,6 +12,7 @@
     "check-live-deploy": "node scripts/check-live-deploy.mjs",
     "prepare": "node scripts/setup-hooks.mjs",
     "pieces:generate": "node tools/generate-pieces.mjs",
+    "pieces:generate-16": "node tools/generate-glyph-sprites.mjs",
     "pieces:wire": "node tools/wire-pieces.mjs",
     "pieces:spend": "node tools/gemini-budget.mjs",
     "earcons:generate": "node tools/generate-earcons.mjs",

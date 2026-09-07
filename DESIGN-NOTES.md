@@ -193,6 +193,9 @@ list nightly-batch should start executing against.
      its artifact budget (#89, #90) can't carry baked sprites, so this
      track is narrative-only if pursued at all.
 
+  **Superseded 2026-09-07 (#97).** `assets/pieces/` ships a full 16x16 set
+  from `tools/generate-glyph-sprites.mjs`, replacing `b-pawn.png`.
+
 ## "Chezz Classic" — all three questions resolved; work is #89
 
 Raised 2026-07-20: the user wants an older version of chezz — at the time,

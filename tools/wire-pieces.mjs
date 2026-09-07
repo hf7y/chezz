@@ -31,6 +31,7 @@ const LETTER_BY_FILE = {
   "b-king": "k", "b-queen": "q", "b-rook": "r", "b-bishop": "b",
   "b-knight": "n", "b-pawn": "p", "b-amazon": "m", "b-chancellor": "c",
   "b-archbishop": "a",
+  "neutral": "e",
 };
 
 function fail(message) {
