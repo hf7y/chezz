@@ -10,3 +10,6 @@ playwright-report/
 
 # built by bin/build-site.sh
 _site/
+
+# scratch clone of hf7y/etalon, used to reproduce prose/prose checks locally
+.etalon/

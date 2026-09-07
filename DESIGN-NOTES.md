@@ -193,21 +193,8 @@ list nightly-batch should start executing against.
      its artifact budget (#89, #90) can't carry baked sprites, so this
      track is narrative-only if pursued at all.
 
-  **Superseded 2026-09-07 (#97).** `assets/pieces/` now ships a full
-  deterministic 16x16 set, replacing the single Gemini-generated
-  `b-pawn.png`: `tools/generate-glyph-sprites.mjs` rasterizes King/Queen/
-  Rook/Bishop/Knight/Pawn from a local system font (DejaVu Sans, one
-  silhouette per type tinted per side) and the neutral evasive piece from
-  Noto Sans Symbols 2 (font not committed — fetched on demand, see the
-  script's own header), then derives Archbishop/Chancellor/Amazon from
-  their own base piece's rasterization with a small added "ear" flare —
-  #97's own probe found Unicode's composite fairy glyphs turn to mush at
-  16px, so these stay one silhouette plus one cue rather than two full
-  readings competing for the same few pixels. No network call or API key
-  needed to regenerate the six standard pieces or the fairy three; no
-  sign-off gate either (#97 itself is the sign-off). The Gemini pipeline
-  (`tools/generate-pieces.mjs`) is untouched and still works, but is no
-  longer what's shipped.
+  **Superseded 2026-09-07 (#97).** `assets/pieces/` ships a full 16x16 set
+  from `tools/generate-glyph-sprites.mjs`, replacing `b-pawn.png`.
 
 ## "Chezz Classic" — all three questions resolved; work is #89
 

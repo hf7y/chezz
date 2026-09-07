@@ -1,49 +1,4 @@
-/* Deterministic 16x16 piece sprites -- hf7y/chezz#97's decision (2026-09-07):
- * rasterize the six standard piece types and the neutral evasive piece from
- * locally available fonts, derive the three knight-combo fairy pieces
- * (Archbishop/Chancellor/Amazon) from those same rasterizations, and bake
- * the result into assets/pieces/ the same way tools/wire-pieces.mjs already
- * does for the Gemini pipeline.
- *
- *   npm run pieces:generate-16          # all 19 sprites, keyed like SYMBOLS
- *   npm run pieces:generate-16 -- e     # just the neutral piece
- *   npm run pieces:wire                 # bake assets/pieces/*.png into index1.html
- *
- * No network call, no API key, no per-run cost, no sign-off gate (#97 IS the
- * sign-off) -- safe to re-run any time local fonts are available. Uses
- * Playwright's own chromium for text rendering and pixel readback, same as
- * tools/sprite-postprocess.js, so this adds zero new dependencies.
- *
- * FONT GAP, read before re-running: this box does not have "Noto Sans
- * Symbols 2" installed (`fc-match` silently substitutes DejaVu Sans, which
- * lacks U+1FA46 NEUTRAL CHESS KNIGHT -- confirmed 2026-09-06, hf7y/chezz#97).
- * Every other glyph here comes from DejaVu Sans, which chezz's own dev boxes
- * and GitHub's ubuntu-latest runners ship by default. The neutral piece's
- * font is NOT committed to this repo -- only its 16x16 PNG output is. To
- * regenerate it, point $CHEZZ_NOTO_SYMBOLS2_TTF at a local copy (e.g.
- * https://github.com/google/fonts/raw/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf
- * -- OFL 1.1; #97's 2026-09-06 comment already cleared shipping rasterized
- * output from it). Without the env var, this script skips "e" and says so,
- * rather than silently rasterizing a substitute face.
- *
- * Standard six pieces use ONE silhouette per type -- the solid "black"
- * Unicode codepoint (U+265A-265F) -- tinted per side, rather than also
- * rasterizing the hollow "white" codepoints. A one-pixel hollow outline does
- * not survive a 16px 1-bit threshold any better than the original
- * b-pawn.png's antialiasing fringe did (see #97's opening measurement); a
- * shared silhouette recolored per side is also exactly what the retired
- * Gemini pipeline's own prompt asked for ("a light near-white body" / "a
- * dark near-black body" -- same shape, different tone).
- *
- * Archbishop/Chancellor/Amazon are each derived from their own base piece's
- * ALREADY-rasterized silhouette (bishop/rook/queen respectively) rather than
- * from Unicode's own composite glyphs: #97's own probe found those turn to
- * mush at 16px because they try to hold two full readings (e.g. a queen body
- * AND a knight head) in too few pixels. addKnightEars() flares the piece's
- * own neck outward by a couple of pixels on each side -- a single small,
- * legible cue attached to a shape that's already proven readable, instead of
- * competing detail piled onto a fresh design.
- */
+// Deterministic 16x16 piece sprites (hf7y/chezz#97, 2026-09-07). No network call. `npm run pieces:generate-16` then `pieces:wire`; neutral piece needs $CHEZZ_NOTO_SYMBOLS2_TTF or skips "e".
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,9 +12,6 @@ const FONT_FAMILY = "DejaVu Sans";
 const NEUTRAL_FONT_FAMILY = "ChezzNotoSymbols2";
 const NEUTRAL_PIECE_CHAR = "\u{1FA46}";
 
-// Matches index1.html's own --ink/--panel/--pink/--gold/--cream ramp (also
-// tools/sprite-postprocess.js's SPRITE_PALETTE) -- a sprite from either
-// pipeline snaps to the same five tones.
 const FILL = {
   white: [0xf2, 0xf2, 0xf2], // --cream
   black: [0x0a, 0x0a, 0x0a], // --ink
@@ -74,9 +26,6 @@ function fail(message) {
   process.exit(1);
 }
 
-// Keyed exactly like index1.html's SYMBOLS -- uppercase White, lowercase
-// Black. `e` (neutral) has no side. Fairy pieces reuse their base piece's
-// own glyph (see addKnightEars, below).
 const FONT_TASKS = [
   { upper: "K", lower: "k", file: "king", char: "♚" },
   { upper: "Q", lower: "q", file: "queen", char: "♛" },
@@ -91,9 +40,6 @@ const FAIRY_TASKS = [
   { upper: "M", lower: "m", file: "amazon", baseChar: "♛" },     // Queen + knight
 ];
 
-// Flares the piece's own narrowest row (its neck, just under the head) 2px
-// outward on each side for two rows -- attached to real silhouette pixels,
-// not a floating dot, so it reads as an added feature rather than noise.
 function addKnightEars(grid) {
   const out = grid.map((row) => [...row]);
   let neckRow = -1, neckWidth = Infinity, neckLeft = 0, neckRight = 0;
@@ -124,9 +70,6 @@ function resolveNotoBuffer() {
   }
 }
 
-// Renders `char` big, crops to content, downsamples into a 16x16 alpha mask,
-// and returns it as a plain boolean grid -- color-agnostic, so the same grid
-// can be tinted per side (renderGrid) or fed into addKnightEars first.
 async function renderFontGlyphGrid(page, char, fontFamily) {
   return page.evaluate(({ char, fontFamily, size }) => {
     const BIG = 200;
