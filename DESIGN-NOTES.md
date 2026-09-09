@@ -60,6 +60,14 @@ or re-ask:
      problem, not a trivial one** — flagged explicitly as needing special
      treatment, worth solving as a distinct, smaller follow-up rather than
      blocking the King/sliding-piece version on it.
+     **Resolved four days later, same pass, not a separate follow-up**
+     (`1f51a1e`, `nearestLegalMove`, `index1.html`): the flagged problem
+     dissolves because nearest-legal-move is pixel-distance-to-destination
+     over the piece's actual legal-move list, not path-following — a
+     Knight's moves are just as much a flat set of candidate cells as a
+     Rook's, so no special-casing was needed. An animated "step toward it"
+     walk (as opposed to snapping straight to the nearest legal square)
+     remains unbuilt and is the only real remaining polish item here.
    - Player can still fully override (this was already true in the
      original framing and still holds): the drag itself IS the control,
      there's no separate autonomous system fighting the player for input.
