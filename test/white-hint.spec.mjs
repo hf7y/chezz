@@ -1,8 +1,8 @@
 // White move-hint (hf7y/chezz#3, human-directed 2026-08-23: "build it,
 // always on" -- a star riding the existing legal-move highlight, not a
 // separate marker). Covers the two correctness conditions the finding
-// (research/engine/2026-07-29-white-move-hint-hypothesis.md) flagged as
-// real risks if this shipped naively:
+// (full text in that issue's thread) flagged as real risks if this shipped
+// naively:
 //  - illegal hints: searchWithHint's collectMoves reuses legalMovesForPiece
 //    for both sides, which -- unlike legalMovesFrom -- doesn't filter out
 //    moves that hang White's own King. Every hint actually returned must
