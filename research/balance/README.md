@@ -77,7 +77,6 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 ## Index
 
 - [2026-07-29 — spawned pawns must never be free material](2026-07-29-pawn-spawn-free-material.md)
-- [2026-08-22 — analytic material sufficiency: a decision procedure, one proven small case, and a non-monotonicity](2026-08-22-analytic-material-sufficiency.md)
 
 ### Reaped, preserved in the vault
 
@@ -92,8 +91,9 @@ so the local copy carried no information the vault didn't already have:
   `/srv/ecosystem1-vault/chezz/research/balance/2026-08-06-opposite-color-bishop-pair-value.md`
 - 2026-08-06 — "fodder floors feel empty": doesn't reproduce under current code --
   `/srv/ecosystem1-vault/chezz/research/balance/2026-08-06-fodder-floors-no-longer-reproduce.md`
+- 2026-08-22 — analytic material sufficiency: a decision procedure, one proven small case, and a non-monotonicity, answered via hf7y/bibliothecaire#57 --
+  `/srv/ecosystem1-vault/chezz/research/balance/2026-08-22-analytic-material-sufficiency.md`
 
 ### Open, not yet studied
 
-None. The last of the original four (analytic material sufficiency) was
-answered 2026-08-22 via hf7y/bibliothecaire#57.
+None.
