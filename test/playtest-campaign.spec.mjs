@@ -48,12 +48,12 @@ test("playtest the full campaign, continuously", async ({ page }) => {
       return moves;
     }
 
-    // Only pieces literally on row 0 (the exit row) when the King also
-    // arrives there carry over to the next floor (see newFloor/
-    // checkFloorProgression) -- a straggler elsewhere is abandoned. This
-    // proxy needs to actively shepherd its own surviving pieces to the
-    // exit, not just rush the King there, or it'll never accumulate an
-    // army no matter how much material it captures.
+    // Every surviving White piece carries over to the next floor regardless
+    // of where it is when the King reaches row 0 (newFloor scans the whole
+    // board, not just the exit row -- hf7y/chezz#117/#119), so a straggler
+    // is never lost. This penalty is still worth keeping as a heuristic: a
+    // piece bunched up near the King is more useful sooner (formationFollow
+    // needs fewer moves to bring it level), not a survival requirement.
     const STRAGGLER_PENALTY = 3; // per non-King White piece not yet on row 0 while the King already is
     function evalBoard(board) {
       let score = 0, whiteKingY = -1, blackAlive = false;
@@ -157,7 +157,7 @@ test("playtest the full campaign, continuously", async ({ page }) => {
 
         // Mirrors checkFloorProgression/newFloor exactly (survivors carry
         // over, a captured pawn backfills each, floor increments).
-        newFloor(boardToFen().split("-")[0]);
+        newFloor();
       }
       return { outcome: "beat-the-campaign", floor: state.floor, totalPlies, floorLog };
     }
