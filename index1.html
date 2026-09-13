@@ -371,25 +371,30 @@
      (2026-07-15/07-16 tracker reports: "ai taking a long time... some
      animation to show thinking?", "some kind of thinking animation for
      black? brain emoji?") -- a plain text cue so the frozen board reads
-     as "computing," not "stuck." Empty and invisible the rest of the time. */
+     as "computing," not "stuck." Text-less rest of the time, but the box
+     itself never collapses: it used to be display:none when empty, which
+     shifted the whole board up/down every single time this text appeared
+     or cleared -- once per turn (hf7y/chezz#118). A fixed line-height slot
+     keeps that from moving anything below it. */
   #thinkingIndicator {
     margin: -8px 0 10px;
     font-size: 12px;
+    line-height: 14px;
+    height: 14px;
     color: var(--gold);
-    min-height: 0;
   }
-  #thinkingIndicator:empty { display: none; }
 
   /* Stalemate used to silently reset the floor with zero feedback
      (2026-07-16T11:51:25.998Z: "should trigger some kind of notification").
-     Same transient-text treatment as #thinkingIndicator above. */
+     Same transient-text treatment, and the same fixed-height fix, as
+     #thinkingIndicator above. */
   #floorMessage {
     margin: -8px 0 10px;
     font-size: 12px;
+    line-height: 14px;
+    height: 14px;
     color: var(--gold);
-    min-height: 0;
   }
-  #floorMessage:empty { display: none; }
 
   dialog {
     position: absolute;
@@ -2167,33 +2172,62 @@
     const exitRow = state.board[EXIT_ROW];
     if (!exitRow.includes("K")) { return; }
     playEarcon("floorClear");
-    newFloor(boardToFen().split("-")[0]);
+    newFloor();
     state.turn = "w";
   }
 
-  function newFloor(survivorsFen) {
-    // rank1 = new floor's back rank (row 8), rank2 = one step ahead (row 7)
+  // Nearest empty column to `x` in a rank array being built up (own column
+  // first, then out one step at a time), so two survivors that land in the
+  // same file don't clobber each other.
+  function nearestEmptyCol(rank, x) {
+    if (rank[x] === "1") return x;
+    for (let d = 1; d < BOARD_COLS; d++) {
+      if (x - d >= 0 && rank[x - d] === "1") return x - d;
+      if (x + d < BOARD_COLS && rank[x + d] === "1") return x + d;
+    }
+    return -1;
+  }
+
+  function newFloor() {
+    // rank1 = new floor's back rank (row 8), rank2 = one step ahead (row 7).
     // White pawns advance to rank2, leaving rank1 empty in that column.
-    // Other white survivors stay on rank1; a captured pawn spawns at rank2 if available.
-    let rank1 = "", rank2 = "";
-    for (const c of survivorsFen) {
-      if ("12345678".includes(c)) { rank1 += c; rank2 += c; continue; }
-      if (c === "P") {
-        rank1 += "1";
-        rank2 += "P";
-      } else {
-        rank1 += c;
-        const remaining = spendFromPool(state.captured, "p");
-        if (remaining !== null) {
-          rank2 += "P";
-          state.captured = remaining;
-        } else {
-          rank2 += "1";
-        }
+    // Other white survivors go to rank1; a captured pawn spawns at rank2
+    // (escorting it) if one's available in the pool.
+    //
+    // Scans the WHOLE board, not just EXIT_ROW: formationFollow nudges
+    // survivors toward the King's rank one legal move at a time, so a piece
+    // more than one move behind (blocked path, short move set) can still be
+    // mid-board when the King reaches EXIT_ROW. Building the new floor from
+    // EXIT_ROW alone silently dropped anything that hadn't caught up yet --
+    // it despawned instead of carrying over (hf7y/chezz#117, #119).
+    const rank1 = new Array(BOARD_COLS).fill("1");
+    const rank2 = new Array(BOARD_COLS).fill("1");
+
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        const c = state.board[y][x];
+        if (!c || c === "P" || isTerrain(c) || !isWhitePiece(c)) continue;
+        const col = nearestEmptyCol(rank1, x);
+        if (col !== -1) rank1[col] = c;
+      }
+    }
+    for (let y = 0; y < BOARD_ROWS; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        if (state.board[y][x] !== "P") continue;
+        const col = nearestEmptyCol(rank2, x);
+        if (col !== -1) rank2[col] = "P";
+      }
+    }
+    for (let x = 0; x < BOARD_COLS; x++) {
+      if (rank1[x] === "1" || rank2[x] !== "1") continue;
+      const remaining = spendFromPool(state.captured, "p");
+      if (remaining !== null) {
+        rank2[x] = "P";
+        state.captured = remaining;
       }
     }
 
-    loadFen("8-8-8-8-8-8-8-" + rank2 + "-" + rank1 + "_" + state.turn);
+    loadFen("8-8-8-8-8-8-8-" + rank2.join("") + "-" + rank1.join("") + "_" + state.turn);
     state.floor++;
     state.spawned = false;
     spawnBlackArmy();

@@ -68,3 +68,25 @@ test("multiple different fonts in the same row still align to the same center", 
   const { thCenterY, pieceCenters } = await measureRow(page, 4);
   for (const center of pieceCenters) expect(center).toBeCloseTo(thCenterY, 0);
 });
+
+// #thinkingIndicator and #floorMessage used to be `display: none` while
+// empty, so the board (everything below them in DOM order) jumped up every
+// time the text appeared and back down when it cleared -- once per turn for
+// the thinking indicator (hf7y/chezz#118). Both now hold a fixed height
+// whether or not they have text.
+test("the board doesn't shift when the thinking/floor-message text appears or clears", async ({ page }) => {
+  const boardTop = () => document.querySelector("table").getBoundingClientRect().top;
+
+  const emptyTop = await page.evaluate(boardTop);
+  const withThinkingTop = await page.evaluate(t => {
+    document.getElementById("thinkingIndicator").textContent = t;
+    return document.querySelector("table").getBoundingClientRect().top;
+  }, "Black is thinking…");
+  const withFloorMessageToo = await page.evaluate(t => {
+    document.getElementById("floorMessage").textContent = t;
+    return document.querySelector("table").getBoundingClientRect().top;
+  }, "Stalemate -- floor reset.");
+
+  expect(withThinkingTop).toBe(emptyTop);
+  expect(withFloorMessageToo).toBe(emptyTop);
+});
