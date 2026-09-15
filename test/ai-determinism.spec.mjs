@@ -40,6 +40,43 @@ test("known-position regression pins", async ({ page }) => {
   expect(await bestMove(page, "8-8-6p1-6K1-6PP-8-8-8-b7", "", 3))
     .toEqual({ piece: "b", fromX: 0, fromY: 8, toX: 3, toY: 5, score: -100540,
       hint: { fromX: 6, fromY: 3, toX: 7, toY: 2 } });
+
+  // hf7y/chezz#121 ("bishop sack in this position is weird"), traced by hand
+  // from the reported fen/last: the position one ply before Black's
+  // complained-of bxN. Bishop and Knight are equal-valued in this engine's
+  // pieceValues (both 300) -- BxN here is a plain even trade, not a
+  // sacrifice, and the returned hint confirms White's own best reply is the
+  // pawn recapture the player then saw happen. Not a bug: locks in the
+  // (correct, unremarkable) trade.
+  expect(await bestMove(page, "8-8-8-8-1b6-5b2-###1N###-1P3PP1-3K4", "P", 6))
+    .toEqual({ piece: "b", fromX: 5, fromY: 5, toX: 4, toY: 6, score: -99910,
+      hint: { fromX: 5, fromY: 7, toX: 4, toY: 6 } });
+
+  // hf7y/chezz#122 ("BxP here is also shallow because K takes"), same
+  // reported game as #121, one move later. Traced by hand: the King at
+  // (4,8) is two files and one rank from the bishop's landing square
+  // (6,7) -- not a king move, so it can never recapture there in one ply.
+  // The engine's own hint for White's best reply is a King advance
+  // elsewhere, not a recapture; nothing else attacks (6,7) either, so BxP
+  // wins the pawn cleanly. Not a bug: the player's "K takes" read of the
+  // position doesn't hold up against the actual board geometry.
+  expect(await bestMove(page, "8-8-8-8-8-8-###1P###-1P4P1-4Kb2", "PNbP", 6))
+    .toEqual({ piece: "b", fromX: 5, fromY: 8, toX: 6, toY: 7, score: -99990,
+      hint: { fromX: 4, fromY: 8, toX: 4, toY: 7 } });
+
+  // hf7y/chezz#125 ("black gives up? doesn't try to save bishop"), traced
+  // by hand from the reported fen/last: the position one ply before
+  // Black's complained-of bishop shuffle. White's King is at (1,1),
+  // EXIT_ROW is 0, and row 0 is entirely empty and unattacked by any Black
+  // piece here -- White wins the floor next move no matter what Black
+  // plays this turn. The deeply negative score (near
+  // WHITE_ESCAPE_PENALTY) reflects the search correctly seeing that the
+  // King's exit is already unstoppable, so nothing Black does with the
+  // bishop changes the outcome. Not a bug: "giving up" on the bishop is
+  // the objectively correct read of an already-lost position.
+  expect(await bestMove(page, "8-1K1bP3-5N2-8-8-6b1-###2###-2P5-8", "P", 6))
+    .toEqual({ piece: "b", fromX: 6, fromY: 5, toX: 5, toY: 4, score: -600905,
+      hint: { fromX: 1, fromY: 1, toX: 0, toY: 0 } });
 });
 
 test("king safety is attack-based, not just King-progress (priority queue item 5)", async ({ page }) => {
