@@ -14,11 +14,13 @@ import { test, expect } from "@playwright/test";
 import {
   checkDomain,
   checkRedirectsToCanonical,
+  checkClassicReportUrl,
   DOMAINS,
   GAME_PATHS,
   NARRATIVE_REDIRECT_PATHS,
   NETLIFY_CANONICAL_URL,
   REPORT_ENDPOINT,
+  CLASSIC_PAGES,
 } from "../scripts/check-live-deploy.mjs";
 
 test("a 200 response is reported ok", async () => {
@@ -92,4 +94,35 @@ test("both non-canonical Narrative routes are checked, not just one", () => {
   const names = NARRATIVE_REDIRECT_PATHS.map((p) => p.name);
   expect(names).toContain("hf7y.com narrative redirect");
   expect(names).toContain("hf7y.github.io narrative redirect");
+});
+
+test("classic is checked on both origins it's fully served from", () => {
+  const names = CLASSIC_PAGES.map((p) => p.name);
+  expect(names).toContain("hf7y.com classic");
+  expect(names).toContain("chezz.hf7y.com classic");
+});
+
+test("checkClassicReportUrl: a page naming the Netlify function is ok", async () => {
+  const fakeFetch = async () => ({
+    status: 200,
+    text: async () => "<script>const LEADERBOARD_URL = \"https://chezz.hf7y.com/.netlify/functions/report\";</script>",
+  });
+  const result = await checkClassicReportUrl({ name: "example", url: "https://example.test/classic.html" }, fakeFetch);
+  expect(result.ok).toBe(true);
+});
+
+test("checkClassicReportUrl: a page still naming the retired Google Apps Script URL fails, even at HTTP 200 (hf7y/chezz#82)", async () => {
+  const fakeFetch = async () => ({
+    status: 200,
+    text: async () => "<script>const LEADERBOARD_URL = \"https://script.google.com/macros/s/abc/exec\";</script>",
+  });
+  const result = await checkClassicReportUrl({ name: "example", url: "https://example.test/classic.html" }, fakeFetch);
+  expect(result.ok).toBe(false);
+  expect(result.detail).toContain("retired Google Apps Script URL");
+});
+
+test("checkClassicReportUrl: a page naming neither URL fails loud instead of passing silently", async () => {
+  const fakeFetch = async () => ({ status: 200, text: async () => "<script>const LEADERBOARD_URL = \"\";</script>" });
+  const result = await checkClassicReportUrl({ name: "example", url: "https://example.test/classic.html" }, fakeFetch);
+  expect(result.ok).toBe(false);
 });

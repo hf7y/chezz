@@ -9,10 +9,14 @@ const API = "https://api.github.com";
 const MAX_DESCRIPTION = 4000;
 const MAX_TITLE = 72;
 
+// CORS: this same function is also embedded (absolute URL, hf7y/chezz#128)
+// in classic.html served from hf7y.com/chezz/classic.html, a different
+// origin than chezz.hf7y.com -- without this header the browser fetch
+// there succeeds but the page can never read the response body.
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "access-control-allow-origin": "*" },
   });
 
 function gh(path, token, init = {}) {
