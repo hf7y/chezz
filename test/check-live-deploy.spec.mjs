@@ -11,7 +11,15 @@
  * Known limit, not an oversight.
  */
 import { test, expect } from "@playwright/test";
-import { checkDomain, DOMAINS, GAME_PATHS } from "../scripts/check-live-deploy.mjs";
+import {
+  checkDomain,
+  checkRedirectsToCanonical,
+  DOMAINS,
+  GAME_PATHS,
+  NARRATIVE_REDIRECT_PATHS,
+  NETLIFY_CANONICAL_URL,
+  REPORT_ENDPOINT,
+} from "../scripts/check-live-deploy.mjs";
 
 test("a 200 response is reported ok", async () => {
   const fakeFetch = async () => ({ status: 200 });
@@ -47,4 +55,41 @@ test("both Narrative and Classic public routes are checked after every deploy", 
   const routes = Object.fromEntries(GAME_PATHS.map((path) => [path.name, path.url]));
   expect(routes["hf7y.com narrative"]).toBe("https://hf7y.com/chezz/");
   expect(routes["hf7y.com classic"]).toBe("https://hf7y.com/chezz/classic.html");
+});
+
+// hf7y/chezz#128: the report box posts to a relative /.netlify/functions/report,
+// which 404s anywhere but the canonical Netlify domain.
+test("the report endpoint is checked against the canonical Netlify domain", () => {
+  expect(REPORT_ENDPOINT.url).toBe(
+    "https://chezz.hf7y.com/.netlify/functions/report?scope=sweep-status"
+  );
+});
+
+test("a page whose body names the canonical URL passes the redirect check", async () => {
+  const fakeFetch = async () => ({
+    status: 200,
+    text: async () => `<meta http-equiv="refresh" content="0; url=${NETLIFY_CANONICAL_URL}">`,
+  });
+  const result = await checkRedirectsToCanonical({ name: "example", url: "https://example.test/" }, fakeFetch);
+  expect(result.ok).toBe(true);
+});
+
+test("a page that serves real content instead of a redirect fails loud (#128)", async () => {
+  const fakeFetch = async () => ({ status: 200, text: async () => "<title>Chezz</title>" });
+  const result = await checkRedirectsToCanonical({ name: "example", url: "https://example.test/" }, fakeFetch);
+  expect(result.ok).toBe(false);
+  expect(result.detail).toContain(NETLIFY_CANONICAL_URL);
+});
+
+test("a non-200 response fails the redirect check too", async () => {
+  const fakeFetch = async () => ({ status: 404, text: async () => "" });
+  const result = await checkRedirectsToCanonical({ name: "example", url: "https://example.test/" }, fakeFetch);
+  expect(result.ok).toBe(false);
+  expect(result.detail).toContain("404");
+});
+
+test("both non-canonical Narrative routes are checked, not just one", () => {
+  const names = NARRATIVE_REDIRECT_PATHS.map((p) => p.name);
+  expect(names).toContain("hf7y.com narrative redirect");
+  expect(names).toContain("hf7y.github.io narrative redirect");
 });
