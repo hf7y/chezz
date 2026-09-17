@@ -36,11 +36,52 @@ export const GAME_PATHS = [
   { name: "hf7y.com classic", url: "https://hf7y.com/chezz/classic.html" },
 ];
 
+// hf7y/chezz#128: the in-game report box posts to a RELATIVE
+// /.netlify/functions/report, which only exists on the Netlify domain.
+// Narrative's non-canonical Pages routes (#94) must stay a redirect stub to
+// that domain -- if one of them ever serves the real game page instead, a
+// player there gets a report box that silently 404s. Classic carries no
+// report box (grep confirms no "netlify" reference in its built artifact),
+// so it isn't checked here.
+export const NETLIFY_CANONICAL_URL = "https://chezz.hf7y.com/";
+export const NARRATIVE_REDIRECT_PATHS = [
+  { name: "hf7y.com narrative redirect", url: "https://hf7y.com/chezz/" },
+  { name: "hf7y.github.io narrative redirect", url: "https://hf7y.github.io/chezz/" },
+];
+
+// Proves the function actually answers a real request on the canonical
+// domain, not just that it exists (a bad scope also 4xxs).
+export const REPORT_ENDPOINT = {
+  name: "chezz.hf7y.com report function",
+  url: `${NETLIFY_CANONICAL_URL}.netlify/functions/report?scope=sweep-status`,
+};
+
 export async function checkDomain({ name, url }, fetchImpl = fetch) {
   try {
     const res = await fetchImpl(url, { redirect: "follow" });
     if (res.status !== 200) {
       return { name, url, ok: false, detail: `HTTP ${res.status}` };
+    }
+    return { name, url, ok: true };
+  } catch (err) {
+    return { name, url, ok: false, detail: err.message || String(err) };
+  }
+}
+
+export async function checkRedirectsToCanonical({ name, url }, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(url, { redirect: "follow" });
+    if (res.status !== 200) {
+      return { name, url, ok: false, detail: `HTTP ${res.status}` };
+    }
+    const body = await res.text();
+    if (!body.includes(NETLIFY_CANONICAL_URL)) {
+      return {
+        name,
+        url,
+        ok: false,
+        detail: `page does not redirect to ${NETLIFY_CANONICAL_URL} -- it may be serving the live game with a broken relative report endpoint`,
+      };
     }
     return { name, url, ok: true };
   } catch (err) {
@@ -88,11 +129,15 @@ function closeStaleIssue(number) {
 }
 
 async function main() {
-  const results = await Promise.all([...DOMAINS, ...GAME_PATHS].map((d) => checkDomain(d)));
+  const results = await Promise.all([
+    ...[...DOMAINS, ...GAME_PATHS].map((d) => checkDomain(d)),
+    checkDomain(REPORT_ENDPOINT),
+    ...NARRATIVE_REDIRECT_PATHS.map((d) => checkRedirectsToCanonical(d)),
+  ]);
   const failures = results.filter((r) => !r.ok);
 
   if (failures.length === 0) {
-    console.log("check-live-deploy: OK — " + DOMAINS.map((d) => d.name).join(", ") + " all serving nightly-builds/.");
+    console.log("check-live-deploy: OK — " + DOMAINS.map((d) => d.name).join(", ") + " all serving nightly-builds/, the report endpoint answers, and Narrative's non-canonical routes still redirect to Netlify.");
     try {
       const existing = findOpenIssue();
       if (existing) closeStaleIssue(existing);
