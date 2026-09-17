@@ -82,7 +82,12 @@ export default async (req) => {
       return json({ ok: false, error: "description too long" }, 413);
     }
 
-    const kind = payload.kind === "idea" ? "idea" : "bug";
+    // "feature" (not "idea") is the value both narrative's and classic's
+    // report UI actually send from their kind radio/param -- treat it the
+    // same as "idea" instead of silently mislabeling every idea "bug" and
+    // relying on a later triage pass to notice and relabel it (see e.g.
+    // hf7y/chezz#120, #123, #124, each needing a manual bug->idea comment).
+    const kind = payload.kind === "idea" || payload.kind === "feature" ? "idea" : "bug";
     const name = /^[0-9a-f]{6}$/.test(String(payload.name || "")) ? payload.name : "unknown";
     const build = String(payload.url || "").startsWith("http")
       ? String(payload.url).slice(0, 300)
