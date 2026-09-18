@@ -2094,9 +2094,15 @@
   // nothing captured to promote into leaves the board instead of standing
   // there as a permanent blocker. Correct, but silent -- and a piece that
   // disappears with no explanation reads as a bug, not a rule.
+  //
+  // The far rank is a normal, visible board row (BLACK_PROMOTION_ROW is the
+  // last row index, not a row past the edge), so "marched off the board"
+  // read as an off-by-one to players watching it happen there -- hf7y/chezz#132,
+  // "disappears ... one rank too soon". The wording below says what actually
+  // happens (removed on arrival) instead of implying a step past the edge.
   function announceBlackPawnMarchedOff() {
     const el = document.getElementById("floorMessage");
-    if (el) el.textContent = "Black pawn marched off the board — nothing captured to promote into.";
+    if (el) el.textContent = "Black pawn reached the far rank with nothing to promote into, and was removed.";
   }
   function clearFloorMessage() {
     const el = document.getElementById("floorMessage");
@@ -2441,7 +2447,16 @@
   function nearestLegalMove(fromX, fromY, clientX, clientY) {
     const moves = legalMovesFrom(state.board, fromX, fromY);
     if (!moves.length) return null;
-    let best = null, bestDist = Infinity;
+    // Staying put is itself a candidate distance, not just the legal moves:
+    // without this, a drop back near the piece's own square always snapped
+    // to whatever legal move happened to be geometrically closest -- there
+    // was no way to cancel a pickup and put a piece back down (hf7y/chezz#134,
+    // "bounces to random legal move"). Returning null here (no move closer
+    // than the origin) already makes onDragEnd fall through to a plain
+    // re-render of the unchanged board.
+    const originRect = boardElement.rows[fromY].cells[fromX + 1].getBoundingClientRect();
+    let best = null;
+    let bestDist = Math.hypot(clientX - (originRect.left + originRect.width / 2), clientY - (originRect.top + originRect.height / 2));
     for (const m of moves) {
       const rect = boardElement.rows[m.y].cells[m.x + 1].getBoundingClientRect();
       const dist = Math.hypot(clientX - (rect.left + rect.width / 2), clientY - (rect.top + rect.height / 2));

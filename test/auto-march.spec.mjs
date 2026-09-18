@@ -39,6 +39,33 @@ test("dragging the King and releasing past the target square still snaps to the 
   expect(moved.board[8][4]).toBe("");
 });
 
+test("dropping a dragged piece back near its own square cancels the move instead of snapping elsewhere (hf7y/chezz#134)", async ({ page }) => {
+  // Nearest-legal-move snapping had no floor: a drop that ends up right back
+  // over the piece's own square still resolved to whichever legal move was
+  // geometrically closest, even though the origin itself was closer than any
+  // of them -- reported as "bounces to a random legal move" when a player
+  // picked a piece up and tried to put it back down.
+  await page.goto(GAME_URL + "?fen=8-8-8-8-8-8-8-8-4K3_w&floor=1&spawned=1&budget=1&maxRank=0");
+
+  const result = await page.evaluate(() => {
+    const kingCell = () => [...document.querySelectorAll("td")].find(td => td.innerHTML.includes("♔"));
+    const el = kingCell();
+    const startRect = el.getBoundingClientRect();
+    const start = { x: startRect.x + startRect.width / 2, y: startRect.y + startRect.height / 2 };
+    const base = { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true };
+    el.dispatchEvent(new PointerEvent("pointerdown", { ...base, clientX: start.x, clientY: start.y }));
+    // Cross the drag threshold, toward a real legal move...
+    document.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: start.x, clientY: start.y - 2 * startRect.height }));
+    // ...then bring it back to (almost) its own square before releasing.
+    document.dispatchEvent(new PointerEvent("pointermove", { ...base, clientX: start.x + 1, clientY: start.y + 1 }));
+    document.dispatchEvent(new PointerEvent("pointerup", { ...base, clientX: start.x + 1, clientY: start.y + 1 }));
+    return { board: state.board };
+  });
+
+  expect(result.board[8][4]).toBe("K");
+  expect(result.board[7][4]).toBe("");
+});
+
 test("formation-follow: surviving pieces rank up onto the King's new rank once Black is gone", async ({ page }) => {
   // Rook at (0,6), Bishop at (7,6), King at (4,7), no Black pieces anywhere.
   // The King steps down to (4,8); the Rook's only route onto row 8 is
