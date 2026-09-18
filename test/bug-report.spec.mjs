@@ -7,7 +7,7 @@ import { GAME_URL } from "./helpers.mjs";
 
 async function reportVia(page, linkId, promptAnswer) {
   const posted = [];
-  await page.route("**/macros/s/**", async route => {
+  await page.route("**/.netlify/functions/report**", async route => {
     const req = route.request();
     if (req.method() === "POST") {
       posted.push(JSON.parse(req.postData()));

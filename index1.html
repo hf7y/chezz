@@ -1781,10 +1781,20 @@
 
   const CAPTURED_DISPLAY_ORDER = ["m", "q", "c", "a", "r", "b", "n", "p"];
 
-  // Leaderboard: fire-and-forget, best-effort (see leaderboard/Code.gs).
-  // Auto-submits with no button/prompt whenever the King's high-water-mark
-  // rank increases, so it always reflects a player's best progress.
-  const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbyjpRvPRbXlGeqqwZ2ENddLfCn52QzAM2-NSFS6B-QpmhFlVhJijQZNEV9Q7rU0MRAG/exec";
+  // leaderboard/Code.gs (Apps Script) was retired (hf7y/chezz#82); this now
+  // points at the same GitHub-Issues-backed function narrative uses
+  // (netlify/functions/report.js, #83), for bug/idea reports only -- it has
+  // no "score"/leaderboard scope, so submitScore/fetchTopScore below still
+  // have no live backend and fail soft (same posture narrative itself
+  // adopted: server-side leaderboard dropped for a purely-local "Your
+  // best", issue #15 "Option C"). Deliberately an ABSOLUTE url, not a
+  // relative one: this file is served from two origins
+  // (hf7y.com/chezz/classic.html and chezz.hf7y.com/classic.html), and a
+  // relative path 404s from whichever one isn't chezz.hf7y.com itself
+  // (hf7y/chezz#130, same failure shape #94 already fixed for narrative's
+  // own root). Needs the function's CORS header (hf7y/chezz#128/#131) to
+  // actually be readable cross-origin.
+  const LEADERBOARD_URL = "https://chezz.hf7y.com/.netlify/functions/report";
 
   // A 6-hex-digit id doubles as a #rrggbb color, so a player shows as a
   // swatch instead of a name -- no prompt, nothing identifying.
