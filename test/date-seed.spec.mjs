@@ -19,7 +19,7 @@ test("dateSeed persists through the URL across a reload of an already-spawned fl
 
 test("score submission tags the day the run's floor was seeded on, not the day the score posts", async ({ page }) => {
   const posted = [];
-  await page.route("**/macros/s/**", async route => {
+  await page.route("**/.netlify/functions/report**", async route => {
     const req = route.request();
     if (req.method() === "POST") {
       posted.push(JSON.parse(req.postData()));
