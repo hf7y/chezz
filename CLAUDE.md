@@ -58,7 +58,25 @@ gh api repos/hf7y/chezz/branches/main/protection \
   --jq '{admins: .enforce_admins.enabled, checks: .required_status_checks.contexts}'
 ```
 
-
+That call 403s for this account ("Resource not accessible by integration") --
+this account can't read branch protection directly. What the repo's own
+ruleset (`gh api repos/hf7y/chezz/rulesets/<id>`, readable) shows as required
+is just `gate`; a `mergePullRequest` GraphQL attempt against an actually-blocked
+PR reports the real count, e.g. "2 of 3 required status checks are expected" --
+the other two (at least `prose / prose`, estate-wide per #68) live in an
+org-level ruleset this account can't list either. Found 2026-09-19: every PR
+opened by this account gets its `pull_request`-triggered `Test` and `prose`
+workflow runs stuck at `action_required` (queued for approval, never
+completing) -- a repo/org Actions setting outside this account's reach, not
+a code problem. A `workflow_dispatch` run on the same branch can go green
+independently, but it does NOT satisfy the stuck check -- branch protection
+is still waiting on that specific `pull_request`-triggered run. The fix is
+`gh api -X POST repos/hf7y/chezz/actions/runs/<the stuck pull_request-event run's id>/rerun`
+(find it with `gh run list --branch <branch> --json databaseId,name,event,conclusion`,
+the one with `"event":"pull_request"` and `"conclusion":"action_required"`) --
+that reruns in place and reports against the ref auto-merge is actually
+watching. Do this for both `Test` and `prose` before assuming a stalled
+auto-merge needs anything else.
 
 ## Ecosystem protocols
 
