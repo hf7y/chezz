@@ -1,20 +1,6 @@
-// netlify/functions/report.js has no browser UI of its own, so the other
-// report-* specs only pin what the game's fetch call sends, never what the
-// function does with it. Calls the function directly (mocking the global
-// `Netlify` binding and `fetch`, the only two things it reads from its
-// runtime) to pin two things with no other coverage:
-// - CORS: chezz-classic's shell (hf7y/chezz#130) calls this by absolute URL
-//   from a different origin than chezz.hf7y.com, so a response the caller
-//   can't read is as broken as a 404.
-// - kind mapping: narrative's and classic's UI both send kind: "feature"
-//   for an idea (never "idea" itself), which used to fall through to "bug"
-//   and needed a later triage pass to notice and relabel (hf7y/chezz#120,
-//   #123, #124).
 import { test, expect } from "@playwright/test";
 import report from "../netlify/functions/report.js";
 
-// Captures the body of whichever request the function sends to the GitHub
-// API, and answers it with a fixed successful issue-creation response.
 async function withMockGithub(run) {
   let posted = null;
   globalThis.Netlify = { env: { get: () => "test-token" } };
@@ -25,7 +11,7 @@ async function withMockGithub(run) {
       posted = JSON.parse(init.body);
       return new Response(JSON.stringify({ number: 1, html_url: "https://x" }), { status: 200 });
     }
-    return new Response("[]", { status: 200 }); // GET (sweep-status/bugs): an empty issue list
+    return new Response("[]", { status: 200 });
   };
   try {
     const res = await run();
