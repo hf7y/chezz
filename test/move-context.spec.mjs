@@ -110,6 +110,11 @@ test("a Black pawn marching off the board says so instead of just vanishing", as
   // explanation reads as a bug rather than a rule. This asserts the message,
   // not the rule; the rule itself is unchanged.
   //
+  // The message itself was corrected under hf7y/chezz#132: the far rank is a
+  // normal, visible board row, so saying the pawn "marched off the board"
+  // read as an off-by-one rather than a rule. It now says what happened
+  // (removed on arrival) instead of implying a step past the edge.
+  //
   // Captured pool is "p", deliberately: Black promotes by spending an
   // UPPERCASE (White) piece, so a lone black pawn in the pool is exactly the
   // "nothing to promote into" case the reporter hit.
@@ -128,5 +133,5 @@ test("a Black pawn marching off the board says so instead of just vanishing", as
   });
 
   expect(result.square).toBe("");
-  expect(result.message).toContain("marched off the board");
+  expect(result.message).toContain("reached the far rank with nothing to promote into");
 });
