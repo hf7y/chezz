@@ -40,9 +40,7 @@ export const GAME_PATHS = [
 // /.netlify/functions/report, which only exists on the Netlify domain.
 // Narrative's non-canonical Pages routes (#94) must stay a redirect stub to
 // that domain -- if one of them ever serves the real game page instead, a
-// player there gets a report box that silently 404s. Classic carries no
-// report box (grep confirms no "netlify" reference in its built artifact),
-// so it isn't checked here.
+// player there gets a report box that silently 404s.
 export const NETLIFY_CANONICAL_URL = "https://chezz.hf7y.com/";
 export const NARRATIVE_REDIRECT_PATHS = [
   { name: "hf7y.com narrative redirect", url: "https://hf7y.com/chezz/" },
@@ -55,6 +53,17 @@ export const REPORT_ENDPOINT = {
   name: "chezz.hf7y.com report function",
   url: `${NETLIFY_CANONICAL_URL}.netlify/functions/report?scope=sweep-status`,
 };
+
+// classic.html serves in full (not a redirect) from BOTH hf7y.com/chezz/
+// and chezz.hf7y.com, so unlike narrative's root it can't rely on a
+// redirect-to-canonical check -- its report channel has to work from either
+// origin via one absolute URL (hf7y/chezz#128, #130), checked by page
+// CONTENT rather than just status, since the retired Google Apps Script URL
+// it replaced also returned 200 while going nowhere real (hf7y/chezz#82).
+export const CLASSIC_PAGES = [
+  { name: "hf7y.com classic", url: "https://hf7y.com/chezz/classic.html" },
+  { name: "chezz.hf7y.com classic", url: "https://chezz.hf7y.com/classic.html" },
+];
 
 export async function checkDomain({ name, url }, fetchImpl = fetch) {
   try {
@@ -89,6 +98,25 @@ export async function checkRedirectsToCanonical({ name, url }, fetchImpl = fetch
   }
 }
 
+export async function checkClassicReportUrl({ name, url }, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(url, { redirect: "follow" });
+    if (res.status !== 200) {
+      return { name, url, ok: false, detail: `HTTP ${res.status}` };
+    }
+    const body = await res.text();
+    if (body.includes("script.google.com")) {
+      return { name, url, ok: false, detail: "still names the retired Google Apps Script URL (hf7y/chezz#82)" };
+    }
+    if (!body.includes("/.netlify/functions/report")) {
+      return { name, url, ok: false, detail: "does not name the Netlify report function" };
+    }
+    return { name, url, ok: true };
+  } catch (err) {
+    return { name, url, ok: false, detail: err.message || String(err) };
+  }
+}
+
 function findOpenIssue() {
   const out = execFileSync(
     "gh",
@@ -101,7 +129,14 @@ function findOpenIssue() {
 }
 
 function fileBlocker(failures) {
+  // Grammar-compliant (gh-sign, realisateur#680/#752): a first line
+  // declaring NO-DECISION (this is a defect report, not a call for Zach to
+  // make), plus DEFERRED/DELIVERS blocks. Discovered broken 2026-09-17 --
+  // this path had never actually filed an issue against the real grammar
+  // gate before that (hf7y/chezz#130 was the first live fire of it).
   const body = [
+    "NO-DECISION: automated live-route check found a route not serving; no ruling needed, just a fix.",
+    "",
     "Automated check (scripts/check-live-deploy.mjs, run from the Pages deploy",
     "workflow) found a live route that isn't serving:",
     "",
@@ -109,6 +144,14 @@ function fileBlocker(failures) {
     "",
     "If hf7y.github.io is serving but hf7y.com is not, the Pages build is fine",
     "and the domain in front of it is the fault.",
+    "",
+    "<!-- DEFERRED -->",
+    "- none",
+    "<!-- /DEFERRED -->",
+    "",
+    "<!-- DELIVERS -->",
+    "- none",
+    "<!-- /DELIVERS -->",
   ].join("\n");
   execFileSync(
     "gh",
@@ -120,10 +163,12 @@ function fileBlocker(failures) {
 }
 
 function closeStaleIssue(number) {
+  // "repo:hf7y/chezz" gives gh-sign's close_check a landing ref to find
+  // (grammar_landing_ref) -- a close naming nothing checkable is REFUSED.
   execFileSync(
     "gh",
     ["issue", "close", String(number), "--repo", REPO,
-     "--comment", stamped("check-live-deploy: every domain is serving nightly-builds/ again as of this deploy.", JOB)],
+     "--comment", stamped("check-live-deploy: every domain is serving nightly-builds/ again as of this deploy (repo:hf7y/chezz).", JOB)],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30000 }
   );
 }
@@ -133,11 +178,15 @@ async function main() {
     ...[...DOMAINS, ...GAME_PATHS].map((d) => checkDomain(d)),
     checkDomain(REPORT_ENDPOINT),
     ...NARRATIVE_REDIRECT_PATHS.map((d) => checkRedirectsToCanonical(d)),
+    ...CLASSIC_PAGES.map((d) => checkClassicReportUrl(d)),
   ]);
   const failures = results.filter((r) => !r.ok);
 
   if (failures.length === 0) {
-    console.log("check-live-deploy: OK — " + DOMAINS.map((d) => d.name).join(", ") + " all serving nightly-builds/, the report endpoint answers, and Narrative's non-canonical routes still redirect to Netlify.");
+    console.log(
+      "check-live-deploy: OK — " + DOMAINS.map((d) => d.name).join(", ") +
+      " all serving nightly-builds/, the report endpoint answers, Narrative's non-canonical routes still redirect to Netlify, and classic's report channel names no retired URL."
+    );
     try {
       const existing = findOpenIssue();
       if (existing) closeStaleIssue(existing);
