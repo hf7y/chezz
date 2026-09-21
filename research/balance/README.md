@@ -96,4 +96,14 @@ so the local copy carried no information the vault didn't already have:
 
 ### Open, not yet studied
 
-None.
+- hf7y/chezz#120 — the Knight scripted stage's back-rank wall
+  (`wallRow`/`bossPiece`, `dropWallIfBossDefeated` in index1.html) currently
+  drops only once the boss Knight is captured. The report asks for the wall
+  to *gate* the back rank until that capture is forced, which needs an
+  analytic answer first: the minimum carried-pawn count (and arrangement)
+  that guarantees the Knight can be made to capture, the same
+  decision-procedure method issue #6 used, not playtesting. Two prior
+  triage passes (bug-sweep, nightly-batch) agreed this is where the
+  question belongs but neither filed it here; queuing it now so a future
+  research pass has a concrete starting point instead of re-deriving the
+  same triage a fourth time.
