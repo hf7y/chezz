@@ -248,10 +248,6 @@
 <dl id="leaderboard">
   <dt>Your best</dt>
   <dd><data id="leaderboardMine"></data></dd>
-  <dt>Today's top</dt>
-  <dd><data id="leaderboardToday"></data></dd>
-  <dt>All-time top</dt>
-  <dd><data id="leaderboardAllTime"></data></dd>
 </dl>
 
 <p><a href="#" id="reportBugLink">Report a bug</a> &middot; <a href="#" id="reportFeatureLink">Suggest a feature</a></p>
@@ -1783,12 +1779,18 @@
 
   // leaderboard/Code.gs (Apps Script) was retired (hf7y/chezz#82); this now
   // points at the same GitHub-Issues-backed function narrative uses
-  // (netlify/functions/report.js, #83), for bug/idea reports only -- it has
-  // no "score"/leaderboard scope, so submitScore/fetchTopScore below still
-  // have no live backend and fail soft (same posture narrative itself
-  // adopted: server-side leaderboard dropped for a purely-local "Your
-  // best", issue #15 "Option C"). Deliberately an ABSOLUTE url, not a
-  // relative one: this file is served from two origins
+  // (netlify/functions/report.js, #83), for bug/idea reports only -- the
+  // server-side score leaderboard this endpoint used to also carry was
+  // dropped 2026-09-01 (issue #15, "Option C" -- confirmed by Zach) in
+  // favor of the purely-local "Your best" below, same as narrative.
+  // submitScore/fetchTopScore used to still call the dropped scopes
+  // anyway and fail soft -- removed outright (not just left to fail
+  // soft) because "soft" meant two live GETs against the real function on
+  // every page load, every one of them a guaranteed 400 once CORS shipped
+  // (#131) made the request actually reach the server instead of dying at
+  // the network layer the way test/smoke.spec.mjs's
+  // "loads with no console or page errors" case expected. Deliberately an
+  // ABSOLUTE url, not a relative one: this file is served from two origins
   // (hf7y.com/chezz/classic.html and chezz.hf7y.com/classic.html), and a
   // relative path 404s from whichever one isn't chezz.hf7y.com itself
   // (hf7y/chezz#130, same failure shape #94 already fixed for narrative's
@@ -1818,15 +1820,6 @@
     });
   }
 
-  function submitScore(rank) {
-    if (!LEADERBOARD_URL) return;
-    // dateSeed (not a fresh todayKey()) -- attributes the score to whichever
-    // day's seed generated the floor this rank was reached on, so a run
-    // that crosses midnight doesn't get bumped onto tomorrow's board.
-    postToLeaderboard({ type: "score", name: getPlayerName(), floor: state.floor, rank, dateKey: state.dateSeed })
-      .catch(() => {}).then(refreshLeaderboards); // best-effort -- offline/unreachable just skips this entry, play continues either way
-  }
-
   // A tester's one-line report plus whatever position they're looking at
   // (the URL already encodes fen/floor/budget/captured/maxRank). `kind`
   // ("bug" or "feature") keeps the two apart at the source instead of
@@ -1847,16 +1840,6 @@
     } catch (err) {
       alert("Couldn't reach the leaderboard -- report not sent. Check your connection and try again.");
     }
-  }
-
-  // Just the single top score per scope -- fetched fresh each time rather
-  // than trusting a cached top-N list, so this stays correct even if a
-  // better score landed between refreshes.
-  async function fetchTopScore(scope) {
-    const params = new URLSearchParams({ scope, dateKey: todayKey(), limit: "1" });
-    const res = await fetch(`${LEADERBOARD_URL}?${params}`);
-    const [top] = await res.json();
-    return top || null;
   }
 
   // <data> pairs a machine-readable rank with human-readable text --
@@ -1891,18 +1874,6 @@
     renderScore(el, best ? { rank: best.rank, floor: best.floor, name: getPlayerName() } : null, "No runs yet.");
   }
 
-  async function refreshLeaderboards() {
-    renderMyBest();
-    if (!LEADERBOARD_URL) return;
-    try {
-      const [today, allTime] = await Promise.all([fetchTopScore("today"), fetchTopScore("all")]);
-      renderScore(document.getElementById("leaderboardToday"), today, "No scores yet today.");
-      renderScore(document.getElementById("leaderboardAllTime"), allTime, "No scores yet.");
-    } catch (err) {
-      // best-effort -- offline or unreachable just leaves whatever was shown last
-    }
-  }
-
   function currentKingRank() {
     const king = findWhiteKing(state.board);
     if (!king) return state.maxRank;
@@ -1913,7 +1884,7 @@
   // every time, rather than patching individual cells.
   function renderBoard() {
     const rank = currentKingRank();
-    if (rank > state.maxRank) { state.maxRank = rank; renderMyBest(); submitScore(rank); }
+    if (rank > state.maxRank) { state.maxRank = rank; renderMyBest(); }
 
     const capturedCounts = {};
     for (const c of state.captured) {
@@ -2010,7 +1981,7 @@
 
   window.addEventListener("popstate", loadFromUrl);
   loadFromUrl();
-  refreshLeaderboards();
+  renderMyBest();
 </script>
 </body>
 </html>
