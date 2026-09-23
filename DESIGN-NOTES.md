@@ -86,8 +86,9 @@ or re-ask:
      not optional. This means terrain isn't purely an obstacle/flavor
      layer — floor design should treat gate width as a lever alongside
      material composition when tuning a floor's difficulty curve.
-     **Correction, 2026-09-23 (hf7y/chezz#120,
-     `research/balance/2026-09-23-knight-forced-capture-analytic.md`):**
+     **Correction, 2026-09-23 (hf7y/chezz#120, recorded in
+     `research/balance/README.md`'s "a lone King can never force 'The
+     Knight' boss's capture" entry):**
      "The Knight" stage — the only shipped floor this worked example
      describes — does not actually implement "mandatory." `wallRow`/
      `bossPiece`/`dropWallIfBossDefeated` only ever drop the wall once the
