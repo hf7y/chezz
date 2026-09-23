@@ -23,22 +23,13 @@ test("Black's reply correctly captures and auto-promotes (regression: makeMove/a
   expect(result).toEqual({ promoted: "q", vacated: "", captured: "" });
 });
 
-// LEADERBOARD_URL is now an absolute cross-origin URL (hf7y/chezz#130), so a
-// real page load fires a real network request for it -- under this file://
-// test harness (no server, and CORS may not be live on the function yet if
-// hf7y/chezz#131 hasn't shipped) that's expected to fail at the network
-// layer rather than silently no-op the way the old dead Apps Script URL did.
-// Same allowance narrative's own smoke test already carries for this.
-const EXPECTED_CORS_NOISE =
-  /blocked by CORS policy|net::ERR_FAILED|net::ERR_FILE_NOT_FOUND|net::ERR_ABORTED|net::ERR_NAME_NOT_RESOLVED|net::ERR_INTERNET_DISCONNECTED|URL scheme "file" is not supported/;
-
 test("loads with no console or page errors", async ({ page }) => {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
   await page.goto(GAME_URL);
   await page.waitForTimeout(300);
-  expect(errors.filter(e => !EXPECTED_CORS_NOISE.test(e))).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
 test("a full-cell touch drag moves the piece", async ({ page }) => {
