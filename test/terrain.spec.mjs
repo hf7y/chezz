@@ -102,6 +102,45 @@ test("The Knight stage's wall blocks the gap-free columns and drops once the Kni
   expect(result.afterAllOpen).toBe(true);
 });
 
+// Guardrail against #120's literal ask ("fence/wall tiles should gate the
+// back rank until knight capture"): a full-width wall (gap=0) is not a
+// harder version of the same mechanic, it's a dead end. Full proof in
+// hf7y/chezz#141's PR description (research/balance/README.md points here
+// too -- the write-up isn't its own dated file because the prose ratchet
+// had no room for one and this account's vault access is closed, #742).
+// Summary: White's own pieces start behind wallRow and have no jump move,
+// so closing the permanent gap traps them on rows 7-8 for good, for any
+// pawn count; the Black Knight, having no king of its own to protect and
+// nothing to gain, simply never has to cross into capture range. If a
+// future change narrows or removes this gap, this test should fail and
+// point here before that ships.
+test("closing The Knight stage's wall gap entirely would trap White behind it forever, for any pawn count", async ({ page }) => {
+  const result = await page.evaluate(() => {
+    state.board = Array.from({ length: 9 }, () => Array(8).fill(""));
+    for (let x = 0; x < BOARD_COLS; x++) state.board[6][x] = "#"; // solid wall, no gap
+    state.board[8][4] = "K";
+    for (let x = 0; x < BOARD_COLS; x++) { if (x !== 4) state.board[7][x] = "P"; } // max plausible carried pawns
+    let anyCrossed = false;
+    for (let y = 7; y <= 8; y++) {
+      for (let x = 0; x < BOARD_COLS; x++) {
+        const piece = state.board[y][x];
+        if (!piece) continue;
+        if (legalMovesForPiece(state.board, piece, x, y).some(m => m.y <= 5)) anyCrossed = true;
+      }
+    }
+
+    // The Knight, meanwhile, pays no such cost -- it can jump straight over
+    // the same solid row, because a jump only checks its landing square.
+    state.board[5][3] = "n";
+    const knightCanEnter = legalMovesForPiece(state.board, "n", 3, 5).some(m => m.y >= 7);
+
+    return { anyCrossed, knightCanEnter };
+  });
+
+  expect(result.anyCrossed).toBe(false);
+  expect(result.knightCanEnter).toBe(true);
+});
+
 test("Two Bishops' wall stays up until BOTH bishops are captured, not just one", async ({ page }) => {
   const stage = await page.evaluate(() => NARRATIVE_STAGES.find(s => s.label === "Two Bishops"));
   expect(stage.wallRow).toBeTruthy();

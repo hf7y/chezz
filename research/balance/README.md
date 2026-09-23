@@ -78,6 +78,24 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 
 - [2026-07-29 — spawned pawns must never be free material](2026-07-29-pawn-spawn-free-material.md)
 
+### Recorded in the issue/PR, not a separate file
+
+The prose ratchet (hf7y/etalon, `bin/markdown-cost.sh`, MEASURE_UNIT=4) prices
+one new *file*, not new lines -- and paying it by reaping an old entry needs a
+`consigne`-confirmed vault deposit first, which this account cannot get:
+`consigne status` reads `/srv/ecosystem1-vault` as empty from here (vault
+closed to this account, #742), so a request only ever SPOOLS, and nothing
+spooled is safe to delete until a drain run elsewhere confirms it. A finding
+landed under that constraint gets its full write-up in its own PR description
+instead of a dated file here:
+
+- 2026-09-22 — The Knight stage's wall can't be a real gate: any passable gap
+  width bypasses it, and a gap of zero traps White behind it forever, for any
+  pawn count (hf7y/chezz#120) -- full proof in hf7y/chezz#141's description
+  and the guardrail test it added, `test/terrain.spec.mjs` ("closing The
+  Knight stage's wall gap entirely would trap White behind it forever, for
+  any pawn count").
+
 ### Reaped, preserved in the vault
 
 Byte-identical to their `consigne`-verified vault deposits (hf7y/chezz#113),
@@ -96,14 +114,4 @@ so the local copy carried no information the vault didn't already have:
 
 ### Open, not yet studied
 
-- hf7y/chezz#120 — the Knight scripted stage's back-rank wall
-  (`wallRow`/`bossPiece`, `dropWallIfBossDefeated` in index1.html) currently
-  drops only once the boss Knight is captured. The report asks for the wall
-  to *gate* the back rank until that capture is forced, which needs an
-  analytic answer first: the minimum carried-pawn count (and arrangement)
-  that guarantees the Knight can be made to capture, the same
-  decision-procedure method issue #6 used, not playtesting. Two prior
-  triage passes (bug-sweep, nightly-batch) agreed this is where the
-  question belongs but neither filed it here; queuing it now so a future
-  research pass has a concrete starting point instead of re-deriving the
-  same triage a fourth time.
+- None
