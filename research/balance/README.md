@@ -80,6 +80,27 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 - [2026-09-23 — a lone King can never force "The Knight" boss's capture; pawn count isn't the lever](#2026-09-23--a-lone-king-can-never-force-the-knight-bosss-capture--pawn-count-isnt-the-lever)
   (recorded below, not a separate file -- see that section's own note on why)
 
+### Recorded in the issue/PR, not a separate file
+
+The prose ratchet (hf7y/etalon, `bin/markdown-cost.sh`, MEASURE_UNIT=4) prices
+one new *file*, not new lines -- and paying it by reaping an old entry needs a
+`consigne`-confirmed vault deposit first, which this account cannot get:
+`consigne status` reads `/srv/ecosystem1-vault` as empty from here (vault
+closed to this account, #742), so a request only ever SPOOLS, and nothing
+spooled is safe to delete until a drain run elsewhere confirms it. A finding
+landed under that constraint gets its full write-up in its own PR description
+instead of a dated file here:
+
+- 2026-09-22 — The Knight stage's wall can't be a real gate: any passable gap
+  width bypasses it, and a gap of zero traps White behind it forever, for any
+  pawn count (hf7y/chezz#120) -- full proof in hf7y/chezz#141's description
+  and the guardrail test it added, `test/terrain.spec.mjs` ("closing The
+  Knight stage's wall gap entirely would trap White behind it forever, for
+  any pawn count"). **Superseded** by the 2026-09-23 entry below, which
+  reaches the same "no pawn count works" conclusion via a sharper,
+  exhaustive result: even the narrow-gate framing this entry left open
+  (King alone gets through) is a forced loss for White too.
+
 ### Reaped, preserved in the vault
 
 Byte-identical to their `consigne`-verified vault deposits (hf7y/chezz#113),
@@ -98,7 +119,7 @@ so the local copy carried no information the vault didn't already have:
 
 ### Open, not yet studied
 
-None.
+- None.
 
 ## 2026-09-23 — a lone King can never force "The Knight" boss's capture; pawn count isn't the lever
 
