@@ -104,14 +104,16 @@ test("The Knight stage's wall blocks the gap-free columns and drops once the Kni
 
 // Guardrail against #120's literal ask ("fence/wall tiles should gate the
 // back rank until knight capture"): a full-width wall (gap=0) is not a
-// harder version of the same mechanic, it's a dead end. See
-// research/balance/2026-09-22-knight-stage-hard-gate-is-unwinnable.md for
-// the full proof -- summary: White's own pieces start behind wallRow and
-// have no jump move, so closing the permanent gap traps them on rows 7-8
-// for good, for any pawn count; the Black Knight, having no king of its
-// own to protect and nothing to gain, simply never has to cross into
-// capture range. If a future change narrows or removes this gap, this
-// test should fail and point here before that ships.
+// harder version of the same mechanic, it's a dead end. Full proof in
+// hf7y/chezz#141's PR description (research/balance/README.md points here
+// too -- the write-up isn't its own dated file because the prose ratchet
+// had no room for one and this account's vault access is closed, #742).
+// Summary: White's own pieces start behind wallRow and have no jump move,
+// so closing the permanent gap traps them on rows 7-8 for good, for any
+// pawn count; the Black Knight, having no king of its own to protect and
+// nothing to gain, simply never has to cross into capture range. If a
+// future change narrows or removes this gap, this test should fail and
+// point here before that ships.
 test("closing The Knight stage's wall gap entirely would trap White behind it forever, for any pawn count", async ({ page }) => {
   const result = await page.evaluate(() => {
     state.board = Array.from({ length: 9 }, () => Array(8).fill(""));

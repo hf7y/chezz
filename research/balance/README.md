@@ -77,7 +77,24 @@ Each entry is one file, `YYYY-MM-DD-<slug>.md`:
 ## Index
 
 - [2026-07-29 — spawned pawns must never be free material](2026-07-29-pawn-spawn-free-material.md)
-- [2026-09-22 — The Knight stage's wall can't be a real gate: any passable width bypasses it, gap=0 is unwinnable for any pawn count](2026-09-22-knight-stage-hard-gate-is-unwinnable.md)
+
+### Recorded in the issue/PR, not a separate file
+
+The prose ratchet (hf7y/etalon, `bin/markdown-cost.sh`, MEASURE_UNIT=4) prices
+one new *file*, not new lines -- and paying it by reaping an old entry needs a
+`consigne`-confirmed vault deposit first, which this account cannot get:
+`consigne status` reads `/srv/ecosystem1-vault` as empty from here (vault
+closed to this account, #742), so a request only ever SPOOLS, and nothing
+spooled is safe to delete until a drain run elsewhere confirms it. A finding
+landed under that constraint gets its full write-up in its own PR description
+instead of a dated file here:
+
+- 2026-09-22 — The Knight stage's wall can't be a real gate: any passable gap
+  width bypasses it, and a gap of zero traps White behind it forever, for any
+  pawn count (hf7y/chezz#120) -- full proof in hf7y/chezz#141's description
+  and the guardrail test it added, `test/terrain.spec.mjs` ("closing The
+  Knight stage's wall gap entirely would trap White behind it forever, for
+  any pawn count").
 
 ### Reaped, preserved in the vault
 
