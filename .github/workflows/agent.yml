@@ -59,7 +59,7 @@ jobs:
             /nightly-batch
 
             Fully unattended, no human review step. The open GitHub issues on
-            hf7y-estate/chezz are the backlog and the scoping authority; work the
+            hf7y/chezz are the backlog and the scoping authority; work the
             answered ones first (a non-agent-stamped comment from `hf7y` IS
             the answer, whatever the labels or state say).
 
